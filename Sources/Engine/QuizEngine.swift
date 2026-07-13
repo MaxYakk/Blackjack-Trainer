@@ -58,35 +58,57 @@ final class QuizEngine {
 
     // MARK: - Hand selection
 
-    /// The classic "gotcha" spots — stiff totals against a strong or weak
-    /// up-card, soft hands people assume are always a stand, and pairs where
-    /// the textbook play cuts against instinct.
-    private static let hardSpots: [HardSpot] = [
-        HardSpot(playerRanks: (.ten, .six), dealerRank: .ten),   // 16 vs 10
-        HardSpot(playerRanks: (.ten, .five), dealerRank: .ten),  // 15 vs 10
-        HardSpot(playerRanks: (.ten, .two), dealerRank: .two),   // 12 vs 2
-        HardSpot(playerRanks: (.ten, .two), dealerRank: .three), // 12 vs 3
-        HardSpot(playerRanks: (.ten, .two), dealerRank: .four),  // 12 vs 4
-        HardSpot(playerRanks: (.ten, .two), dealerRank: .five),  // 12 vs 5
-        HardSpot(playerRanks: (.ten, .two), dealerRank: .six),   // 12 vs 6
-        HardSpot(playerRanks: (.nine, .four), dealerRank: .two),   // 13 vs 2
-        HardSpot(playerRanks: (.nine, .four), dealerRank: .three), // 13 vs 3
-        HardSpot(playerRanks: (.four, .five), dealerRank: .two),  // 9 vs 2 (double)
-        HardSpot(playerRanks: (.four, .five), dealerRank: .seven), // 9 vs 7 (double)
-        HardSpot(playerRanks: (.six, .four), dealerRank: .ten), // 10 vs 10 (double)
-        HardSpot(playerRanks: (.six, .four), dealerRank: .ace), // 10 vs A (double)
-        HardSpot(playerRanks: (.six, .five), dealerRank: .ace), // 11 vs A (double)
-        HardSpot(playerRanks: (.ace, .seven), dealerRank: .nine), // soft 18 vs 9 (hit)
-        HardSpot(playerRanks: (.ace, .seven), dealerRank: .ten),  // soft 18 vs 10 (hit)
-        HardSpot(playerRanks: (.ace, .seven), dealerRank: .ace),  // soft 18 vs A (hit)
-        HardSpot(playerRanks: (.nine, .nine), dealerRank: .seven), // 9,9 vs 7 (stand, don't split)
-        HardSpot(playerRanks: (.nine, .nine), dealerRank: .ace),   // 9,9 vs A (stand, don't split)
-        HardSpot(playerRanks: (.four, .four), dealerRank: .five),  // 4,4 vs 5 (split)
-        HardSpot(playerRanks: (.four, .four), dealerRank: .six),   // 4,4 vs 6 (split)
-        HardSpot(playerRanks: (.six, .six), dealerRank: .seven),   // 6,6 vs 7 (hit, don't split)
-        HardSpot(playerRanks: (.five, .five), dealerRank: .six),   // 5,5 vs 6 (double, don't split)
-        HardSpot(playerRanks: (.five, .five), dealerRank: .ten),   // 5,5 vs 10 (hit, don't split)
+    private static let rankByStrategyKey: [String: Rank] = [
+        "2": .two, "3": .three, "4": .four, "5": .five, "6": .six,
+        "7": .seven, "8": .eight, "9": .nine, "10": .ten, "A": .ace,
     ]
+
+    /// Two non-ace, non-paired ranks that sum to each hard total worth quizzing —
+    /// the stiff/borderline range where basic strategy is easy to misplay.
+    private static let hardTotalCombo: [Int: (Rank, Rank)] = [
+        9:  (.four, .five),
+        10: (.four, .six),
+        11: (.five, .six),
+        12: (.ten, .two),
+        13: (.ten, .three),
+        14: (.ten, .four),
+        15: (.ten, .five),
+        16: (.ten, .six),
+    ]
+
+    /// The non-ace card for each soft total worth quizzing (ace + this card).
+    private static let softTotalOther: [Int: Rank] = [
+        13: .two, 14: .three, 15: .four, 16: .five, 17: .six, 18: .seven,
+    ]
+
+    /// Every stiff/borderline hard total, every soft-double total, and every
+    /// pair, crossed against EVERY dealer up-card — not a hand-picked handful.
+    /// Correctness is always computed live by BasicStrategy, so this can't
+    /// generate a wrong "gotcha"; it just removes any chance of memorizing a
+    /// short, repeating list instead of actually knowing the chart.
+    private static let hardSpots: [HardSpot] = {
+        var spots: [HardSpot] = []
+        for (_, ranks) in hardTotalCombo {
+            for col in BasicStrategy.dealerCols {
+                guard let dealer = rankByStrategyKey[col] else { continue }
+                spots.append(HardSpot(playerRanks: ranks, dealerRank: dealer))
+            }
+        }
+        for (_, other) in softTotalOther {
+            for col in BasicStrategy.dealerCols {
+                guard let dealer = rankByStrategyKey[col] else { continue }
+                spots.append(HardSpot(playerRanks: (.ace, other), dealerRank: dealer))
+            }
+        }
+        for pairKey in BasicStrategy.pairs.keys {
+            guard let rank = rankByStrategyKey[pairKey] else { continue }
+            for col in BasicStrategy.dealerCols {
+                guard let dealer = rankByStrategyKey[col] else { continue }
+                spots.append(HardSpot(playerRanks: (rank, rank), dealerRank: dealer))
+            }
+        }
+        return spots
+    }()
 
     func next() {
         switch difficulty {
@@ -102,8 +124,15 @@ final class QuizEngine {
         lastCorrect = nil
     }
 
+    private var lastHardSpotIndex: Int?
+
     private func dealHardSpot() {
-        let spot = Self.hardSpots.randomElement()!
+        var idx = Int.random(in: 0..<Self.hardSpots.count)
+        if Self.hardSpots.count > 1 {
+            while idx == lastHardSpotIndex { idx = Int.random(in: 0..<Self.hardSpots.count) }
+        }
+        lastHardSpotIndex = idx
+        let spot = Self.hardSpots[idx]
         player = [Card(rank: spot.playerRanks.0, suit: .spades), Card(rank: spot.playerRanks.1, suit: .hearts)]
         dealerUp = Card(rank: spot.dealerRank, suit: .clubs)
     }

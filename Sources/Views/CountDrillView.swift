@@ -23,6 +23,7 @@ private struct CountDrillContent: View {
     @Environment(Stats.self) private var stats
     @State private var guess = 0
     @State private var lastResultCorrect: Bool?
+    @State private var showHints = true
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,8 +35,10 @@ private struct CountDrillContent: View {
                     if engine.phase == .guessing || engine.phase == .revealed {
                         answerCard
                     }
-                    hiloReference
-                    explainer
+                    if showHints {
+                        hiloReference
+                        explainer
+                    }
                 }
                 .padding()
             }
@@ -71,6 +74,8 @@ private struct CountDrillContent: View {
                 }.pickerStyle(.menu)
             }
             Toggle("Show live count (hint)", isOn: $engine.showHint)
+                .tint(Theme.accent)
+            Toggle("Show Hi-Lo reference & tips", isOn: $showHints)
                 .tint(Theme.accent)
         }
         .font(.subheadline)

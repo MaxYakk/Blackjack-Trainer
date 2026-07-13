@@ -110,18 +110,16 @@ final class FlowUITests: XCTestCase {
     // Settings persistence is verified by a deterministic headless test (scratchpad/persisthl)
     // rather than the UI, since tapping SwiftUI toggles in a scrolled sheet is flaky in XCUITest.
 
-    /// Deals a 3-spot round and captures it.
+    /// Deals a 2-spot round and captures it.
     func testMultiHandDeal() {
         let app = XCUIApplication()
         app.launch()
         XCTAssertTrue(app.buttons["chip1"].waitForExistence(timeout: 12))
 
-        app.segmentedControls.buttons["3"].tap()     // play 3 hands
-        // Each spot needs its own wager — fund all three independently.
+        app.segmentedControls.buttons["2"].tap()     // play 2 hands
+        // Each spot needs its own wager — fund both independently.
         app.buttons["chip1"].tap()                   // spot 1 is active by default
         app.buttons["spot1"].tap()
-        app.buttons["chip1"].tap()
-        app.buttons["spot2"].tap()
         app.buttons["chip1"].tap()
         attach(app, "0-multibet")
         app.buttons["Deal"].tap()

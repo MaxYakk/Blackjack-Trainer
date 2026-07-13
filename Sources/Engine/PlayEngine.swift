@@ -127,7 +127,7 @@ final class PlayEngine {
         soundOn = d.bool(forKey: "pe_sound")
         askCountChecks = d.bool(forKey: "pe_countChecks")
         tableMinimum = d.double(forKey: "pe_tableMin")
-        numHands = max(1, d.integer(forKey: "pe_numHands"))
+        numHands = min(2, max(1, d.integer(forKey: "pe_numHands")))
     }
 
     private func saveSettings() {

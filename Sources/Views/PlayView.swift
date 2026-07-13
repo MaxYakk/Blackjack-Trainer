@@ -101,50 +101,61 @@ private struct PlayContent: View {
         .padding(.horizontal)
     }
 
-    /// Arranges player hands in a deep arc that spans most of the felt's height —
-    /// outer spots drop well below the middle one, like seats curling around a
-    /// real table, with each hand's own two cards fanned instead of laid flat.
+    /// Arranges player hands in an arc so they never crowd the screen edges or
+    /// bleed into the controls below.
     @ViewBuilder
     private var handsFan: some View {
         GeometryReader { geo in
-            let count = engine.hands.count
-            let mid = Double(count - 1) / 2
-            let arcDrop = min(geo.size.height * 0.22, 60)
-            let columnSpacing: CGFloat = count >= 4 ? 8 : 16
-            // Size cards from whichever dimension is tighter — width (so columns
-            // can't clip off-screen on a resplit) or height (so a short screen
-            // can't push the fan down into the buttons below) — so it always fits.
-            let columnWidth = (geo.size.width - columnSpacing * CGFloat(max(count - 1, 0))) / CGFloat(max(count, 1))
-            let widthCardSize = (columnWidth - 6) / 2 / 48
-            let chromeHeight: CGFloat = 18 + 14 + 34 + 20   // label + card padding + chip stack + VStack spacing
-            let heightBudget = geo.size.height - chromeHeight - arcDrop
-            let heightCardSize = heightBudget / 68
-            let cardSize: CGFloat = max(0.65, min(1.35, min(widthCardSize, heightCardSize)))
-            let row = HStack(alignment: .top, spacing: columnSpacing) {
-                ForEach(Array(engine.hands.enumerated()), id: \.element.id) { idx, hand in
-                    handColumn(hand, index: idx, cardSize: cardSize)
-                        .offset(y: count > 1 ? abs(Double(idx) - mid) / max(mid, 1) * arcDrop : 0)
-                        .id(idx)
-                }
-            }
-            .animation(.spring(response: 0.35, dampingFraction: 0.8), value: count)
-
-            Group {
-                if count > 4 {
-                    // A heavily resplit round can still grow taller than it is wide —
-                    // let it scroll and keep the active hand in view.
-                    ScrollViewReader { proxy in
-                        ScrollView(.horizontal, showsIndicators: false) { row }
-                            .onChange(of: engine.currentIndex) { _, idx in
-                                withAnimation { proxy.scrollTo(idx, anchor: .center) }
-                            }
-                    }
-                } else {
-                    row.frame(maxWidth: .infinity)
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
+            arcRow(geo: geo, count: engine.hands.count)
         }
+    }
+
+    private func arcRow(geo: GeometryProxy, count: Int) -> some View {
+        let mid = Double(count - 1) / 2
+        let arcDrop = min(geo.size.height * 0.22, 60)
+        let columnSpacing: CGFloat = count >= 4 ? 8 : 16
+        // Size cards from whichever dimension is tighter — width (so columns
+        // can't clip off-screen on a resplit) or height (so a short screen
+        // can't push the fan down into the buttons below) — so it always fits.
+        let columnWidth = (geo.size.width - columnSpacing * CGFloat(max(count - 1, 0))) / CGFloat(max(count, 1))
+        // Card size is picked for the common 2-card case; a floor keeps faces
+        // readable even under a hard height/width squeeze. A hand that grows
+        // past 2 cards (hits, resplits) does NOT shrink this further — instead
+        // handColumn overlaps that hand's own cards to stay inside columnWidth,
+        // so one busy hand in a multi-hand round can't push its neighbors off-screen.
+        let widthCardSize = (columnWidth - 6) / 2 / 48
+        let chromeHeight: CGFloat = 18 + 14 + 34 + 20   // label + card padding + chip stack + VStack spacing
+        let heightBudget = geo.size.height - chromeHeight - arcDrop
+        let heightCardSize = heightBudget / 68
+        let cardSize: CGFloat = max(0.65, min(1.35, min(widthCardSize, heightCardSize)))
+        let row = HStack(alignment: .top, spacing: columnSpacing) {
+            ForEach(Array(engine.hands.enumerated()), id: \.element.id) { idx, hand in
+                handColumn(hand, index: idx, cardSize: cardSize, columnWidth: columnWidth)
+                    .offset(y: count > 1 ? abs(Double(idx) - mid) / max(mid, 1) * arcDrop : 0)
+                    .id(idx)
+            }
+        }
+        .animation(.spring(response: 0.35, dampingFraction: 0.8), value: count)
+
+        return Group {
+            if count > 4 {
+                // A heavily resplit round can still grow taller than it is wide —
+                // let it scroll and keep the active hand in view.
+                ScrollViewReader { proxy in
+                    ScrollView(.horizontal, showsIndicators: false) { row }
+                        .onChange(of: engine.currentIndex) { _, idx in
+                            withAnimation { proxy.scrollTo(idx, anchor: .center) }
+                        }
+                }
+            } else {
+                row.frame(maxWidth: .infinity)
+            }
+        }
+        // Top-aligned, not centered: arcDrop is already reserved out of heightBudget
+        // above, so anchoring to the top keeps the dropped-down outer hands inside
+        // this frame instead of bleeding past its (centered) bottom edge into the
+        // control area below.
+        .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
     }
 
     private var countStrip: some View {
@@ -180,26 +191,32 @@ private struct PlayContent: View {
     /// each hand can carry its own wager.
     private var bettingSpots: some View {
         GeometryReader { geo in
-            let count = engine.numHands
-            let mid = Double(count - 1) / 2
-            // Reserve room for the spot label, the "$0.00" amount, and the arc
-            // drop itself, then size the circle from whatever height is actually
-            // left — never a fixed size that can overflow into the controls below.
-            let labelHeight: CGFloat = count > 1 ? 20 : 0
-            let chromeHeight: CGFloat = labelHeight + 36 + 16
-            let arcDrop = min(geo.size.height * 0.18, 40)
-            let heightBudget = geo.size.height - chromeHeight - arcDrop
-            let widthBudget = (geo.size.width - CGFloat(count - 1) * (count >= 3 ? 14 : 24)) / CGFloat(max(count, 1))
-            let spotSize = max(60, min(count >= 3 ? 104 : 130, min(heightBudget, widthBudget)))
-            HStack(alignment: .top, spacing: count >= 3 ? 14 : 24) {
-                ForEach(0..<count, id: \.self) { idx in
-                    bettingSpot(idx, size: spotSize)
-                        .offset(y: count > 1 ? abs(Double(idx) - mid) / max(mid, 1) * arcDrop : 0)
-                }
-            }
-            .frame(width: geo.size.width, height: geo.size.height, alignment: .center)
-            .animation(.spring(response: 0.3, dampingFraction: 0.8), value: count)
+            arcRowSpots(geo: geo)
         }
+    }
+
+    private func arcRowSpots(geo: GeometryProxy) -> some View {
+        let count = engine.numHands
+        let mid = Double(count - 1) / 2
+        // Reserve room for the spot label, the "$0.00" amount, and the arc
+        // drop itself, then size the circle from whatever height is actually
+        // left — never a fixed size that can overflow into the controls below.
+        let labelHeight: CGFloat = count > 1 ? 20 : 0
+        let chromeHeight: CGFloat = labelHeight + 36 + 16
+        let arcDrop = min(geo.size.height * 0.18, 40)
+        let heightBudget = geo.size.height - chromeHeight - arcDrop
+        let widthBudget = (geo.size.width - CGFloat(count - 1) * 24) / CGFloat(max(count, 1))
+        let spotSize = max(60, min(130, min(heightBudget, widthBudget)))
+        return HStack(alignment: .top, spacing: 24) {
+            ForEach(0..<count, id: \.self) { idx in
+                bettingSpot(idx, size: spotSize)
+                    .offset(y: count > 1 ? abs(Double(idx) - mid) / max(mid, 1) * arcDrop : 0)
+            }
+        }
+        // Top-aligned so the arc-dropped spots stay inside this frame instead of
+        // bleeding past a centered layout's bottom edge into the controls below.
+        .frame(width: geo.size.width, height: geo.size.height, alignment: .top)
+        .animation(.spring(response: 0.3, dampingFraction: 0.8), value: count)
     }
 
     private func bettingSpot(_ index: Int, size: CGFloat) -> some View {
@@ -240,8 +257,19 @@ private struct PlayContent: View {
         .accessibilityIdentifier("spot\(index)")
     }
 
-    private func handColumn(_ hand: PlayerHand, index: Int, cardSize: CGFloat) -> some View {
+    private func handColumn(_ hand: PlayerHand, index: Int, cardSize: CGFloat, columnWidth: CGFloat) -> some View {
         let isActive = engine.phase == .playing && index == engine.currentIndex
+        // With the desired 6pt gap, a hand past 2 cards can outgrow its column
+        // (narrow columns in a 2-3 hand round, plus hits/resplits). Rather than
+        // shrinking the card size — which would shrink every other hand's cards
+        // too — overlap this hand's own cards just enough to stay in-column.
+        let n = hand.cards.count
+        let cardWidth = 48 * cardSize
+        let desiredSpacing: CGFloat = 6
+        let neededWidth = CGFloat(n) * cardWidth + CGFloat(max(n - 1, 0)) * desiredSpacing
+        let cardSpacing: CGFloat = n > 1 && neededWidth > columnWidth
+            ? (columnWidth - CGFloat(n) * cardWidth) / CGFloat(n - 1)
+            : desiredSpacing
         return VStack(spacing: 10) {
             Text(handLabel(hand))
                 .font(.footnote.weight(.semibold))
@@ -249,7 +277,7 @@ private struct PlayContent: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .accessibilityIdentifier("handTotal\(index)")
-            HStack(spacing: 6) {
+            HStack(spacing: cardSpacing) {
                 ForEach(hand.cards) { card in
                     CardView(card: card, size: cardSize)
                         .shadow(color: .black.opacity(0.25), radius: 2, y: 2)
@@ -299,10 +327,10 @@ private struct PlayContent: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.white.opacity(0.85))
                 Picker("Hands", selection: $engine.numHands) {
-                    ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
+                    ForEach(1...2, id: \.self) { Text("\($0)").tag($0) }
                 }
                 .pickerStyle(.segmented)
-                .frame(maxWidth: 180)
+                .frame(maxWidth: 120)
                 if engine.numHands > 1 && engine.totalWager > 0 {
                     Spacer()
                     Text("Total \(engine.money(engine.totalWager))")
@@ -546,6 +574,8 @@ private struct SettingsSheet: View {
                         Text("$1").tag(1.0)
                         Text("$5").tag(5.0)
                         Text("$25").tag(25.0)
+                        Text("$50").tag(50.0)
+                        Text("$100").tag(100.0)
                     }
                 }
                 Section {
