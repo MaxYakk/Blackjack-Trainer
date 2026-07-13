@@ -1,0 +1,525 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		198C846F769B8656F263F56D /* FlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC75324797801B412A7D156A /* FlowUITests.swift */; };
+		1A59044060C9BB470C924E4A /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D53105964D85732933CB707D /* QuizView.swift */; };
+		222FA6830B4ABC3BF9778359 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8124340C4B8D1A7A84B1D621 /* Theme.swift */; };
+		36B19F42B178682F53CE1B19 /* Cards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C865FB52BCE215F31993942 /* Cards.swift */; };
+		444BCDCE34AB99561A096E30 /* QuizEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = B28A261B3919433E8274E580 /* QuizEngine.swift */; };
+		56EAB866772C2B5FFD63A2EE /* BasicStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED4842784DFC48B2671534E /* BasicStrategy.swift */; };
+		58B3BF8008F4B953AC9083B7 /* CountDrillEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB690E5EAB1C66B5274F56D1 /* CountDrillEngine.swift */; };
+		630EDD458958DD5CA1D1A850 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A62AF2C0E563F09CB9CB1B18 /* RootView.swift */; };
+		65C51B6161563030ED800766 /* StrategyChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8545FF9BE1C52003919E5EA8 /* StrategyChartView.swift */; };
+		6F8B3BFEEB23568B04926F14 /* PlayEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5A601395D52929FCB693F7 /* PlayEngine.swift */; };
+		99BA97D5F5377E94F54DE371 /* BlackjackTrainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAD3BD7FCACBCF235F57879 /* BlackjackTrainerApp.swift */; };
+		BD2AA590A18B960097425517 /* CountDrillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */; };
+		BFA9AE4EB92B3D0383E0EA4D /* ProgressStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905F281CB9044EAAB5A5F75D /* ProgressStatsView.swift */; };
+		C74E5BC457A25225AC702EC1 /* Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86ADE4AE7058F41B7B2D69 /* Sound.swift */; };
+		D96E4C6C9898EC4F2E065263 /* Stats.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA51242057562607EC409D6 /* Stats.swift */; };
+		E9A38447F7EE4503B5BAEAED /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5619352EACA12BF2D0B41E64 /* Assets.xcassets */; };
+		EC0DA553352FCFA10ED4549B /* PlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D544C1614CE7FA6C3CA8AD92 /* PlayView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		23E7AF9B19C3D0FBAB23493D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 641CD8DA4F1E7BE41FD6171C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 29F08F9EE4597A6E8C6ECD80;
+			remoteInfo = BlackjackTrainer;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		1E86ADE4AE7058F41B7B2D69 /* Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sound.swift; sourceTree = "<group>"; };
+		2D5A601395D52929FCB693F7 /* PlayEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayEngine.swift; sourceTree = "<group>"; };
+		4C865FB52BCE215F31993942 /* Cards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cards.swift; sourceTree = "<group>"; };
+		5619352EACA12BF2D0B41E64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountDrillView.swift; sourceTree = "<group>"; };
+		8124340C4B8D1A7A84B1D621 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
+		8545FF9BE1C52003919E5EA8 /* StrategyChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategyChartView.swift; sourceTree = "<group>"; };
+		905F281CB9044EAAB5A5F75D /* ProgressStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressStatsView.swift; sourceTree = "<group>"; };
+		98AC306A85F2BCC5BE60F1E3 /* BlackjackTrainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlackjackTrainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A62AF2C0E563F09CB9CB1B18 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		AB690E5EAB1C66B5274F56D1 /* CountDrillEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountDrillEngine.swift; sourceTree = "<group>"; };
+		ABAD3BD7FCACBCF235F57879 /* BlackjackTrainerApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BlackjackTrainerApp.swift; sourceTree = "<group>"; };
+		B28A261B3919433E8274E580 /* QuizEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizEngine.swift; sourceTree = "<group>"; };
+		BAA51242057562607EC409D6 /* Stats.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stats.swift; sourceTree = "<group>"; };
+		CC75324797801B412A7D156A /* FlowUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowUITests.swift; sourceTree = "<group>"; };
+		D1CE0940EDC96C5D0DB33001 /* BlackjackTrainerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BlackjackTrainerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D53105964D85732933CB707D /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
+		D544C1614CE7FA6C3CA8AD92 /* PlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayView.swift; sourceTree = "<group>"; };
+		DED4842784DFC48B2671534E /* BasicStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BasicStrategy.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		3BF7F4E961B09E3B81401189 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				98AC306A85F2BCC5BE60F1E3 /* BlackjackTrainer.app */,
+				D1CE0940EDC96C5D0DB33001 /* BlackjackTrainerUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		477D63C730E2DF082939198E = {
+			isa = PBXGroup;
+			children = (
+				8EE204B0C7374FDDBACD8E60 /* Resources */,
+				A2BC43F3A66212B12C8B4DA1 /* Sources */,
+				4FC3F09BBCE52EC6B2C2AAAE /* UITests */,
+				3BF7F4E961B09E3B81401189 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		4FC3F09BBCE52EC6B2C2AAAE /* UITests */ = {
+			isa = PBXGroup;
+			children = (
+				CC75324797801B412A7D156A /* FlowUITests.swift */,
+			);
+			path = UITests;
+			sourceTree = "<group>";
+		};
+		76353D5469E61628A5B967C3 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				DED4842784DFC48B2671534E /* BasicStrategy.swift */,
+				4C865FB52BCE215F31993942 /* Cards.swift */,
+				AB690E5EAB1C66B5274F56D1 /* CountDrillEngine.swift */,
+				2D5A601395D52929FCB693F7 /* PlayEngine.swift */,
+				B28A261B3919433E8274E580 /* QuizEngine.swift */,
+				1E86ADE4AE7058F41B7B2D69 /* Sound.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		8EE204B0C7374FDDBACD8E60 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				5619352EACA12BF2D0B41E64 /* Assets.xcassets */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		9C32FF13FC73F7BBB347C3AC /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */,
+				D544C1614CE7FA6C3CA8AD92 /* PlayView.swift */,
+				905F281CB9044EAAB5A5F75D /* ProgressStatsView.swift */,
+				D53105964D85732933CB707D /* QuizView.swift */,
+				A62AF2C0E563F09CB9CB1B18 /* RootView.swift */,
+				8545FF9BE1C52003919E5EA8 /* StrategyChartView.swift */,
+				8124340C4B8D1A7A84B1D621 /* Theme.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		A2BC43F3A66212B12C8B4DA1 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				C79E499F283C0E5BA8C1FEE6 /* App */,
+				76353D5469E61628A5B967C3 /* Engine */,
+				DEE52B81FB8A9EA566D759D0 /* Store */,
+				9C32FF13FC73F7BBB347C3AC /* Views */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		C79E499F283C0E5BA8C1FEE6 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				ABAD3BD7FCACBCF235F57879 /* BlackjackTrainerApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		DEE52B81FB8A9EA566D759D0 /* Store */ = {
+			isa = PBXGroup;
+			children = (
+				BAA51242057562607EC409D6 /* Stats.swift */,
+			);
+			path = Store;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		29F08F9EE4597A6E8C6ECD80 /* BlackjackTrainer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 28DCAF47377CB80A69E24535 /* Build configuration list for PBXNativeTarget "BlackjackTrainer" */;
+			buildPhases = (
+				0C596A8C3ECB8375344A3A58 /* Sources */,
+				EDB7CEBA76E533F3BF2A111C /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BlackjackTrainer;
+			packageProductDependencies = (
+			);
+			productName = BlackjackTrainer;
+			productReference = 98AC306A85F2BCC5BE60F1E3 /* BlackjackTrainer.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2E2859822104CFFEC5EACCDA /* BlackjackTrainerUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E382C689B77F94454CDBBF1B /* Build configuration list for PBXNativeTarget "BlackjackTrainerUITests" */;
+			buildPhases = (
+				F7B4B510C31DBE828B76E0FB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				E94C484305C99D78E03B8068 /* PBXTargetDependency */,
+			);
+			name = BlackjackTrainerUITests;
+			packageProductDependencies = (
+			);
+			productName = BlackjackTrainerUITests;
+			productReference = D1CE0940EDC96C5D0DB33001 /* BlackjackTrainerUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		641CD8DA4F1E7BE41FD6171C /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					29F08F9EE4597A6E8C6ECD80 = {
+						ProvisioningStyle = Automatic;
+					};
+					2E2859822104CFFEC5EACCDA = {
+						ProvisioningStyle = Automatic;
+						TestTargetID = 29F08F9EE4597A6E8C6ECD80;
+					};
+				};
+			};
+			buildConfigurationList = A60BF1B1C3FC0795423FF2B8 /* Build configuration list for PBXProject "BlackjackTrainer" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 477D63C730E2DF082939198E;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 3BF7F4E961B09E3B81401189 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				29F08F9EE4597A6E8C6ECD80 /* BlackjackTrainer */,
+				2E2859822104CFFEC5EACCDA /* BlackjackTrainerUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		EDB7CEBA76E533F3BF2A111C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E9A38447F7EE4503B5BAEAED /* Assets.xcassets in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		0C596A8C3ECB8375344A3A58 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				56EAB866772C2B5FFD63A2EE /* BasicStrategy.swift in Sources */,
+				99BA97D5F5377E94F54DE371 /* BlackjackTrainerApp.swift in Sources */,
+				36B19F42B178682F53CE1B19 /* Cards.swift in Sources */,
+				58B3BF8008F4B953AC9083B7 /* CountDrillEngine.swift in Sources */,
+				BD2AA590A18B960097425517 /* CountDrillView.swift in Sources */,
+				6F8B3BFEEB23568B04926F14 /* PlayEngine.swift in Sources */,
+				EC0DA553352FCFA10ED4549B /* PlayView.swift in Sources */,
+				BFA9AE4EB92B3D0383E0EA4D /* ProgressStatsView.swift in Sources */,
+				444BCDCE34AB99561A096E30 /* QuizEngine.swift in Sources */,
+				1A59044060C9BB470C924E4A /* QuizView.swift in Sources */,
+				630EDD458958DD5CA1D1A850 /* RootView.swift in Sources */,
+				C74E5BC457A25225AC702EC1 /* Sound.swift in Sources */,
+				D96E4C6C9898EC4F2E065263 /* Stats.swift in Sources */,
+				65C51B6161563030ED800766 /* StrategyChartView.swift in Sources */,
+				222FA6830B4ABC3BF9778359 /* Theme.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F7B4B510C31DBE828B76E0FB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				198C846F769B8656F263F56D /* FlowUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		E94C484305C99D78E03B8068 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 29F08F9EE4597A6E8C6ECD80 /* BlackjackTrainer */;
+			targetProxy = 23E7AF9B19C3D0FBAB23493D /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		0DA11B593C6EE649BD04FE85 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxyatkeman.blackjacktrainer.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BlackjackTrainer;
+			};
+			name = Debug;
+		};
+		23402F8605E5F8A1BC15B860 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 83F596G7A9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Blackjack;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations__ipad_ = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxyatkeman.blackjacktrainer;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		596354491307C5EADC017918 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		61FFB6FBC0554CFB231BA1AE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxyatkeman.blackjacktrainer.uitests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = BlackjackTrainer;
+			};
+			name = Release;
+		};
+		D348F1764F7A20B5E7500812 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				DEVELOPMENT_TEAM = 83F596G7A9;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Blackjack;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UIRequiresFullScreen = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations__ipad_ = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxyatkeman.blackjacktrainer;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		EE87213A05391B3EBBA29F94 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		28DCAF47377CB80A69E24535 /* Build configuration list for PBXNativeTarget "BlackjackTrainer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D348F1764F7A20B5E7500812 /* Debug */,
+				23402F8605E5F8A1BC15B860 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		A60BF1B1C3FC0795423FF2B8 /* Build configuration list for PBXProject "BlackjackTrainer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				596354491307C5EADC017918 /* Debug */,
+				EE87213A05391B3EBBA29F94 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E382C689B77F94454CDBBF1B /* Build configuration list for PBXNativeTarget "BlackjackTrainerUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				0DA11B593C6EE649BD04FE85 /* Debug */,
+				61FFB6FBC0554CFB231BA1AE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 641CD8DA4F1E7BE41FD6171C /* Project object */;
+}
