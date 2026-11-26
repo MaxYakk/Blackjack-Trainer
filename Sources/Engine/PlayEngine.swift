@@ -708,15 +708,15 @@ final class PlayEngine {
             switch verdict {
             case .tooHigh:
                 betAdviceText = overStack
-                    ? "Too big for your chip count. With \(Money.chips(bankroll)), keep each bet at \(money(cap)) or less."
+                    ? "Too big for your balance. With \(Money.chips(bankroll)), keep each bet at \(money(cap)) or less."
                     : "Too big for the count. The true count is \(tcStr), so bet about \(rec) unit\(rec == 1 ? "" : "s") (\(money(recommendedBet)))."
             case .tooLow:
                 betAdviceText = stackLimited
-                    ? "The true count is \(tcStr). Bet more, up to \(money(recommendedBet)), the most your chips should cover."
+                    ? "The true count is \(tcStr). Bet more, up to \(money(recommendedBet)), the most your balance should cover."
                     : "The true count is \(tcStr). Bet more, about \(rec) units (\(money(recommendedBet)))."
             case .acceptable:
                 if bigAtLowCount {
-                    betAdviceText = "Your chips can cover it, but with a true count of \(tcStr) the minimum (\(money(tableMinimum))) is the sharper bet."
+                    betAdviceText = "You can afford it, but with a true count of \(tcStr) the minimum (\(money(tableMinimum))) is the sharper bet."
                 } else if tc < 2 {
                     betAdviceText = "Good. The true count is \(tcStr). Keep the bet near the table minimum here."
                 } else {
@@ -729,7 +729,7 @@ final class PlayEngine {
             case .acceptable:
                 betAdviceText = "Good bet."
             case .tooHigh:
-                betAdviceText = overStack ? "Too much for your chip count." : "Too big for the count."
+                betAdviceText = overStack ? "Too much for your balance." : "Too big for the count."
             case .tooLow:
                 betAdviceText = "You bet too little."
             }

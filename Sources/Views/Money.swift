@@ -2,54 +2,63 @@ import Foundation
 
 /// The one-line reminder shown on onboarding and session setup.
 enum PracticeNotice {
-    static let line = "Practice chips only. No real money, no prizes."
+    static let line = "Play money only. No real money, no prizes."
 }
 
-/// Comma-grouped practice-chip formatting shared by every chip amount in the
-/// app. Chips have no money value, so there is no currency symbol: amounts are
-/// plain numbers ("1,250"), and `chips` adds the word where a number would
-/// otherwise stand alone ("1,250 chips").
+/// Dollar formatting shared by every play-money amount in the app.
+///
+/// Amounts read like money ("$1,250", "$7.50") so the app feels like a real
+/// table, but nothing here is real: there is no buying, no cash-out and no
+/// prizes, and `PracticeNotice.line` says so on setup and onboarding.
+///
+/// Sign convention (the same everywhere): a positive amount has no sign
+/// ("$25"); `signed` adds "+" for gains ("+$25") and a true minus for losses
+/// ("\u{2212}$25"); a loss passed to `string` reads "\u{2212}$25" too. Zero
+/// never has a sign ("$0").
 ///
 /// Kept free of SwiftUI so `scripts/logic-tests.sh` can compile it on macOS
 /// alongside Engine/ and Store/.
 enum Money {
-    /// Up to two decimals, none when the amount is whole. A 3:2 blackjack on an
-    /// odd bet pays a fraction (a bet of 5 returns 7.5), so "7.5" shows as is.
-    private static let amount: NumberFormatter = {
+    /// The minus sign used for losses: a real minus, not a hyphen.
+    static let minus = "\u{2212}"
+
+    /// Whole dollars show no decimals ("$1,250"); a fraction always shows two
+    /// ("$7.50"), the way a 3:2 blackjack on an odd bet pays.
+    private static func formatted(_ magnitude: Double) -> String {
+        let isWhole = abs(magnitude - magnitude.rounded()) < 0.005
         let f = NumberFormatter()
         f.numberStyle = .decimal
-        f.minimumFractionDigits = 0
-        f.maximumFractionDigits = 2
-        return f
-    }()
+        f.minimumFractionDigits = isWhole ? 0 : 2
+        f.maximumFractionDigits = isWhole ? 0 : 2
+        return f.string(from: NSNumber(value: magnitude)) ?? String(format: isWhole ? "%.0f" : "%.2f", magnitude)
+    }
 
-    private static let whole: NumberFormatter = {
+    /// "$1,234", "$7.50", or "\u{2212}$25" for a negative amount.
+    static func string(_ value: Double) -> String {
+        if value < -0.005 { return minus + "$" + formatted(-value) }
+        return "$" + formatted(abs(value))
+    }
+
+    /// "$1,234" with no fraction, for summary tiles and chart axes.
+    static func wholeString(_ value: Double) -> String {
         let f = NumberFormatter()
         f.numberStyle = .decimal
         f.maximumFractionDigits = 0
-        return f
-    }()
-
-    /// "1,234", or "1,234.5" / "0.25" when there is a fraction.
-    static func string(_ value: Double) -> String {
-        amount.string(from: NSNumber(value: value)) ?? String(format: "%g", value)
+        let body = f.string(from: NSNumber(value: abs(value))) ?? String(format: "%.0f", abs(value))
+        return (value < -0.5 ? minus : "") + "$" + body
     }
 
-    /// "1,234" with no fraction, for summary tiles.
-    static func wholeString(_ value: Double) -> String {
-        whole.string(from: NSNumber(value: value)) ?? String(format: "%.0f", value)
-    }
+    /// Same as `string`. Kept so older call sites read "chips" without adding
+    /// the word: amounts are just "$1,234".
+    static func chips(_ value: Double) -> String { string(value) }
 
-    /// "1,234 chips", or "1 chip" for exactly one.
-    static func chips(_ value: Double) -> String {
-        let text = string(value)
-        return abs(value - 1) < 0.001 ? "\(text) chip" : "\(text) chips"
-    }
+    /// "+$50" / "\u{2212}$50" (zero has no sign).
+    static func signedChips(_ value: Double) -> String { signed(value) }
 
-    /// "+50 chips" / "-50 chips" (zero has no sign).
-    static func signedChips(_ value: Double) -> String {
-        if value > 0.005 { return "+" + chips(value) }
-        if value < -0.005 { return "-" + chips(-value) }
-        return chips(0)
+    /// "+$50" / "\u{2212}$50" (zero has no sign).
+    static func signed(_ value: Double) -> String {
+        if value > 0.005 { return "+" + string(value) }
+        if value < -0.005 { return string(value) }
+        return string(0)
     }
 }

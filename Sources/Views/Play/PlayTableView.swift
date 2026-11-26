@@ -147,12 +147,9 @@ private struct BettingArea: View {
                 .font(.captionText)
                 .foregroundStyle(.textSecondary)
                 .accessibilityHidden(true)
-            Picker("Hands", selection: $engine.numHands) {
-                ForEach(PlayEngine.spotRange, id: \.self) { Text("\($0)").tag($0) }
-            }
-            .pickerStyle(.segmented)
-            .frame(maxWidth: 120)
-            .accessibilityLabel("Hands per round")
+            SegmentedChoice(Array(PlayEngine.spotRange), selection: $engine.numHands,
+                            accessibilityLabel: "Hands per round") { "\($0)" }
+                .frame(maxWidth: 130)
             Spacer(minLength: Space.xs)
             VStack(alignment: .trailing, spacing: 0) {
                 Text("Min \(Money.string(engine.tableMinimum))")
@@ -279,12 +276,19 @@ private struct HandsArea: View {
         let count = engine.hands.count
         let mid = Double(count - 1) / 2
         let arcDrop = count > 1 ? min(size.height * 0.1, 20) : 0
-        let columnSpacing: CGFloat = count >= 4 ? Space.xs : Space.md
+        let columnSpacing: CGFloat = count >= 4 ? Space.xs : (count == 3 ? Space.sm : Space.md)
         let columnWidth = (size.width - columnSpacing * CGFloat(max(count - 1, 0))) / CGFloat(max(count, 1))
+        // Three hands are width-limited, so their two cards overlap a little
+        // (like a real table) and every card gets bigger, which uses the
+        // height the narrow columns would otherwise leave empty.
+        let overlap = HandColumn.overlap(forHands: count)
         // Size cards for the common two-card hand from whichever dimension is
         // tighter. Longer hands overlap their own cards (HandColumn) instead
         // of shrinking every hand on the table.
-        let widthCardSize = (columnWidth - HandColumn.cardPadding * 2 - Space.xs) / 2 / CardView.baseSize.width
+        let availableWidth = columnWidth - HandColumn.cardPadding * 2
+        let widthCardSize = overlap > 0
+            ? availableWidth / (2 - overlap) / CardView.baseSize.width
+            : (availableWidth - Space.xs) / 2 / CardView.baseSize.width
         let heightBudget = size.height - HandColumn.chromeHeight - arcDrop
         // Each point of card scale also buys ~40pt of chip stack under the cards.
         let heightCardSize = heightBudget / (CardView.baseSize.height + 40)
@@ -293,7 +297,7 @@ private struct HandsArea: View {
         let hands = HStack(alignment: .top, spacing: columnSpacing) {
             ForEach(Array(engine.hands.enumerated()), id: \.element.id) { idx, hand in
                 HandColumn(engine: engine, hand: hand, index: idx,
-                           cardSize: cardSize, columnWidth: columnWidth)
+                           cardSize: cardSize, columnWidth: columnWidth, overlap: overlap)
                     .offset(y: count > 1 ? abs(Double(idx) - mid) / max(mid, 1) * arcDrop : 0)
                     .id(idx)
             }
@@ -315,8 +319,11 @@ private struct HandsArea: View {
                 hands.frame(maxWidth: .infinity)
             }
         }
-        // Top-aligned so the arc-dropped outer hands stay inside the panel.
-        .frame(width: size.width, height: size.height, alignment: .top)
+        // One to three hands sit in the middle of the area, so there is no
+        // empty band under them; the arc-dropped outer hands stay inside
+        // the panel because the card size already reserves their drop.
+        // Four or more hands stay top-aligned.
+        .frame(width: size.width, height: size.height, alignment: count <= 3 ? .center : .top)
     }
 }
 
@@ -326,6 +333,11 @@ private struct HandColumn: View {
     let index: Int
     let cardSize: CGFloat
     let columnWidth: CGFloat
+    /// Fraction of a card's width the next card covers (0 = side by side).
+    var overlap: CGFloat = 0
+
+    /// Three hands overlap their cards by this much; fewer have room to spare.
+    static func overlap(forHands count: Int) -> CGFloat { count == 3 ? 0.28 : 0 }
 
     static let cardPadding: CGFloat = 6
     /// Total label + paddings + spacing around the cards (chips counted separately).
@@ -375,10 +387,11 @@ private struct HandColumn: View {
         let n = hand.cards.count
         let cardWidth = CardView.baseSize.width * cardSize
         let available = max(columnWidth - Self.cardPadding * 2, 0)
-        let needed = CGFloat(n) * cardWidth + CGFloat(max(n - 1, 0)) * Space.xs
+        let baseSpacing = overlap > 0 ? -overlap * cardWidth : Space.xs
+        let needed = CGFloat(n) * cardWidth + CGFloat(max(n - 1, 0)) * baseSpacing
         let cardSpacing = n > 1 && needed > available
             ? (available - CGFloat(n) * cardWidth) / CGFloat(n - 1)
-            : Space.xs
+            : baseSpacing
 
         VStack(spacing: Space.xs) {
             Text(totalText)
