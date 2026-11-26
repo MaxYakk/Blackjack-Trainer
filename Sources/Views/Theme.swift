@@ -1,7 +1,12 @@
 import SwiftUI
 
+/// The one-line reminder shown on onboarding and session setup.
+enum PracticeNotice {
+    static let line = "Practice chips only. No real money, no prizes."
+}
+
 enum Theme {
-    /// Deep casino-felt green — dark enough to give white/mint feedback text
+    /// Deep table green — dark enough to give white/mint feedback text
     /// real contrast instead of the mid-green that used to wash it out.
     static let felt = Color(red: 0.043, green: 0.235, blue: 0.149)      // #0B3C26
     static let feltDark = Color(red: 0.051, green: 0.180, blue: 0.114)  // #0D2E1D
@@ -17,13 +22,17 @@ enum Theme {
     static let cardBlack = Color(white: 0.13)
 }
 
-/// Comma-grouped dollar formatting shared by every money display in the app —
-/// without it, a big buy-in like $250,000 renders as an unreadable "$250000.00".
+/// Comma-grouped practice-chip formatting shared by every chip amount in the
+/// app. Chips have no money value, so there is no currency symbol: amounts are
+/// plain numbers ("1,250"), and `chips` adds the word where a number would
+/// otherwise stand alone ("1,250 chips").
 enum Money {
-    private static let cents: NumberFormatter = {
+    /// Up to two decimals, none when the amount is whole. A 3:2 blackjack on an
+    /// odd bet pays a fraction (a bet of 5 returns 7.5), so "7.5" shows as is.
+    private static let amount: NumberFormatter = {
         let f = NumberFormatter()
         f.numberStyle = .decimal
-        f.minimumFractionDigits = 2
+        f.minimumFractionDigits = 0
         f.maximumFractionDigits = 2
         return f
     }()
@@ -35,19 +44,27 @@ enum Money {
         return f
     }()
 
-    /// "$1,234.56", or "$1,234" when the amount is a whole dollar — cents
-    /// only earn their space on screen when there's actually a fraction to
-    /// show, which is most of the time now that chips run in whole dollars.
+    /// "1,234", or "1,234.5" / "0.25" when there is a fraction.
     static func string(_ value: Double) -> String {
-        let isWhole = abs(value.rounded() - value) < 0.001
-        let formatter = isWhole ? whole : cents
-        let fallback = isWhole ? String(format: "%.0f", value) : String(format: "%.2f", value)
-        return "$" + (formatter.string(from: NSNumber(value: value)) ?? fallback)
+        amount.string(from: NSNumber(value: value)) ?? String(format: "%g", value)
     }
 
-    /// "$1,234" — for summary tiles that don't need cents.
+    /// "1,234" with no fraction, for summary tiles.
     static func wholeString(_ value: Double) -> String {
-        "$" + (whole.string(from: NSNumber(value: value)) ?? String(format: "%.0f", value))
+        whole.string(from: NSNumber(value: value)) ?? String(format: "%.0f", value)
+    }
+
+    /// "1,234 chips", or "1 chip" for exactly one.
+    static func chips(_ value: Double) -> String {
+        let text = string(value)
+        return abs(value - 1) < 0.001 ? "\(text) chip" : "\(text) chips"
+    }
+
+    /// "+50 chips" / "-50 chips" (zero has no sign).
+    static func signedChips(_ value: Double) -> String {
+        if value > 0.005 { return "+" + chips(value) }
+        if value < -0.005 { return "-" + chips(-value) }
+        return chips(0)
     }
 }
 
@@ -146,9 +163,9 @@ struct CardView: View {
     }
 }
 
-/// Standard casino chip colors by denomination. Every denomination
+/// Practice chip colors by denomination. Every denomination
 /// ChipSizing can hand out gets its own explicit, unique color — falling
-/// through to `default` is what caused $250 and $1,000 chips to render
+/// through to `default` is what caused the 250 and 1,000 chips to render
 /// identically purple.
 enum ChipStyle {
     static func colors(for value: Double) -> (bg: Color, ring: Color, text: Color) {

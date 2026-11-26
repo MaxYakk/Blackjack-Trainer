@@ -155,7 +155,7 @@ private struct BeginnerTutorialPage {
         BeginnerTutorialPage(
             icon: "circle.circle.fill",
             title: "Place a bet, then deal",
-            summary: "Use the chips to choose your wager before each hand.",
+            summary: "Use the chips to choose your bet before each hand.",
             points: [
                 Point(icon: "circle.dashed", title: "Your betting spot", detail: "Tap a chip to add it to the circle. Your bet must meet the table minimum."),
                 Point(icon: "rectangle.3.group.fill", title: "Deal", detail: "You and the dealer each receive two cards. One dealer card is face down."),

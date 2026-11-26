@@ -6,15 +6,15 @@ final class FlowUITests: XCTestCase {
         continueAfterFailure = false
     }
 
-    /// Play runs in buy-in sessions. When the buy-in lobby is showing (no
-    /// active session persisted from an earlier test), sit down with the
-    /// default stack so the betting table appears.
-    private func sitDownIfNeeded(_ app: XCUIApplication) {
+    /// Play runs in practice sessions. When the session lobby is showing (no
+    /// active session persisted from an earlier test), start one with the
+    /// default chips so the betting table appears.
+    private func startSessionIfNeeded(_ app: XCUIApplication) {
         let start = app.buttons["startSessionButton"]
         if start.waitForExistence(timeout: 2) { start.tap() }
     }
 
-    /// How to Play, Cash Out, and Table Options all live behind the single
+    /// How to Play, End session, and Table Options all live behind the single
     /// top-right menu button now — open it before tapping any of them.
     private func openHeaderMenu(_ app: XCUIApplication) {
         let menu = app.buttons["headerMenuButton"]
@@ -48,7 +48,7 @@ final class FlowUITests: XCTestCase {
         assertNoVisibleDashPunctuation(in: app)
 
         app.buttons["onboardingGetStarted"].tap()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5))
     }
 
@@ -59,7 +59,7 @@ final class FlowUITests: XCTestCase {
 
         XCTAssertFalse(app.staticTexts["New to blackjack? Learn the game"].exists)
 
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
         openHeaderMenu(app)
         let learnButton = app.buttons["learnBlackjackHeaderButton"]
         XCTAssertTrue(learnButton.waitForExistence(timeout: 5))
@@ -88,7 +88,7 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5))
         assertNoVisibleDashPunctuation(in: app)
@@ -182,7 +182,7 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         let menu = app.buttons["headerMenuButton"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
@@ -211,7 +211,7 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["spot0"].waitForExistence(timeout: 5))
         app.segmentedControls.buttons["2"].tap()
@@ -231,7 +231,7 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_countChecks", "NO"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["spot0"].waitForExistence(timeout: 5))
         let threeHands = app.segmentedControls.buttons["3"]
@@ -255,11 +255,11 @@ final class FlowUITests: XCTestCase {
             spot.tap()
             if spot.value as? String != "active" { spot.tap() }
             XCTAssertEqual(spot.value as? String, "active",
-                           "spot \(index + 1) should be active before adding its wager")
+                           "spot \(index + 1) should be active before adding its bet")
             let amount = app.staticTexts[index == 0 ? "betAmount" : "betAmount\(index)"]
             app.buttons["chip0"].tap()
             XCTAssertTrue(amount.waitForExistence(timeout: 2),
-                          "spot \(index + 1) should keep its own wager")
+                          "spot \(index + 1) should keep its own bet")
         }
         attach(app, "three-hands-betting")
 
@@ -299,21 +299,21 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         // --- Betting phase ---
-        // Bet $10 with two minimum chips (chip0 is always the $5 table minimum).
+        // Bet 10 with two minimum chips (chip0 is always the 5-chip table minimum).
         let chip5 = app.buttons["chip0"]
         XCTAssertTrue(chip5.waitForExistence(timeout: 12), "betting screen with chip tray should appear")
         // A prior test may have left numHands > 1 persisted — every spot then
-        // needs its own wager, so force back to a single spot first.
+        // needs its own bet, so force back to a single spot first.
         if app.segmentedControls.buttons["1"].exists { app.segmentedControls.buttons["1"].tap() }
         chip5.tap()
         chip5.tap()
 
         let betAmount = app.staticTexts["betAmount"]
         XCTAssertTrue(betAmount.waitForExistence(timeout: 2))
-        XCTAssertEqual(betAmount.label, "$10", "two $5 chips should read $10")
+        XCTAssertEqual(betAmount.label, "Bet 10", "two 5-chip chips should read Bet 10")
         attach(app, "1-betting")
         Thread.sleep(forTimeInterval: 3)
 
@@ -364,7 +364,7 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
 
         for i in 0..<20 {
@@ -381,10 +381,10 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
         // A prior test may have left numHands > 1 persisted — each spot now needs
-        // its own wager, so force back to a single spot for this single-bet loop.
+        // its own bet, so force back to a single spot for this single-bet loop.
         if app.segmentedControls.buttons["1"].exists { app.segmentedControls.buttons["1"].tap() }
 
         var didSplit = false
@@ -420,11 +420,11 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
 
         app.segmentedControls.buttons["2"].tap()     // play 2 hands
-        // Each spot needs its own wager — fund both independently.
+        // Each spot needs its own bet — fund both independently.
         app.buttons["chip0"].tap()                   // spot 1 is active by default
         app.buttons["spot1"].tap()
         app.buttons["chip0"].tap()
@@ -460,7 +460,7 @@ final class FlowUITests: XCTestCase {
 
         let skipOnboarding = app.buttons["onboardingSkip"]
         if skipOnboarding.waitForExistence(timeout: 2) { skipOnboarding.tap() }
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5))
         app.buttons["chip0"].tap()
@@ -483,9 +483,9 @@ final class FlowUITests: XCTestCase {
                       "the win banner should appear after the short post-card beat")
     }
 
-    /// Forces the buy-in lobby, sits down with a chosen stack, then walks
-    /// away and verifies the session receipt comes back.
-    func testBuyInAndCashOutFlow() {
+    /// Forces the lobby, starts a session, then ends it
+    /// and verifies the session summary comes back.
+    func testStartAndEndSessionFlow() {
         let app = XCUIApplication()
         // The launch-argument domain overrides the persisted session flag, so
         // this test always starts at the lobby regardless of test order.
@@ -497,26 +497,26 @@ final class FlowUITests: XCTestCase {
 
         start.tap()
 
-        XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5), "sitting down should reach the betting table")
+        XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5), "starting a session should reach the betting table")
 
         openHeaderMenu(app)
-        let cashOut = app.buttons["cashOutButton"]
-        XCTAssertTrue(cashOut.waitForExistence(timeout: 3))
-        cashOut.tap()
-        let confirm = app.buttons["Cash Out"]
-        XCTAssertTrue(confirm.waitForExistence(timeout: 3), "cashing out should ask for confirmation")
+        let endSession = app.buttons["cashOutButton"]
+        XCTAssertTrue(endSession.waitForExistence(timeout: 3))
+        endSession.tap()
+        let confirm = app.buttons["End session"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 3), "ending the session should ask for confirmation")
         confirm.tap()
 
         XCTAssertTrue(app.buttons["startSessionButton"].waitForExistence(timeout: 5),
-                      "cashing out should return to the lobby")
-        XCTAssertEqual(app.staticTexts["buyInAmount"].label, "$100")
-        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "$5",
-                       "cashing out should reset the next table to the friendly defaults")
+                      "ending the session should return to the lobby")
+        XCTAssertEqual(app.staticTexts["buyInAmount"].label, "100")
+        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "5",
+                       "ending the session should reset the next table to the friendly defaults")
         XCTAssertTrue(app.descendants(matching: .any)["sessionReceipt"].waitForExistence(timeout: 3),
-                      "the lobby should show the session receipt after cashing out")
+                      "the lobby should show the session summary after ending a session")
     }
 
-    func testBuyInUsesCompactArrowsAndFullAmountFormatting() {
+    func testSetupUsesCompactArrowsAndFullAmountFormatting() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
@@ -526,33 +526,33 @@ final class FlowUITests: XCTestCase {
         let increase = app.buttons["buyInIncrease"]
 
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
-        XCTAssertEqual(amount.label, "$100")
-        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "$5")
+        XCTAssertEqual(amount.label, "100")
+        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "5")
         XCTAssertTrue(decrease.exists)
         XCTAssertTrue(increase.exists)
         XCTAssertFalse(app.segmentedControls["buyInStepPicker"].exists,
-                       "buy in should not require a separate adjustment-step control")
+                       "starting chips should not require a separate adjustment-step control")
         XCTAssertFalse(app.buttons["buyInPreset500"].exists)
         XCTAssertFalse(app.steppers["buyInStepper"].exists)
 
         decrease.tap()
-        XCTAssertEqual(amount.label, "$50")
+        XCTAssertEqual(amount.label, "50")
         increase.tap()
-        XCTAssertEqual(amount.label, "$100")
+        XCTAssertEqual(amount.label, "100")
         increase.tap()
-        XCTAssertEqual(amount.label, "$250")
+        XCTAssertEqual(amount.label, "250")
     }
 
-    func testBuyInIncludesTableRules() {
+    func testSetupIncludesTableRules() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["BUY IN"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["STARTING CHIPS"].waitForExistence(timeout: 5))
         let deckPicker = app.descendants(matching: .any)["buyInDeckPicker"]
         let dealerPicker = app.descendants(matching: .any)["buyInDealerPicker"]
-        XCTAssertTrue(deckPicker.exists, "the buy-in lobby should let players choose the deck count")
-        XCTAssertTrue(dealerPicker.exists, "the buy-in lobby should let players choose the dealer soft-17 rule")
+        XCTAssertTrue(deckPicker.exists, "the session lobby should let players choose the deck count")
+        XCTAssertTrue(dealerPicker.exists, "the session lobby should let players choose the dealer soft-17 rule")
 
         deckPicker.tap()
         app.buttons["4"].tap()
@@ -569,7 +569,7 @@ final class FlowUITests: XCTestCase {
         XCTAssertEqual(tableDealerPicker.value as? String, "Hits soft 17")
     }
 
-    func testBuyInUsesBrandedHeaderWithoutTutorialShortcut() {
+    func testSetupUsesBrandedHeaderWithoutTutorialShortcut() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
@@ -580,17 +580,17 @@ final class FlowUITests: XCTestCase {
                              "the branded Play title should use the larger header style")
         XCTAssertFalse(app.staticTexts["Blackjack"].exists)
         XCTAssertFalse(app.buttons["learnBlackjackHeaderButton"].exists,
-                       "the buy-in lobby should not show the How to Play shortcut")
+                       "the session lobby should not show the How to Play shortcut")
     }
 
-    func testBuyInSetupIsVerticallyCenteredInAvailablePlayArea() {
+    func testSetupSetupIsVerticallyCenteredInAvailablePlayArea() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
 
         let title = app.staticTexts["Hit Me"]
-        let buyInHeading = app.staticTexts["BUY IN"]
-        let footer = app.staticTexts["Play until you cash out or run out of chips."]
+        let buyInHeading = app.staticTexts["STARTING CHIPS"]
+        let footer = app.staticTexts["Play until you end the session or run out of chips."]
         let playTab = app.buttons["tab_play"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(buyInHeading.exists)
@@ -600,7 +600,7 @@ final class FlowUITests: XCTestCase {
         let availableMidY = (title.frame.maxY + playTab.frame.minY) / 2
         let setupMidY = (buyInHeading.frame.minY + footer.frame.maxY) / 2
         XCTAssertEqual(setupMidY, availableMidY, accuracy: 50,
-                       "the buy-in controls should be centered between the header and tab bar")
+                       "the session controls should be centered between the header and tab bar")
     }
 
     func testMinimumBetUsesFullAmountFormatting() {
@@ -616,7 +616,7 @@ final class FlowUITests: XCTestCase {
         let amount = app.staticTexts["minimumBetAmount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
         for _ in 0..<8 { app.buttons["minimumBetIncrease"].tap() }
-        XCTAssertEqual(amount.label, "$2,000")
+        XCTAssertEqual(amount.label, "2,000")
     }
 
     func testMinimumBetUsesCompactPreviousAndNextControls() {
@@ -633,7 +633,7 @@ final class FlowUITests: XCTestCase {
         let increase = app.buttons["minimumBetIncrease"]
 
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
-        XCTAssertEqual(amount.label, "$5")
+        XCTAssertEqual(amount.label, "5")
         XCTAssertTrue(decrease.exists)
         XCTAssertTrue(increase.exists)
         XCTAssertTrue(increase.isEnabled)
@@ -641,11 +641,9 @@ final class FlowUITests: XCTestCase {
                        "minimum selection should not open the full list")
 
         increase.tap()
-        let tenDollarMinimum = app.staticTexts["$10"]
-        XCTAssertTrue(tenDollarMinimum.waitForExistence(timeout: 2))
+        XCTAssertEqual(amount.label, "10")
         decrease.tap()
-        XCTAssertTrue(tenDollarMinimum.waitForNonExistence(timeout: 2))
-        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "$5")
+        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "5")
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {
@@ -674,12 +672,12 @@ final class FlowUITests: XCTestCase {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
-        sitDownIfNeeded(app)
+        startSessionIfNeeded(app)
 
         // Turn on deviations + mid-hand count checks.
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
         // A prior test may have left numHands > 1 persisted — each spot now needs
-        // its own wager, so force back to a single spot for this single-bet loop.
+        // its own bet, so force back to a single spot for this single-bet loop.
         if app.segmentedControls.buttons["1"].exists { app.segmentedControls.buttons["1"].tap() }
         openHeaderMenu(app)
         app.buttons["settingsButton"].tap()

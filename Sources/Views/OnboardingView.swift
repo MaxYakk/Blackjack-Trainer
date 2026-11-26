@@ -53,10 +53,18 @@ struct OnboardingView: View {
                         .accessibilityIdentifier("onboardingGetStarted")
                         .padding(.horizontal, 24)
 
+                        Text(PracticeNotice.line)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.white.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                            .padding(.horizontal, 24)
+                            .padding(.top, 12)
+                            .accessibilityIdentifier("practiceNotice")
+
                         Label("Progress is saved on this device", systemImage: "lock.fill")
                             .font(.caption.weight(.medium))
                             .foregroundStyle(.white.opacity(0.5))
-                            .padding(.top, 14)
+                            .padding(.top, 8)
                     }
                     .padding(.top, 12)
                     .padding(.bottom, 18)
@@ -123,12 +131,6 @@ private struct WelcomeTableau: View {
             RoundedRectangle(cornerRadius: 76)
                 .stroke(Color.white.opacity(0.07), lineWidth: 1)
                 .frame(width: 274, height: 132)
-
-            Text("BLACKJACK PAYS 3 TO 2")
-                .font(.system(size: 8, weight: .bold, design: .rounded))
-                .tracking(1.3)
-                .foregroundStyle(Theme.accent.opacity(0.54))
-                .offset(y: -66)
 
             CardView(card: Card(rank: .ace, suit: .spades), size: 1.55)
                 .rotationEffect(.degrees(-9))

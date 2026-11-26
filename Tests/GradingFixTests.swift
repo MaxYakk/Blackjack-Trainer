@@ -137,7 +137,7 @@ struct GradingFixTests {
     }
 
     @Test func bigBetAtNegativeCountIsTooHigh() {
-        // $10,000 stack at $25: the stack could carry $150, but the count says $25.
+        // 10,000 chips at a 25 minimum: the chips could carry 150, but the count says 25.
         #expect(Self.bet(150, count: 1) == .tooHigh)
         #expect(Self.bet(75, count: 1) == .tooHigh)
         #expect(Self.bet(50, count: 1) == .acceptable)

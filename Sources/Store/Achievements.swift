@@ -39,7 +39,7 @@ enum Achievements {
         var quizBestStreak = 0
         var handsPlayed = 0
         var blackjacks = 0
-        var bestSessionNet: Double = 0   // peak profit over buy-in, best session ever
+        var bestSessionNet: Double = 0   // most chips above the starting chips, best session ever
         var bestDrillStreak = 0
         var countChecksCorrect = 0
         var betDecisions = 0
@@ -63,7 +63,7 @@ enum Achievements {
             count("century", "100.circle.fill", "Century",
                   "Make 100 graded decisions", .silver, "Strategy",
                   current: i.decisions, target: 100),
-            count("grinder", "flame.circle.fill", "Grinder",
+            count("grinder", "flame.circle.fill", "Marathon",
                   "Make 1,000 graded decisions", .gold, "Strategy",
                   current: i.decisions, target: 1_000),
             gated("sharp", "scope", "Sharp",
@@ -103,14 +103,14 @@ enum Achievements {
             count("natural", "sparkles", "Natural",
                   "Land your first blackjack", .bronze, "Table Play",
                   current: i.blackjacks, target: 1),
-            count("lucky-sevens", "7.circle.fill", "Lucky Sevens",
+            count("lucky-sevens", "7.circle.fill", "Seven Naturals",
                   "Land 7 blackjacks", .silver, "Table Play",
                   current: i.blackjacks, target: 7),
-            money("high-roller", "dollarsign.circle.fill", "High Roller",
-                  "Get $500 up on a session's buy-in", .silver, "Table Play",
+            chipGoal("high-roller", "arrow.up.right.circle.fill", "Hot Session",
+                  "Climb 500 chips above your starting chips in one session", .silver, "Table Play",
                   current: i.bestSessionNet, target: 500),
-            money("whale", "fish.fill", "Whale",
-                  "Get $1,500 up on a session's buy-in", .gold, "Table Play",
+            chipGoal("whale", "star.circle.fill", "Peak Session",
+                  "Climb 1,500 chips above your starting chips in one session", .gold, "Table Play",
                   current: i.bestSessionNet, target: 1_500),
 
             // MARK: Card Counting
@@ -126,7 +126,7 @@ enum Achievements {
             count("disciplined", "chart.bar.fill", "Disciplined",
                   "Grade 25 bets against the count", .bronze, "Card Counting",
                   current: i.betDecisions, target: 25),
-            gated("bankroll-boss", "banknote.fill", "Bankroll Boss",
+            gated("bankroll-boss", "target", "Bet Master",
                   "85% bet accuracy over 40+ bets", .gold, "Card Counting",
                   volume: i.betDecisions, volumeTarget: 40,
                   quality: betAccuracy, qualityTarget: 0.85),
@@ -166,14 +166,14 @@ enum Achievements {
         )
     }
 
-    private static func money(
+    private static func chipGoal(
         _ id: String, _ icon: String, _ title: String, _ detail: String,
         _ tier: Achievement.Tier, _ category: String, current: Double, target: Double
     ) -> Achievement {
         Achievement(
             id: id, icon: icon, title: title, detail: detail, tier: tier, category: category,
             progress: min(current / max(target, 1), 1),
-            progressText: "$\(Int(min(current, target)))/$\(Int(target))"
+            progressText: "\(Int(max(min(current, target), 0)))/\(Int(target)) chips"
         )
     }
 

@@ -3,12 +3,14 @@ import SwiftUI
 struct PlayView: View {
     @Environment(Stats.self) private var stats
     @State private var engine: PlayEngine?
+    /// Chips returned after an interrupted hand, shown once on the table.
+    @State private var refundedChips = 0.0
 
     var body: some View {
         Group {
             if let engine {
                 if engine.sessionActive {
-                    PlayContent(engine: engine)
+                    PlayContent(engine: engine, refundedChips: $refundedChips)
                 } else {
                     SessionSetupView(engine: engine)
                 }
@@ -17,18 +19,22 @@ struct PlayView: View {
             }
         }
         .onAppear {
-            if engine == nil { engine = PlayEngine(stats: stats) }
+            if engine == nil {
+                engine = PlayEngine(stats: stats)
+                refundedChips = stats.refundedWagerOnLaunch
+            }
         }
     }
 }
 
 private struct PlayContent: View {
     @Bindable var engine: PlayEngine
+    @Binding var refundedChips: Double
     @Environment(Stats.self) private var stats
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showSettings = false
     @State private var showBeginnerTutorial = false
-    @State private var showCashOut = false
+    @State private var showEndSession = false
 
     // Round-result effects, triggered when the round settles.
     @State private var showWinOverlay = false
@@ -46,9 +52,9 @@ private struct PlayContent: View {
                 footer
             }
             effectsLayer
-            cashOutOverlay
+            endSessionOverlay
         }
-        .animation(.easeOut(duration: 0.22), value: showCashOut)
+        .animation(.easeOut(duration: 0.22), value: showEndSession)
         .sheet(isPresented: $showSettings) {
             SettingsSheet(engine: engine)
                 .presentationDetents([.large])
@@ -57,26 +63,27 @@ private struct PlayContent: View {
             BeginnerBlackjackTutorial()
         }
         .onChange(of: engine.phase) { _, phase in
+            if phase != .betting { refundedChips = 0 }   // the returned-chips note shows once
             roundSettled(phase)
         }
     }
 
-    /// A felt-styled confirmation centered over the table, replacing the
-    /// generic bottom action sheet the system default used to show.
+    /// A confirmation centered over the table, replacing the generic bottom
+    /// action sheet the system default used to show.
     @ViewBuilder
-    private var cashOutOverlay: some View {
-        if showCashOut {
+    private var endSessionOverlay: some View {
+        if showEndSession {
             Color.black.opacity(0.55)
                 .ignoresSafeArea()
                 .transition(.opacity)
-                .onTapGesture { showCashOut = false }
-            CashOutConfirmCard(
-                amount: engine.money(engine.bankroll),
+                .onTapGesture { showEndSession = false }
+            EndSessionConfirmCard(
+                amount: Money.chips(engine.bankroll),
                 onConfirm: {
                     engine.cashOut()
-                    showCashOut = false
+                    showEndSession = false
                 },
-                onCancel: { showCashOut = false }
+                onCancel: { showEndSession = false }
             )
             .transition(.scale(scale: 0.9).combined(with: .opacity))
         }
@@ -140,7 +147,7 @@ private struct PlayContent: View {
     }
 
     /// A single top-right menu button replaces three separate header pills —
-    /// "How to Play", "Cash Out", and "Table Options" together didn't fit
+    /// "How to Play", "End session", and "Table Options" together didn't fit
     /// next to the title without wrapping.
     private var headerMenu: some View {
         Menu {
@@ -152,9 +159,9 @@ private struct PlayContent: View {
             .accessibilityIdentifier("learnBlackjackHeaderButton")
 
             Button {
-                showCashOut = true
+                showEndSession = true
             } label: {
-                Label("Cash Out", systemImage: "dollarsign.circle")
+                Label("End session", systemImage: "flag.checkered")
             }
             .disabled(!engine.canCashOut)
             .accessibilityIdentifier("cashOutButton")
@@ -308,6 +315,15 @@ private struct PlayContent: View {
 
     private var bannerArea: some View {
         VStack(spacing: 6) {
+            if refundedChips > 0 && engine.phase == .betting {
+                tableNote(
+                    "Your last hand was interrupted; \(Money.chips(refundedChips)) were returned.",
+                    identifier: "refundNote"
+                )
+            }
+            if engine.shuffledForNextRound || engine.shuffledMidRound {
+                tableNote("Shuffling a new shoe", identifier: "shuffleNote")
+            }
             if !engine.feedbackText.isEmpty {
                 Text(engine.feedbackText)
                     .font(.footnote.weight(.semibold))
@@ -325,10 +341,20 @@ private struct PlayContent: View {
         .animation(.easeInOut, value: engine.feedbackText)
     }
 
+    /// A small one-line notice on the table (shoe shuffles, returned chips).
+    private func tableNote(_ text: String, identifier: String) -> some View {
+        Text(text)
+            .font(.caption)
+            .foregroundStyle(.white.opacity(0.85))
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(Color.black.opacity(0.28), in: Capsule())
+            .accessibilityIdentifier(identifier)
+    }
+
     /// One betting spot per hand, laid out in the same arc the dealt hands will
     /// use, so the transition from betting to playing doesn't jump around. Tap a
     /// spot to make it active, then tap chips to add to that spot specifically —
-    /// each hand can carry its own wager.
+    /// each hand can carry its own bet.
     private var bettingSpots: some View {
         GeometryReader { geo in
             arcRowSpots(geo: geo)
@@ -338,7 +364,7 @@ private struct PlayContent: View {
     private func arcRowSpots(geo: GeometryProxy) -> some View {
         let count = engine.numHands
         let mid = Double(count - 1) / 2
-        // Reserve room for the spot label, the "$0.00" amount, and the arc
+        // Reserve room for the spot label, the "Bet 0" amount, and the arc
         // drop itself, then size the circle from whatever height is actually
         // left — never a fixed size that can overflow into the controls below.
         let labelHeight: CGFloat = count > 1 ? 20 : 0
@@ -396,7 +422,7 @@ private struct PlayContent: View {
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("bettingCircle\(index)")
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: bet)
-                Text(engine.money(bet))
+                Text("Bet \(engine.money(bet))")
                     .font(.headline)
                     .foregroundStyle(Theme.accent)
                     .accessibilityIdentifier(index == 0 ? "betAmount" : "betAmount\(index)")
@@ -554,7 +580,7 @@ private struct PlayContent: View {
     }
 
     /// The settled-round plaque under the table: outcome word on the left,
-    /// money on the right, one detail line beneath.
+    /// chips won or lost on the right, one detail line beneath.
     private var roundResultCard: some View {
         let net = engine.lastRoundNet
         let anyHandWon = engine.hands.contains { $0.result == .win || $0.result == .blackjack }
@@ -565,8 +591,8 @@ private struct PlayContent: View {
             : (net < 0 ? (anyHandWon ? "DEALER AHEAD" : "DEALER WINS") : "PUSH")
         let titleColor: Color = net > 0 ? Theme.accent : (net < 0 ? Theme.bad : .white.opacity(0.8))
         let amountText = net > 0
-            ? "+\(engine.money(net))"
-            : (net < 0 ? "Lost \(engine.money(-net))" : "Bet returned")
+            ? Money.signedChips(net)
+            : (net < 0 ? "Lost \(Money.chips(-net))" : "Bet returned")
         let amountColor: Color = net > 0 ? .white : (net < 0 ? Theme.bad : .white)
         return VStack(spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
@@ -653,7 +679,7 @@ private struct PlayContent: View {
 
     private var footer: some View {
         HStack {
-            footerItem("BALANCE", engine.money(engine.bankroll), Theme.accent)
+            footerItem("CHIPS", engine.money(engine.bankroll), Theme.accent)
             Divider().frame(height: 30).overlay(.white.opacity(0.2))
             footerItem("SESSION", sessionNetText,
                        engine.sessionNet > 0.005 ? Theme.good : (engine.sessionNet < -0.005 ? Theme.bad : .white))
@@ -665,7 +691,7 @@ private struct PlayContent: View {
         .background(.ultraThinMaterial)
     }
 
-    /// Session profit shown with arrows instead of signs, so it reads like a
+    /// Session result shown with arrows instead of signs, so it reads like a
     /// scoreboard rather than an accounting line.
     private var sessionNetText: String {
         let net = engine.sessionNet

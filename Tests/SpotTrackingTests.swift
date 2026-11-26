@@ -35,9 +35,9 @@ struct SpotTrackingTests {
 
     @Test static func chipSizingTests() {
         // Every configurable minimum must be coverable by its tray's biggest
-        // chip — the old ceiling-based bump left a $10K minimum with $1K chips.
+        // chip — the old ceiling-based bump left a 10K minimum with 1K chips.
         for minimum in ChipSizing.minimumOptions {
-            for buyIn in [minimum, minimum * 2, minimum * 20, 500_000] {
+            for buyIn in [minimum, minimum * 2, minimum * 5, ChipSizing.maxStartingChips] {
                 let denoms = ChipSizing.denominations(buyIn: buyIn, tableMinimum: minimum)
                 #expect(denoms.max()! >= minimum,
                              "Largest chip \(denoms.max()!) can't reach minimum \(minimum) at buy-in \(buyIn)")
@@ -99,7 +99,7 @@ struct SpotTrackingTests {
         roller.bestSessionNet = 500
         let rollerAll = Achievements.all(from: roller)
         #expect(rollerAll.first { $0.id == "high-roller" }!.unlocked,
-                     "$500 up should unlock High Roller")
+                     "500 chips up should unlock Hot Session")
         #expect(!rollerAll.first { $0.id == "whale" }!.unlocked,
                      "$500 up must not unlock Whale (needs $1,500)")
 
