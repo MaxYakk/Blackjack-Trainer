@@ -37,13 +37,17 @@ final class QuizEngine {
     private(set) var streak = 0
     private(set) var lastCorrect: Action?
 
+    /// Saved difficulty. Other screens (Progress "Drill these") write it to
+    /// switch the quiz's mode; QuizView applies the change.
+    static let difficultyKey = "qe_difficulty"
+
     var difficulty: QuizDifficulty = .normal {
         didSet {
             // Under @Observable, stored properties become computed, so this
             // didSet ALSO fires for the restore assignment inside init —
             // guard it or the first hand gets dealt twice.
             guard restored else { return }
-            UserDefaults.standard.set(difficulty.rawValue, forKey: "qe_difficulty")
+            UserDefaults.standard.set(difficulty.rawValue, forKey: Self.difficultyKey)
             next()
         }
     }
@@ -53,7 +57,7 @@ final class QuizEngine {
 
     init(stats: Stats) {
         self.stats = stats
-        if let saved = UserDefaults.standard.string(forKey: "qe_difficulty"),
+        if let saved = UserDefaults.standard.string(forKey: Self.difficultyKey),
            let value = QuizDifficulty(rawValue: saved) {
             difficulty = value
         }

@@ -30,6 +30,9 @@ struct DailyChallengeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.bg.ignoresSafeArea())
+        // A started counted run is used up by leaving, so swiping down can't
+        // skip the "Leave today's challenge?" question the X button asks.
+        .interactiveDismissDisabled(engine.map { !$0.isReplay && !$0.finished && ($0.index > 0 || $0.answered) } ?? false)
         .onAppear {
             // Also rebuilds when a kept alive view reappears after midnight,
             // so a stale engine can't record under yesterday's key.

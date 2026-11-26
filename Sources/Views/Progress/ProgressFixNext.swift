@@ -50,7 +50,11 @@ struct ProgressFixNext: View {
 
     @ViewBuilder
     private var actions: some View {
-        PrimaryButton("Drill these in Smart mode", systemImage: "bolt.fill") { selectTab(.quiz) }
+        PrimaryButton("Drill these in Smart mode", systemImage: "bolt.fill") {
+            // QuizView follows this key, so the quiz is on Smart when it opens.
+            UserDefaults.standard.set(QuizDifficulty.smart.rawValue, forKey: QuizEngine.difficultyKey)
+            selectTab(.quiz)
+        }
             .accessibilityHint("Opens the Quiz tab. Smart mode deals your weak spots first.")
             .accessibilityIdentifier("drillLeaksButton")
         let recurring = stats.recurringMistakes

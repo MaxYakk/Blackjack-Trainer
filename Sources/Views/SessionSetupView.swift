@@ -321,11 +321,20 @@ struct SessionSetupView: View {
         editing = field
     }
 
+    /// Reads a typed amount in the device's number format ("1,250" or
+    /// "2,5" in a comma-decimal locale), falling back to plain digits.
+    static func parseAmount(_ text: String, locale: Locale = .current) -> Double? {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        let formatter = NumberFormatter()
+        formatter.locale = locale
+        formatter.numberStyle = .decimal
+        if let number = formatter.number(from: trimmed) { return number.doubleValue }
+        return Double(trimmed)
+    }
+
     private func commitDraft() {
         defer { editing = nil }
-        let cleaned = draft.replacingOccurrences(of: ",", with: "")
-            .trimmingCharacters(in: .whitespaces)
-        guard let raw = Double(cleaned), raw.isFinite, raw > 0 else { return }
+        guard let raw = Self.parseAmount(draft), raw.isFinite, raw > 0 else { return }
         let value = min((raw * 100).rounded() / 100, maxAmount)
         guard value >= 0.01 else { return }
         switch editing {

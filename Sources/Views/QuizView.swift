@@ -3,6 +3,9 @@ import SwiftUI
 struct QuizView: View {
     @Environment(Stats.self) private var stats
     @State private var engine: QuizEngine?
+    /// Mirrors the engine's saved difficulty so a mode chosen elsewhere
+    /// (Progress "Drill these in Smart mode") applies when the tab opens.
+    @AppStorage(QuizEngine.difficultyKey) private var storedDifficulty = QuizDifficulty.normal.rawValue
 
     var body: some View {
         Group {
@@ -13,6 +16,10 @@ struct QuizView: View {
             }
         }
         .onAppear { if engine == nil { engine = QuizEngine(stats: stats) } }
+        .onChange(of: storedDifficulty) { _, raw in
+            guard let engine, let mode = QuizDifficulty(rawValue: raw), engine.difficulty != mode else { return }
+            engine.difficulty = mode
+        }
     }
 }
 
