@@ -36,6 +36,12 @@ final class FlowUITests: XCTestCase {
         startTraining.tap()
     }
 
+    /// A tab-bar button, found by its identifier (`tab_play`, `tab_quiz`, ...).
+    /// The identifier keeps it apart from in-screen buttons with the same title.
+    private func tabButton(_ app: XCUIApplication, _ title: String) -> XCUIElement {
+        app.buttons["tab_\(title.lowercased())"]
+    }
+
     /// The Hands per round segments are plain buttons labelled "1", "2", "3".
     private func handsSegment(_ app: XCUIApplication, _ count: Int) -> XCUIElement {
         app.buttons["\(count)"]
@@ -129,8 +135,8 @@ final class FlowUITests: XCTestCase {
         assertNoVisibleDashPunctuation(in: app)
 
         for tab in ["Quiz", "Strategy", "Progress"] {
-            app.buttons[tab].tap()
-            XCTAssertTrue(app.buttons["Play"].waitForExistence(timeout: 2))
+            tabButton(app, tab).tap()
+            XCTAssertTrue(tabButton(app, "Play").waitForExistence(timeout: 2))
             assertNoVisibleDashPunctuation(in: app)
         }
     }
@@ -140,7 +146,7 @@ final class FlowUITests: XCTestCase {
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
 
-        let countTab = app.tabBars.buttons["Count"]
+        let countTab = tabButton(app, "Count")
         XCTAssertTrue(countTab.waitForExistence(timeout: 5))
         countTab.tap()
 
@@ -164,7 +170,7 @@ final class FlowUITests: XCTestCase {
         ]
         app.launch()
 
-        let countTab = app.tabBars.buttons["Count"]
+        let countTab = tabButton(app, "Count")
         XCTAssertTrue(countTab.waitForExistence(timeout: 5))
         countTab.tap()
         let drillControl = app.buttons["countDrillControl"]
@@ -192,7 +198,7 @@ final class FlowUITests: XCTestCase {
         ]
         app.launch()
 
-        let progressTab = app.tabBars.buttons["Progress"]
+        let progressTab = tabButton(app, "Progress")
         XCTAssertTrue(progressTab.waitForExistence(timeout: 5))
         progressTab.tap()
 
@@ -382,14 +388,15 @@ final class FlowUITests: XCTestCase {
         doneButton.tap()
 
         // --- Progress tab ---
-        app.buttons["Progress"].tap()
+        tabButton(app, "Progress").tap()
         XCTAssertTrue(app.staticTexts["Bet Sizing"].waitForExistence(timeout: 4), "Progress should show Bet Sizing section")
         attach(app, "5-progress")
         Thread.sleep(forTimeInterval: 3)
     }
 
-    /// Tabs are not swipeable, so this only checks that swiping across the
-    /// table never crashes the app or drops the tab bar (an earlier crash report).
+    /// Swiping the page moves between tabs and the bar follows; tapping a tab
+    /// moves the page too. Then it swipes back and forth many times to make
+    /// sure the pager never crashes the app or drops the tab bar.
     func testSwipeNavigation() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
@@ -397,13 +404,54 @@ final class FlowUITests: XCTestCase {
         startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
 
+        let play = tabButton(app, "Play")
+        let quiz = tabButton(app, "Quiz")
+        let count = tabButton(app, "Count")
+        XCTAssertTrue(play.isSelected, "the app should open on Play")
+        XCTAssertFalse(quiz.isSelected)
+
+        // Swipe left: next tab.
+        app.swipeLeft()
+        XCTAssertTrue(waitUntil { quiz.isSelected }, "swiping left should move from Play to Quiz")
+        XCTAssertFalse(play.isSelected)
+        XCTAssertFalse(app.buttons["chip0"].exists,
+                       "the Play table should be hidden once Quiz is showing")
+
+        app.swipeLeft()
+        XCTAssertTrue(waitUntil { count.isSelected }, "swiping left again should reach Count")
+
+        // Swipe right: back, one tab at a time.
+        app.swipeRight()
+        XCTAssertTrue(waitUntil { quiz.isSelected }, "swiping right should go back to Quiz")
+        app.swipeRight()
+        XCTAssertTrue(waitUntil { play.isSelected }, "swiping right again should return to Play")
+        XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 3),
+                      "Play should still be on the betting table after the round trip")
+
+        // Tapping the bar moves the page too.
+        tabButton(app, "Progress").tap()
+        XCTAssertTrue(waitUntil { tabButton(app, "Progress").isSelected })
+        play.tap()
+        XCTAssertTrue(waitUntil { play.isSelected })
+
+        // Stress: no crash, bar always present.
         for i in 0..<20 {
             app.swipeLeft()
             usleep(250_000)
-            XCTAssertTrue(app.buttons["Play"].exists, "app died after swipe-left #\(i)")
+            XCTAssertTrue(play.exists, "app died after swipe-left #\(i)")
             if i % 3 == 0 { app.swipeRight(); usleep(250_000) }
-            XCTAssertTrue(app.buttons["Play"].exists, "app died after swipe-right #\(i)")
+            XCTAssertTrue(play.exists, "app died after swipe-right #\(i)")
         }
+    }
+
+    /// Polls `condition` for a few seconds (page swipes and bar updates are animated).
+    private func waitUntil(timeout: TimeInterval = 4, _ condition: () -> Bool) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if condition() { return true }
+            usleep(100_000)
+        }
+        return condition()
     }
 
     /// Plays min-bet hands until a splittable pair appears, then verifies split produces a 2nd hand.
@@ -617,7 +665,7 @@ final class FlowUITests: XCTestCase {
         let title = app.staticTexts["Hit Me"]
         let buyInHeading = app.staticTexts["STARTING MONEY"]
         let footer = app.staticTexts["Play until you end the session or run out of money."]
-        let playTab = app.tabBars.buttons["Play"]
+        let playTab = tabButton(app, "Play")
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(buyInHeading.exists)
         XCTAssertTrue(footer.exists)
@@ -748,13 +796,13 @@ final class FlowUITests: XCTestCase {
         // Rapidly switch tabs (exercise Quiz / Progress / Strategy rendering).
         for _ in 0..<3 {
             for tab in ["Quiz", "Count", "Strategy", "Progress", "Play"] {
-                app.buttons[tab].tap()
+                tabButton(app, tab).tap()
                 usleep(200_000)
             }
         }
 
         // Answer several quiz questions.
-        app.buttons["Quiz"].tap()
+        tabButton(app, "Quiz").tap()
         for _ in 0..<12 {
             for action in ["Hit", "Stand", "Double"] {
                 let b = app.buttons[action]
@@ -764,6 +812,6 @@ final class FlowUITests: XCTestCase {
             if next.waitForExistence(timeout: 3) { next.tap() }
         }
 
-        XCTAssertTrue(app.buttons["Play"].exists, "app still alive after stress")
+        XCTAssertTrue(tabButton(app, "Play").exists, "app still alive after stress")
     }
 }
