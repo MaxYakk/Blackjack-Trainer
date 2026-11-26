@@ -20,8 +20,11 @@ struct QuizView: View {
         .onAppear {
             if engine == nil { engine = QuizEngine(stats: stats) }
             applyReviewRequest()
+            engine?.refreshReview()
         }
         .onChange(of: reviewRequested) { _, _ in applyReviewRequest() }
+        // New misses from Play or the Daily Challenge refill an emptied review.
+        .onChange(of: engine?.reviewRemaining) { _, _ in engine?.refreshReview() }
         .onChange(of: storedDifficulty) { _, raw in
             guard let engine, let mode = QuizDifficulty(rawValue: raw), mode != .review,
                   engine.difficulty != mode else { return }
@@ -32,7 +35,7 @@ struct QuizView: View {
     private func applyReviewRequest() {
         guard reviewRequested, let engine else { return }
         reviewRequested = false
-        if !engine.isReviewing { engine.startReview() }
+        if engine.isReviewing { engine.refreshReview() } else { engine.startReview() }
     }
 }
 

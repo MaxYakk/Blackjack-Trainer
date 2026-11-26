@@ -110,6 +110,13 @@ final class QuizEngine {
 
     func startReview() { difficulty = .review }
 
+    /// Deals a hand when review had run out but new misses have arrived since
+    /// (from Play or the Daily Challenge). Does nothing while a hand is showing.
+    func refreshReview() {
+        guard reviewIsEmpty, !stats.reviewQueue.isEmpty else { return }
+        next()
+    }
+
     func endReview() { difficulty = modeBeforeReview }
 
     private func dealReviewSpot() {

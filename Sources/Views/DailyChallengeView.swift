@@ -9,6 +9,7 @@ struct DailyChallengeView: View {
     @Environment(Stats.self) private var stats
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
     @State private var engine: DailyChallengeEngine?
     /// True while the sheet shows today's saved result instead of a run.
     @State private var showingSavedResult = false
@@ -38,14 +39,21 @@ struct DailyChallengeView: View {
         // A started counted run is used up by leaving, so swiping down can't
         // skip the "Leave today's challenge?" question the X button asks.
         .interactiveDismissDisabled(engine.map { !$0.isReplay && !$0.finished && ($0.index > 0 || $0.answered) } ?? false)
-        .onAppear {
-            // Also rebuilds when a kept alive view reappears after midnight,
-            // so a stale engine can't record under yesterday's key.
-            if engine?.dateKey != stats.todayDateKey {
-                engine = DailyChallengeEngine(stats: stats, dateKey: stats.todayDateKey)
-                showingSavedResult = stats.todayChallenge != nil
-            }
+        .onAppear(perform: refreshForToday)
+        // The sheet can stay open overnight (app in the background), and
+        // onAppear doesn't run again then.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshForToday() }
         }
+    }
+
+    /// Deals today's challenge when there is no run yet or the open one is
+    /// from an earlier day, so a stale run can't record under yesterday's date
+    /// or stay practice (or counted) on the wrong day.
+    private func refreshForToday() {
+        guard engine?.dateKey != stats.todayDateKey else { return }
+        engine = DailyChallengeEngine(stats: stats, dateKey: stats.todayDateKey)
+        showingSavedResult = stats.todayChallenge != nil
     }
 
     /// A fresh run of today's hands. Today's counted run is already used, so
@@ -91,10 +99,14 @@ struct DailyChallengeView: View {
             Group {
                 if engine.answered {
                     PrimaryButton(engine.index + 1 >= engine.spots.count ? "See results" : "Next") {
-                        engine.next()
+                        refreshForToday()
+                        engine.next()   // ignored if the run just went stale
                     }
                 } else if let spot = engine.current {
-                    DecisionPad(canSplit: spot.isPair) { engine.answer($0) }
+                    DecisionPad(canSplit: spot.isPair) { action in
+                        refreshForToday()
+                        engine.answer(action)   // ignored if the run just went stale
+                    }
                 }
             }
             .padding(.horizontal, Space.md)
