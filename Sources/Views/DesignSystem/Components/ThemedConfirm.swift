@@ -81,6 +81,9 @@ extension View {
     /// Replaces the `.alert` + `TextField` used to edit an amount.
     /// `onConfirm` runs when the player taps the confirm button or presses return;
     /// reading `text` there gives the typed value. Cancel and scrim tap just close.
+    /// `onConfirm` runs BEFORE the prompt closes, so state the caller clears
+    /// when `isPresented` turns false (such as which field is being edited)
+    /// is still there when it reads it.
     func themedTextPrompt(_ title: String,
                           message: String? = nil,
                           text: Binding<String>,
@@ -90,8 +93,8 @@ extension View {
                           confirmTitle: String = "Set",
                           onConfirm: @escaping () -> Void) -> some View {
         let confirm = {
-            isPresented.wrappedValue = false
             onConfirm()
+            isPresented.wrappedValue = false
         }
         let cancel = { isPresented.wrappedValue = false }
         return modifier(ThemedModalPresenter(isPresented: isPresented, onDismiss: cancel) {
@@ -251,8 +254,10 @@ private struct ThemedAlertButtons: View {
     @ViewBuilder
     private func row(_ button: ThemedAlertButton) -> some View {
         let run = {
-            isPresented = false
+            // Act first, then close: the action may read state that the
+            // caller resets when the card closes.
             button.action()
+            isPresented = false
         }
         switch button.role {
         case .primary:
