@@ -136,7 +136,7 @@ struct MistakeReviewView: View {
                     .font(.heading)
                     .foregroundStyle(.positive)
             }
-            Text("\(Int(item.stat.accuracy * 100))% correct across \(item.stat.total) attempts")
+            Text("\(Achievements.roundedPercent(item.stat.accuracy))% correct across \(item.stat.total) attempts")
                 .font(.captionText)
                 .foregroundStyle(.textSecondary)
         }

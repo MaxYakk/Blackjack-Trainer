@@ -48,6 +48,10 @@ private struct QuizContent: View {
     /// correct answer. Off by default so the "why" line stays readable.
     @AppStorage("quiz_autoAdvance") private var autoAdvance = false
 
+    /// False while another tab is showing; tab views stay alive, so the
+    /// auto-advance below must check it before dealing.
+    @State private var isOnScreen = true
+
     private static let autoAdvanceDelay: Duration = .milliseconds(600)
 
     var body: some View {
@@ -88,13 +92,15 @@ private struct QuizContent: View {
             bottomBar
         }
         .background(Color.bg.ignoresSafeArea())
+        .onAppear { isOnScreen = true }
+        .onDisappear { isOnScreen = false }
         // Correct answers can move on by themselves; cancelled automatically
         // when the player taps Next first (`answered` flips back to false).
         .task(id: engine.answered) {
-            guard engine.answered, engine.feedbackGood, autoAdvance,
+            guard isOnScreen, engine.answered, engine.feedbackGood, autoAdvance,
                   !UIAccessibility.isVoiceOverRunning else { return }
             try? await Task.sleep(for: Self.autoAdvanceDelay)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, isOnScreen else { return }
             Motion.perform(.quick, reduceMotion: reduceMotion) { engine.next() }
         }
     }
@@ -147,7 +153,7 @@ private struct QuizContent: View {
             StatTile(label: "Streak", value: "\(engine.streak)", tint: .warm)
             StatTile(label: "Best", value: "\(stats.data.quizBestStreak)")
             StatTile(label: "Accuracy",
-                     value: stats.data.quizTotal == 0 ? "N/A" : "\(Int(stats.quizAccuracy * 100))%")
+                     value: stats.data.quizTotal == 0 ? "N/A" : "\(Achievements.roundedPercent(stats.quizAccuracy))%")
         }
     }
 

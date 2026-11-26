@@ -238,6 +238,9 @@ final class Stats {
     static let backupKey = "blackjack_stats_v1_unreadable_backup"
 
     private let defaults: UserDefaults
+    /// The day the screens last saw. "Today" readers touch this so a day
+    /// rollover (see `refreshDay`) re-renders them.
+    private(set) var dayStamp = ""
     private static let log = Logger(subsystem: "BlackjackTrainer", category: "Stats")
 
     var data: StatsData {
@@ -360,6 +363,7 @@ final class Stats {
     func recordBet(correct: Bool) {
         data.betDecisions += 1
         if correct { data.betCorrect += 1 }
+        didRecord()
     }
 
     func adjustBankroll(_ delta: Double) {
@@ -395,6 +399,7 @@ final class Stats {
     /// the lifetime best. Called each time a round settles.
     func recordSessionProfit(_ net: Double) {
         data.bestSessionNet = max(data.bestSessionNet, net)
+        didRecord()
     }
 
     var recentDays: [DayStat] {
@@ -427,6 +432,7 @@ final class Stats {
         if correct { data.strategyCorrect += 1 }
         bumpDay(correct: correct)
         bumpSpot(spotKey, correct: correct)
+        didRecord()
     }
 
     private func bumpDay(correct: Bool) {
@@ -492,13 +498,15 @@ final class Stats {
 
     /// Graded decisions (Play + quiz) made today, toward the daily goal.
     var todayDecisions: Int {
-        data.days[todayKey()]?.strategyTotal ?? 0
+        _ = dayStamp
+        return data.days[todayKey()]?.strategyTotal ?? 0
     }
 
     /// Consecutive days the daily goal was met (today's unfinished day
     /// doesn't break the run).
     var dailyStreak: Int {
-        ProgressMetrics.dailyStreak(
+        _ = dayStamp
+        return ProgressMetrics.dailyStreak(
             dayTotals: data.days.mapValues(\.strategyTotal),
             goal: data.dailyGoal,
             today: Date()
@@ -530,8 +538,14 @@ final class Stats {
         ))
     }
 
-    /// The full trophy list, live against current data.
+    /// The full trophy list. A trophy never silently un-earns: anything with a
+    /// stamped date stays unlocked even if live accuracy later dips.
     var achievements: [Achievement] {
+        Achievements.keepingEarned(liveAchievements, dates: data.achievementDates)
+    }
+
+    /// Trophies judged against current data only (no memory of past unlocks).
+    private var liveAchievements: [Achievement] {
         Achievements.all(from: Achievements.Inputs(
             decisions: overallStrategyTotal,
             decisionsCorrect: overallStrategyCorrect,
@@ -557,11 +571,15 @@ final class Stats {
     func syncAchievementDates() {
         let result = Achievements.updatedDates(
             existing: data.achievementDates, seeded: data.achievementsSeeded,
-            unlocked: achievements.filter(\.unlocked).map(\.id), today: todayKey())
+            unlocked: liveAchievements.filter(\.unlocked).map(\.id), today: todayKey())
         guard result.dates != data.achievementDates || result.seeded != data.achievementsSeeded else { return }
         data.achievementDates = result.dates
         data.achievementsSeeded = result.seeded
     }
+
+    /// Stamps newly earned trophies right when the progress that earned them
+    /// is recorded, so the date is the real day and the trophy is kept.
+    private func didRecord() { syncAchievementDates() }
 
     /// The day key `days` days before today, for "recent" cutoffs.
     func dayKey(daysAgo days: Int) -> String {
@@ -575,7 +593,17 @@ final class Stats {
     /// means the same thing everywhere.
     var todayDateKey: String { todayKey() }
 
-    var todayChallenge: ChallengeResult? { data.challenges[todayKey()] }
+    var todayChallenge: ChallengeResult? {
+        _ = dayStamp
+        return data.challenges[todayKey()]
+    }
+
+    /// Call when the app becomes active or the clock/day changes, so
+    /// "today" values on screen re-read instead of showing yesterday's.
+    func refreshDay() {
+        let key = todayKey()
+        if key != dayStamp { dayStamp = key }
+    }
 
     /// A counted challenge rep counts toward overall accuracy, day totals and
     /// spot accuracy like any other graded decision, without inflating quiz stats.
@@ -584,6 +612,7 @@ final class Stats {
         if correct { data.challengeAnswersCorrect += 1 }
         bumpDay(correct: correct)
         bumpSpot(spotKey, correct: correct)
+        didRecord()
     }
 
     /// Keep the best score if the challenge is somehow replayed the same day.
@@ -593,6 +622,7 @@ final class Stats {
             data.challenges[dateKey] = ChallengeResult(score: score, total: total)
         }
         data.challengesStarted.remove(dateKey)   // finished; the result now marks the day
+        didRecord()
     }
 
     /// Marks the day's counted run as begun, so quitting and relaunching
@@ -617,6 +647,7 @@ final class Stats {
         case .push:
             data.handsPushed += 1
         }
+        didRecord()
     }
 
     func recordDrill(correct: Bool) {
@@ -628,6 +659,7 @@ final class Stats {
         } else {
             data.currentStreak = 0
         }
+        didRecord()
     }
 
     // MARK: - Strategy quiz
@@ -644,6 +676,7 @@ final class Stats {
         data.quizBestStreak = max(data.quizBestStreak, streak)
         bumpDay(correct: correct)
         bumpSpot(spotKey, correct: correct)
+        didRecord()
     }
 
     // MARK: - Mid-hand count checks
@@ -655,6 +688,7 @@ final class Stats {
     func recordCountCheck(correct: Bool) {
         data.countChecks += 1
         if correct { data.countChecksCorrect += 1 }
+        didRecord()
     }
 
     // MARK: - Bankroll curve
@@ -668,6 +702,7 @@ final class Stats {
 
     func resetAll() {
         data = StatsData()
+        data.achievementsSeeded = true   // nothing earned yet; new trophies get real dates
         sessionDecisions = 0
         sessionCorrect = 0
         sessionMistakes = []

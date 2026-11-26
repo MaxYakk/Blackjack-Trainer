@@ -138,7 +138,7 @@ struct SavedDataTests {
         #expect(!fresh.isReplay && !fresh.isStale)
     }
 
-    @Test func finishingAfterMidnightRecordsNothingUnderYesterday() {
+    @Test func lastAnswerBeforeMidnightIsSavedUnderItsOwnDayButRunDoesNotFinishAfter() {
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)
         var today = "2026-11-25"
@@ -151,7 +151,10 @@ struct SavedDataTests {
         today = "2026-11-26"
         run.next()
         #expect(!run.finished)
-        #expect(stats.data.challenges["2026-11-25"] == nil)
+        // The last answer was graded on the 25th, so its score is kept there
+        // (recorded at answer time, not at "See results"), never under the 26th.
+        #expect(stats.data.challenges["2026-11-25"]?.total == run.spots.count)
+        #expect(stats.data.challenges["2026-11-26"] == nil)
     }
 
     @Test func countedChallengeAnswersCountTowardOverallAccuracy() {

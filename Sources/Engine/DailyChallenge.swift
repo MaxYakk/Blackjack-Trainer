@@ -78,6 +78,11 @@ final class DailyChallengeEngine {
             if !ok {
                 stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
             }
+            // Save the score as soon as the last answer counts, so closing the
+            // app or crossing midnight before "See results" can't lose it.
+            if index + 1 >= spots.count {
+                stats.recordChallengeResult(score: score, total: spots.count, dateKey: dateKey)
+            }
         }
         Haptics.notify(ok ? 1 : -1)
     }
@@ -86,9 +91,6 @@ final class DailyChallengeEngine {
         guard answered, !isStale else { return }
         if index + 1 >= spots.count {
             finished = true
-            if !isReplay {
-                stats.recordChallengeResult(score: score, total: spots.count, dateKey: dateKey)
-            }
         } else {
             index += 1
             answered = false

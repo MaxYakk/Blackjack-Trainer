@@ -30,6 +30,7 @@ struct RootView: View {
     @State private var selection: Tab = .play
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(Stats.self) private var stats
+    @Environment(\.scenePhase) private var scenePhase
     @State private var showLoadIssue = false
     @State private var loadIssuePending = false
     @State private var loadIssueChecked = false
@@ -56,6 +57,15 @@ struct RootView: View {
             if stats.loadIssue == .unreadableSaveBackedUp { loadIssuePending = true }
             // With the welcome cover up, wait for it to close (onDismiss).
             if hasCompletedOnboarding { presentPendingLoadIssue() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { stats.refreshDay() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            stats.refreshDay()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            stats.refreshDay()
         }
         .themedConfirm("Your progress couldn't be loaded", isPresented: $showLoadIssue,
                        message: "Your saved progress couldn't be read, so you're starting fresh. A backup of the old data was kept on this device.",

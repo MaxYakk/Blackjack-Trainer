@@ -73,7 +73,7 @@ private struct LeakRow: View {
     let action: () -> Void
 
     var body: some View {
-        let accuracy = Int(item.stat.accuracy * 100)
+        let accuracy = Achievements.roundedPercent(item.stat.accuracy)
         let correctPlay = SpotID.correctActionName(item.key)
         Button(action: action) {
             HStack(spacing: Space.sm) {

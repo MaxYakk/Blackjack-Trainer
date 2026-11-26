@@ -73,7 +73,7 @@ struct AllAchievementsView: View {
                 .stroke(Color.accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
                 .motion(.emphasized, value: fraction)
-            Text("\(Int(fraction * 100))%")
+            Text("\(Achievements.roundedPercent(fraction))%")
                 .font(.captionText.weight(.bold))
                 .foregroundStyle(.accent)
                 .minimumScaleFactor(0.7)
