@@ -32,6 +32,24 @@ struct SecondaryButtonStyle: ButtonStyle {
     }
 }
 
+/// `negative` red, filled: the confirm button of something that can't be undone
+/// (Reset everything, Leave challenge). Used by the themed confirmation card.
+struct DestructiveButtonStyle: ButtonStyle {
+    var compact = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        StyledButtonBody(configuration: configuration, compact: compact,
+                         fill: .negative, text: .textPrimary)
+    }
+}
+
+extension ButtonStyle where Self == DestructiveButtonStyle {
+    /// Red filled button, 52pt tall.
+    static var destructive: DestructiveButtonStyle { DestructiveButtonStyle() }
+    /// Red filled button, 44pt tall.
+    static var destructiveCompact: DestructiveButtonStyle { DestructiveButtonStyle(compact: true) }
+}
+
 extension ButtonStyle where Self == PrimaryButtonStyle {
     /// Mint filled button, 52pt tall.
     static var primary: PrimaryButtonStyle { PrimaryButtonStyle() }

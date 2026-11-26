@@ -7,6 +7,17 @@ import SwiftUI
 struct DesignSystemPreview: View {
     @State private var feedback: String? = "Correct. Stand on 16 vs 10 at true count 0+."
     @State private var feedbackKind: FeedbackPill.Kind = .correct
+    @State private var segmentHands = 2
+    @State private var segmentDifficulty: PreviewDifficulty = .normal
+    @State private var decks = 6
+    @State private var dealerHitsSoft17 = false
+    @State private var toggleOn = true
+    @State private var toggleOff = false
+    @State private var showConfirm = false
+    @State private var showInfoAlert = false
+    @State private var showPrompt = false
+    @State private var promptText = "1000"
+    @State private var lastAction = "None yet"
 
     var body: some View {
         ScrollView {
@@ -19,6 +30,7 @@ struct DesignSystemPreview: View {
                 spacingSection
                 buttonsSection
                 feedbackSection
+                themedControlsSection
                 dataSection
                 cardsAndChipsSection
             }
@@ -26,6 +38,17 @@ struct DesignSystemPreview: View {
         }
         .background(Color.bg.ignoresSafeArea())
         .preferredColorScheme(.dark)
+        .themedConfirm("Reset all progress?", isPresented: $showConfirm,
+                       message: "This erases your stats, streak and practice chips. It can't be undone.",
+                       actions: [.destructive("Reset everything") { lastAction = "Reset" },
+                                 .cancel { lastAction = "Cancelled" }])
+        .themedConfirm("Your progress couldn't be loaded", isPresented: $showInfoAlert,
+                       message: "A backup of the old data was kept on this device.",
+                       actions: [.primary("OK") { lastAction = "OK" }])
+        .themedTextPrompt("Starting chips", message: "Type an amount up to 50,000.",
+                          text: $promptText, isPresented: $showPrompt) {
+            lastAction = "Set \(promptText)"
+        }
     }
 
     // MARK: Colors
@@ -168,6 +191,41 @@ struct DesignSystemPreview: View {
         }
     }
 
+    // MARK: Themed controls
+
+    private var themedControlsSection: some View {
+        Panel {
+            SectionHeader("SegmentedChoice", subtitle: "Replaces .pickerStyle(.segmented)")
+            SegmentedChoice([1, 2, 3], selection: $segmentHands,
+                            accessibilityLabel: "Hands per round") { "\($0)" }
+            SegmentedChoice(PreviewDifficulty.allCases, selection: $segmentDifficulty,
+                            accessibilityLabel: "Difficulty")
+            SegmentedChoice(PreviewDifficulty.allCases, selection: $segmentDifficulty,
+                            accessibilityLabel: "Difficulty (disabled)")
+                .disabled(true)
+            SectionHeader("ThemedMenuPicker", subtitle: "Replaces .pickerStyle(.menu)")
+            ThemedMenuPicker("Decks", selection: $decks, options: [1, 2, 4, 6, 8]) { "\($0)" }
+            Divider().overlay(Color.divider)
+            ThemedMenuPicker("Dealer", selection: $dealerHitsSoft17, options: [false, true]) {
+                $0 ? "Hits soft 17" : "Stands soft 17"
+            }
+            SectionHeader("Toggle .themed")
+            Toggle("Sound effects", isOn: $toggleOn).toggleStyle(.themed)
+            Toggle(isOn: $toggleOff) {
+                VStack(alignment: .leading, spacing: Space.xxs / 2) {
+                    Text("Betting hints").font(.calloutText).foregroundStyle(.textPrimary)
+                    Text("Suggests a bet from the count").font(.detail).foregroundStyle(.textSecondary)
+                }
+            }
+            .toggleStyle(.themed)
+            Toggle("Disabled", isOn: $toggleOn).toggleStyle(.themed).disabled(true)
+            SectionHeader("themedConfirm / themedTextPrompt", subtitle: "Last result: \(lastAction)")
+            SecondaryButton("Destructive confirm", compact: true) { showConfirm = true }
+            SecondaryButton("Single-button alert", compact: true) { showInfoAlert = true }
+            SecondaryButton("Text prompt", compact: true) { showPrompt = true }
+        }
+    }
+
     // MARK: Data
 
     private var dataSection: some View {
@@ -214,6 +272,10 @@ struct DesignSystemPreview: View {
             }
         }
     }
+}
+
+private enum PreviewDifficulty: String, CaseIterable {
+    case easy = "Easy", normal = "Normal", hard = "Hard", smart = "Smart"
 }
 
 #Preview("Night ink") {
