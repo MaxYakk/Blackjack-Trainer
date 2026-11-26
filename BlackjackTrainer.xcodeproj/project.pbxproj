@@ -14,6 +14,7 @@
 		17329FECFDFAB99F3ADFB8F2 /* DailyChallengeDeal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607D8337F040799CC895290C /* DailyChallengeDeal.swift */; };
 		198C846F769B8656F263F56D /* FlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC75324797801B412A7D156A /* FlowUITests.swift */; };
 		1A59044060C9BB470C924E4A /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D53105964D85732933CB707D /* QuizView.swift */; };
+		209A1607E71C524B1960396B /* WinCelebrationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9176EEF3B56EEE9E7E12A1F /* WinCelebrationPolicyTests.swift */; };
 		222FA6830B4ABC3BF9778359 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8124340C4B8D1A7A84B1D621 /* Theme.swift */; };
 		36B19F42B178682F53CE1B19 /* Cards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C865FB52BCE215F31993942 /* Cards.swift */; };
 		415B9A93DFA03F8FC27E273D /* PlaySettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94CAAE83B18379E60BA127EC /* PlaySettingsSheet.swift */; };
@@ -25,14 +26,17 @@
 		56EAB866772C2B5FFD63A2EE /* BasicStrategy.swift in Sources */ = {isa = PBXBuildFile; fileRef = DED4842784DFC48B2671534E /* BasicStrategy.swift */; };
 		58B3BF8008F4B953AC9083B7 /* CountDrillEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB690E5EAB1C66B5274F56D1 /* CountDrillEngine.swift */; };
 		5CA6E5CFF2A6019B1422E4EE /* SpotCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE24C1A6BAA3FCFBDD401211 /* SpotCatalog.swift */; };
+		61B90D5F75B427600DB98BAE /* SessionFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8636CFA1811073656E6953 /* SessionFlowTests.swift */; };
 		630EDD458958DD5CA1D1A850 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A62AF2C0E563F09CB9CB1B18 /* RootView.swift */; };
 		65C51B6161563030ED800766 /* StrategyChartView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8545FF9BE1C52003919E5EA8 /* StrategyChartView.swift */; };
 		675C1A8AA67DA8FF32BDB586 /* SpotID.swift in Sources */ = {isa = PBXBuildFile; fileRef = DACBA9656830E9912D9DC79B /* SpotID.swift */; };
 		6F2F5890CDC80862C7A22EBB /* ReminderScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = C69FD9770D564EE07DFB5CB7 /* ReminderScheduler.swift */; };
 		6F8B3BFEEB23568B04926F14 /* PlayEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D5A601395D52929FCB693F7 /* PlayEngine.swift */; };
 		75914786EF7E6311C4719273 /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5109A6282816ECCAEFADC01D /* Achievements.swift */; };
+		7749B0D841F9CBE43EF06888 /* SpotTrackingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3273C7CAE673145B1F7F597A /* SpotTrackingTests.swift */; };
 		801B444C9B9E4BCB5523F6E0 /* SessionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF6270EA27D0348BD529008 /* SessionSetupView.swift */; };
 		99BA97D5F5377E94F54DE371 /* BlackjackTrainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAD3BD7FCACBCF235F57879 /* BlackjackTrainerApp.swift */; };
+		9C94094BD5DA3A42CBC82081 /* ChipSizingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B91EE46DC3CB54471E47094 /* ChipSizingTests.swift */; };
 		BD2AA590A18B960097425517 /* CountDrillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */; };
 		BFA9AE4EB92B3D0383E0EA4D /* ProgressStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905F281CB9044EAAB5A5F75D /* ProgressStatsView.swift */; };
 		C745585EAFC5111100F7006B /* BeginnerBlackjackTutorial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB3F99EDB7718A05E7EC11 /* BeginnerBlackjackTutorial.swift */; };
@@ -43,9 +47,17 @@
 		EBEC5833FAEA4398AAA5659C /* OnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F22ECE0578045684E022A8 /* OnboardingView.swift */; };
 		EC0DA553352FCFA10ED4549B /* PlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D544C1614CE7FA6C3CA8AD92 /* PlayView.swift */; };
 		F63186B82CC0F6518EDF5036 /* DailyChallenge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C9F9508F00FE40273187DE /* DailyChallenge.swift */; };
+		FC315DFB63FEA61F9C534DE3 /* BetSizingToleranceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66182A423001FB5CA1CAD0E5 /* BetSizingToleranceTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		033E44E53D139C59D4161776 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 641CD8DA4F1E7BE41FD6171C /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 29F08F9EE4597A6E8C6ECD80;
+			remoteInfo = BlackjackTrainer;
+		};
 		23E7AF9B19C3D0FBAB23493D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 641CD8DA4F1E7BE41FD6171C /* Project object */;
@@ -57,24 +69,28 @@
 
 /* Begin PBXFileReference section */
 		0AC1988E3AE28A25ED895977 /* ProgressMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressMetrics.swift; sourceTree = "<group>"; };
+		0B91EE46DC3CB54471E47094 /* ChipSizingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipSizingTests.swift; sourceTree = "<group>"; };
 		1DF6270EA27D0348BD529008 /* SessionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSetupView.swift; sourceTree = "<group>"; };
 		1E86ADE4AE7058F41B7B2D69 /* Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sound.swift; sourceTree = "<group>"; };
 		2D5A601395D52929FCB693F7 /* PlayEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayEngine.swift; sourceTree = "<group>"; };
+		3273C7CAE673145B1F7F597A /* SpotTrackingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotTrackingTests.swift; sourceTree = "<group>"; };
 		461898B2030570F545533E97 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
 		4ADD2FD30B6DB8FD9936104E /* RoundEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoundEffects.swift; sourceTree = "<group>"; };
 		4C865FB52BCE215F31993942 /* Cards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cards.swift; sourceTree = "<group>"; };
 		5109A6282816ECCAEFADC01D /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
 		5619352EACA12BF2D0B41E64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		5A74F8324193BA0A96DB8B29 /* BlackjackTrainerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BlackjackTrainerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		607D8337F040799CC895290C /* DailyChallengeDeal.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyChallengeDeal.swift; sourceTree = "<group>"; };
 		6298036CB44BA9FC298E5175 /* DailyChallengeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyChallengeView.swift; sourceTree = "<group>"; };
 		64DB3F99EDB7718A05E7EC11 /* BeginnerBlackjackTutorial.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeginnerBlackjackTutorial.swift; sourceTree = "<group>"; };
+		66182A423001FB5CA1CAD0E5 /* BetSizingToleranceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetSizingToleranceTests.swift; sourceTree = "<group>"; };
 		7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountDrillView.swift; sourceTree = "<group>"; };
 		8124340C4B8D1A7A84B1D621 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		8545FF9BE1C52003919E5EA8 /* StrategyChartView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StrategyChartView.swift; sourceTree = "<group>"; };
 		905F281CB9044EAAB5A5F75D /* ProgressStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressStatsView.swift; sourceTree = "<group>"; };
 		92C9F9508F00FE40273187DE /* DailyChallenge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyChallenge.swift; sourceTree = "<group>"; };
 		94CAAE83B18379E60BA127EC /* PlaySettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaySettingsSheet.swift; sourceTree = "<group>"; };
-		98AC306A85F2BCC5BE60F1E3 /* BlackjackTrainer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BlackjackTrainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		98AC306A85F2BCC5BE60F1E3 /* BlackjackTrainer.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BlackjackTrainer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		99A1686CEB850A68872CC0C3 /* ChipSizing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipSizing.swift; sourceTree = "<group>"; };
 		A62AF2C0E563F09CB9CB1B18 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
 		A6FEA6404895E03284D952BF /* AchievementsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AchievementsSection.swift; sourceTree = "<group>"; };
@@ -90,10 +106,12 @@
 		D4F22ECE0578045684E022A8 /* OnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingView.swift; sourceTree = "<group>"; };
 		D53105964D85732933CB707D /* QuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizView.swift; sourceTree = "<group>"; };
 		D544C1614CE7FA6C3CA8AD92 /* PlayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayView.swift; sourceTree = "<group>"; };
+		D9176EEF3B56EEE9E7E12A1F /* WinCelebrationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinCelebrationPolicyTests.swift; sourceTree = "<group>"; };
 		DACBA9656830E9912D9DC79B /* SpotID.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotID.swift; sourceTree = "<group>"; };
 		DED4842784DFC48B2671534E /* BasicStrategy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BasicStrategy.swift; sourceTree = "<group>"; };
 		E194B90ECE23AD536F94EACF /* SkillRating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillRating.swift; sourceTree = "<group>"; };
 		E37C67BFB31DE5357246F270 /* WinCelebrationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinCelebrationPolicy.swift; sourceTree = "<group>"; };
+		EB8636CFA1811073656E6953 /* SessionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFlowTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -101,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				98AC306A85F2BCC5BE60F1E3 /* BlackjackTrainer.app */,
+				5A74F8324193BA0A96DB8B29 /* BlackjackTrainerTests.xctest */,
 				D1CE0940EDC96C5D0DB33001 /* BlackjackTrainerUITests.xctest */,
 			);
 			name = Products;
@@ -111,6 +130,7 @@
 			children = (
 				8EE204B0C7374FDDBACD8E60 /* Resources */,
 				A2BC43F3A66212B12C8B4DA1 /* Sources */,
+				5F607E41A7FAFC4CBDF5F2F3 /* Tests */,
 				4FC3F09BBCE52EC6B2C2AAAE /* UITests */,
 				3BF7F4E961B09E3B81401189 /* Products */,
 			);
@@ -122,6 +142,18 @@
 				CC75324797801B412A7D156A /* FlowUITests.swift */,
 			);
 			path = UITests;
+			sourceTree = "<group>";
+		};
+		5F607E41A7FAFC4CBDF5F2F3 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				66182A423001FB5CA1CAD0E5 /* BetSizingToleranceTests.swift */,
+				0B91EE46DC3CB54471E47094 /* ChipSizingTests.swift */,
+				EB8636CFA1811073656E6953 /* SessionFlowTests.swift */,
+				3273C7CAE673145B1F7F597A /* SpotTrackingTests.swift */,
+				D9176EEF3B56EEE9E7E12A1F /* WinCelebrationPolicyTests.swift */,
+			);
+			path = Tests;
 			sourceTree = "<group>";
 		};
 		76353D5469E61628A5B967C3 /* Engine */ = {
@@ -244,6 +276,24 @@
 			productReference = D1CE0940EDC96C5D0DB33001 /* BlackjackTrainerUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
+		6AF2030EE9EFE513F882230F /* BlackjackTrainerTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = BF16C0AFC9168E4CF0227A2B /* Build configuration list for PBXNativeTarget "BlackjackTrainerTests" */;
+			buildPhases = (
+				C4AD94EC8794386ADD0BBFAB /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A9FFA7079805A8E05DE51BB3 /* PBXTargetDependency */,
+			);
+			name = BlackjackTrainerTests;
+			packageProductDependencies = (
+			);
+			productName = BlackjackTrainerTests;
+			productReference = 5A74F8324193BA0A96DB8B29 /* BlackjackTrainerTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -254,11 +304,17 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					29F08F9EE4597A6E8C6ECD80 = {
+						DevelopmentTeam = 83F596G7A9;
 						ProvisioningStyle = Automatic;
 					};
 					2E2859822104CFFEC5EACCDA = {
+						DevelopmentTeam = 83F596G7A9;
 						ProvisioningStyle = Automatic;
 						TestTargetID = 29F08F9EE4597A6E8C6ECD80;
+					};
+					6AF2030EE9EFE513F882230F = {
+						DevelopmentTeam = 83F596G7A9;
+						ProvisioningStyle = Automatic;
 					};
 				};
 			};
@@ -277,6 +333,7 @@
 			projectRoot = "";
 			targets = (
 				29F08F9EE4597A6E8C6ECD80 /* BlackjackTrainer */,
+				6AF2030EE9EFE513F882230F /* BlackjackTrainerTests */,
 				2E2859822104CFFEC5EACCDA /* BlackjackTrainerUITests */,
 			);
 		};
@@ -335,6 +392,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		C4AD94EC8794386ADD0BBFAB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC315DFB63FEA61F9C534DE3 /* BetSizingToleranceTests.swift in Sources */,
+				9C94094BD5DA3A42CBC82081 /* ChipSizingTests.swift in Sources */,
+				61B90D5F75B427600DB98BAE /* SessionFlowTests.swift in Sources */,
+				7749B0D841F9CBE43EF06888 /* SpotTrackingTests.swift in Sources */,
+				209A1607E71C524B1960396B /* WinCelebrationPolicyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F7B4B510C31DBE828B76E0FB /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -346,6 +415,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		A9FFA7079805A8E05DE51BB3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 29F08F9EE4597A6E8C6ECD80 /* BlackjackTrainer */;
+			targetProxy = 033E44E53D139C59D4161776 /* PBXContainerItemProxy */;
+		};
 		E94C484305C99D78E03B8068 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 29F08F9EE4597A6E8C6ECD80 /* BlackjackTrainer */;
@@ -377,7 +451,6 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 83F596G7A9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Blackjack;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -431,6 +504,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 83F596G7A9;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -478,13 +552,46 @@
 			};
 			name = Release;
 		};
+		67E0071FFA50CDAAC40226E7 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxyatkeman.blackjacktrainer.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BlackjackTrainer.app/BlackjackTrainer";
+			};
+			name = Release;
+		};
+		76E8838C35C093C3D9D2477A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.maxyatkeman.blackjacktrainer.tests;
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/BlackjackTrainer.app/BlackjackTrainer";
+			};
+			name = Debug;
+		};
 		D348F1764F7A20B5E7500812 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
-				DEVELOPMENT_TEAM = 83F596G7A9;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Blackjack;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -538,6 +645,7 @@
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 83F596G7A9;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				GCC_C_LANGUAGE_STANDARD = gnu11;
@@ -578,6 +686,15 @@
 			buildConfigurations = (
 				596354491307C5EADC017918 /* Debug */,
 				EE87213A05391B3EBBA29F94 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		BF16C0AFC9168E4CF0227A2B /* Build configuration list for PBXNativeTarget "BlackjackTrainerTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				76E8838C35C093C3D9D2477A /* Debug */,
+				67E0071FFA50CDAAC40226E7 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

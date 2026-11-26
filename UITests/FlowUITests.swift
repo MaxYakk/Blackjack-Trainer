@@ -1,4 +1,4 @@
-aude and open ai and like qen and miimport XCTest
+import XCTest
 
 final class FlowUITests: XCTestCase {
 
