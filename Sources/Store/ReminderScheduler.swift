@@ -65,7 +65,7 @@ enum ReminderScheduler {
 
         for (i, date) in dates.enumerated() {
             let content = UNMutableNotificationContent()
-            content.title = "Blackjack Trainer"
+            content.title = "Hit Me"
             // Only the first is personalized; later ones can't know the future streak.
             content.body = i == 0 ? body(for: stats, firesToday: isToday) : genericBody
             content.sound = .default

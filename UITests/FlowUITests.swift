@@ -186,10 +186,10 @@ final class FlowUITests: XCTestCase {
 
         let menu = app.buttons["headerMenuButton"]
         XCTAssertTrue(menu.waitForExistence(timeout: 5))
-        let title = app.staticTexts["Blackjack Reps"]
+        let title = app.staticTexts["Hit Me"]
         XCTAssertTrue(title.exists)
         XCTAssertGreaterThan(menu.frame.minX, title.frame.maxX,
-                             "The table menu should sit to the right of the Blackjack Reps title")
+                             "The table menu should sit to the right of the Hit Me title")
 
         menu.tap()
         let tableOptions = app.buttons["settingsButton"]
@@ -574,7 +574,7 @@ final class FlowUITests: XCTestCase {
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
 
-        let title = app.staticTexts["Blackjack Reps"]
+        let title = app.staticTexts["Hit Me"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertGreaterThan(title.frame.height, 20,
                              "the branded Play title should use the larger header style")
@@ -588,7 +588,7 @@ final class FlowUITests: XCTestCase {
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
 
-        let title = app.staticTexts["Blackjack Reps"]
+        let title = app.staticTexts["Hit Me"]
         let buyInHeading = app.staticTexts["BUY IN"]
         let footer = app.staticTexts["Play until you cash out or run out of chips."]
         let playTab = app.buttons["tab_play"]

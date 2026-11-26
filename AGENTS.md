@@ -1,8 +1,8 @@
-# Blackjack Trainer engineering instructions
+# Hit Me (blackjack trainer) engineering instructions
 
 ## Project
 
-Native SwiftUI iOS app (iOS 17+, Swift language mode 5, iPhone) that trains blackjack basic strategy, Hi-Lo card counting and bet sizing with practice chips. No backend, no accounts, no network; all progress is stored on-device in `UserDefaults`. The goal is an App Store release under the Vyne Events LLC developer account, so App Store Review Guideline 5.3 (gambling) matters: the app must read as a skills trainer with play-money chips, never as real-money gambling.
+"Hit Me" (App Store: "Hit Me: Blackjack Coach"; Xcode target and bundle id keep the name BlackjackTrainer). Native SwiftUI iOS app (iOS 17+, Swift language mode 5, iPhone) that trains blackjack basic strategy, Hi-Lo card counting and bet sizing with practice chips. No backend, no accounts, no network; all progress is stored on-device in `UserDefaults`. The goal is an App Store release under the Vyne Events LLC developer account, so App Store Review Guideline 5.3 (gambling) matters: the app must read as a skills trainer with play-money chips, never as real-money gambling.
 
 - `Sources/Engine/`: game rules and drills. `BasicStrategy.swift` (charts, Illustrious 18 deviations), `PlayEngine.swift` (table, rounds, grading, settlement), `Cards.swift` (shoe, Hi-Lo), `BetSizing.swift`, `ChipSizing.swift`, quiz/count/daily-challenge engines.
 - `Sources/Store/`: persistence and derived progress (`Stats.swift`, `Achievements.swift`, `ProgressMetrics.swift`, `SkillRating.swift`, `ReminderScheduler.swift`).

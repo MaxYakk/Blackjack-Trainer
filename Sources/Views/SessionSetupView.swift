@@ -35,7 +35,7 @@ struct SessionSetupView: View {
             LinearGradient(colors: [Theme.felt, Theme.feltDark], startPoint: .top, endPoint: .bottom)
                 .ignoresSafeArea()
             VStack(spacing: 0) {
-                PageHeader("Blackjack Reps", titleFont: .title3.weight(.bold))
+                PageHeader("Hit Me", titleFont: .title3.weight(.bold))
                 GeometryReader { geometry in
                     ScrollView {
                         VStack(spacing: 18) {

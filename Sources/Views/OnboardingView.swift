@@ -103,13 +103,13 @@ struct OnboardingView: View {
             }
             .frame(width: 30, height: 30)
 
-            Text("BLACKJACK TRAINER")
+            Text("HIT ME")
                 .font(.caption.weight(.bold))
                 .tracking(1.6)
                 .foregroundStyle(.white.opacity(0.88))
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Blackjack Trainer")
+        .accessibilityLabel("Hit Me")
     }
 }
 

@@ -40,7 +40,7 @@ private struct PlayContent: View {
         ZStack {
             feltBackground
             VStack(spacing: 0) {
-                PageHeader("Blackjack Reps", titleFont: .title3.weight(.bold)) { headerMenu }
+                PageHeader("Hit Me", titleFont: .title3.weight(.bold)) { headerMenu }
                 tableArea
                 controlArea
                 footer

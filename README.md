@@ -1,4 +1,4 @@
-# Blackjack Trainer — iOS App
+# Hit Me — Blackjack Coach (iOS)
 
 A native SwiftUI card-counting & strategy trainer. Five tabs:
 
