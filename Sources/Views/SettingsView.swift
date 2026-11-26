@@ -8,12 +8,14 @@ struct SettingsView: View {
     @AppStorage(ReminderScheduler.enabledKey) private var reminderEnabled = false
     @State private var reminderDenied = false
     @State private var showResetConfirm = false
+    @State private var showTour = false
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: Space.lg) {
                     remindersSection
+                    helpSection
                     dataSection
                     aboutSection
                     legalSection
@@ -42,6 +44,25 @@ struct SettingsView: View {
                            .cancel(),
                        ])
         .onAppear(perform: refreshReminderAuthorization)
+        .fullScreenCover(isPresented: $showTour) {
+            AppTourView { showTour = false }
+        }
+    }
+
+    // MARK: Help
+
+    /// Replays the first-launch tour of what the app can do.
+    private var helpSection: some View {
+        SettingsSection(title: "Help") {
+            Button {
+                showTour = true
+            } label: {
+                SettingsLinkLabel(title: "Take the app tour")
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows the seven page tour of what Hit Me can do.")
+            .accessibilityIdentifier("replayAppTourButton")
+        }
     }
 
     // MARK: Reminders
