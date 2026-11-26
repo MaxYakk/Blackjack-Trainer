@@ -657,24 +657,24 @@ final class FlowUITests: XCTestCase {
                        "the session lobby should not show the How to Play shortcut")
     }
 
-    func testSetupSetupIsVerticallyCenteredInAvailablePlayArea() {
+    func testSetupStartButtonStaysVisibleAboveTabBar() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
 
+        // The setup screen now scrolls (every table setting is on it), with
+        // Start session pinned at the bottom, so check that instead of centering.
         let title = app.staticTexts["Hit Me"]
         let buyInHeading = app.staticTexts["STARTING MONEY"]
-        let footer = app.staticTexts["Play until you end the session or run out of money."]
+        let start = app.buttons["startSessionButton"]
         let playTab = tabButton(app, "Play")
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(buyInHeading.exists)
-        XCTAssertTrue(footer.exists)
+        XCTAssertTrue(start.exists)
         XCTAssertTrue(playTab.exists)
-
-        let availableMidY = (title.frame.maxY + playTab.frame.minY) / 2
-        let setupMidY = (buyInHeading.frame.minY + footer.frame.maxY) / 2
-        XCTAssertEqual(setupMidY, availableMidY, accuracy: 50,
-                       "the session controls should be centered between the header and tab bar")
+        XCTAssertTrue(start.isHittable, "Start session should be tappable without scrolling")
+        XCTAssertLessThanOrEqual(start.frame.maxY, playTab.frame.minY + 1,
+                                 "Start session should sit above the tab bar")
     }
 
     func testMinimumBetUsesFullAmountFormatting() {
