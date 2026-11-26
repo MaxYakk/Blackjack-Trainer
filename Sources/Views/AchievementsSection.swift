@@ -1,143 +1,111 @@
 import SwiftUI
 
-/// The trophy room: a completion header, a "next up" list of the trophies the
-/// player is closest to earning, then cards grouped by category.
+/// The Progress tab's achievements: the one or two trophies closest to
+/// unlocking and any earned in the last two weeks, with a "See all" link to
+/// the full list. Nothing is hidden for good; it is just not a wall.
 struct AchievementsSection: View {
     @Environment(Stats.self) private var stats
-    @Environment(\.dynamicTypeSize) private var typeSize
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @ScaledMetric(relativeTo: .body) private var ringSize: CGFloat = 60
+    @State private var showAll = false
+
+    /// How far back a trophy still counts as "recently earned".
+    private static let recentDays = 14
 
     var body: some View {
         let all = stats.achievements
-        let unlocked = all.filter(\.unlocked)
+        let unlocked = all.filter(\.unlocked).count
+        let spotlight = Achievements.spotlight(
+            all: all, dates: stats.data.achievementDates,
+            since: stats.dayKey(daysAgo: Self.recentDays))
 
-        VStack(alignment: .leading, spacing: Space.md) {
-            SectionHeader("Achievements")
-            header(unlocked: unlocked, total: all.count)
-            nextUp(all)
-            ForEach(Achievements.categories, id: \.self) { category in
-                categoryGrid(category, items: all.filter { $0.category == category })
+        VStack(alignment: .leading, spacing: Space.sm) {
+            SectionHeader("Achievements", subtitle: "\(unlocked) of \(all.count) unlocked") {
+                Button("See all") { showAll = true }
+                    .font(.calloutText.weight(.semibold))
+                    .foregroundStyle(.accent)
+                    .frame(minHeight: Metrics.minTapTarget)
+                    .accessibilityLabel("See all achievements")
+                    .accessibilityIdentifier("seeAllAchievements")
             }
-        }
-    }
-
-    // MARK: Header
-
-    private func header(unlocked: [Achievement], total: Int) -> some View {
-        let fraction = total == 0 ? 0 : Double(unlocked.count) / Double(total)
-        let gold = unlocked.filter { $0.tier == .gold }.count
-        let silver = unlocked.filter { $0.tier == .silver }.count
-        let bronze = unlocked.filter { $0.tier == .bronze }.count
-        return Panel(spacing: Space.sm) {
-            HStack(spacing: Space.md) {
-                completionRing(fraction: fraction)
-                VStack(alignment: .leading, spacing: Space.xxs) {
-                    Text("\(unlocked.count) of \(total) unlocked")
+            if !spotlight.recent.isEmpty {
+                Panel(spacing: Space.sm) {
+                    Text("Recently earned")
                         .font(.calloutText.weight(.semibold))
                         .foregroundStyle(.textPrimary)
-                    HStack(spacing: Space.sm) {
-                        tally(.gold, count: gold)
-                        tally(.silver, count: silver)
-                        tally(.bronze, count: bronze)
-                    }
+                        .accessibilityAddTraits(.isHeader)
+                    ForEach(spotlight.recent) { earnedRow($0) }
                 }
-                Spacer(minLength: 0)
             }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Achievements")
-            .accessibilityValue("\(unlocked.count) of \(total) unlocked. \(gold) gold, \(silver) silver, \(bronze) bronze.")
+            if !spotlight.next.isEmpty {
+                Panel(spacing: Space.sm) {
+                    Text("Next up")
+                        .font(.calloutText.weight(.semibold))
+                        .foregroundStyle(.textPrimary)
+                        .accessibilityAddTraits(.isHeader)
+                    ForEach(spotlight.next) { nextRow($0) }
+                }
+            }
+        }
+        .onAppear { stats.syncAchievementDates() }
+        .onChange(of: unlocked) { _, _ in stats.syncAchievementDates() }
+        .sheet(isPresented: $showAll) {
+            AllAchievementsView()
+                .environment(stats)
         }
     }
 
-    private func completionRing(fraction: Double) -> some View {
-        ZStack {
-            Circle().stroke(Color.surfaceRaised, lineWidth: 6)
-            Circle()
-                .trim(from: 0, to: fraction)
-                .stroke(Color.accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-                .motion(.emphasized, value: fraction)
-            Text("\(Int(fraction * 100))%")
-                .font(.captionText.weight(.bold))
-                .foregroundStyle(.accent)
-                .minimumScaleFactor(0.7)
-                .lineLimit(1)
-        }
-        .frame(width: ringSize, height: ringSize)
+    /// Trophy descriptions use a dash in one place; Progress copy avoids dashes.
+    private static func plain(_ text: String) -> String {
+        text.replacingOccurrences(of: " \u{2014} ", with: ": ")
     }
 
-    private func tally(_ tier: Achievement.Tier, count: Int) -> some View {
-        HStack(spacing: Space.xxs) {
-            Circle().fill(achievementTierColor(tier)).frame(width: 10, height: 10)
-            Text("\(count)")
-                .font(.captionText.weight(.bold))
-                .foregroundStyle(count > 0 ? Color.textPrimary : Color.textSecondary)
-        }
-    }
-
-    // MARK: Next up
-
-    @ViewBuilder
-    private func nextUp(_ all: [Achievement]) -> some View {
-        let next = all.filter { !$0.unlocked && $0.progress > 0 }
-            .sorted { $0.progress > $1.progress }
-            .prefix(3)
-        if !next.isEmpty {
-            Panel(spacing: Space.sm) {
-                Text("Next up")
+    private func earnedRow(_ item: Achievement) -> some View {
+        HStack(spacing: Space.xs) {
+            Image(systemName: item.icon)
+                .font(.calloutText)
+                .foregroundStyle(achievementTierColor(item.tier))
+                .frame(width: 24)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: Space.xxs / 2) {
+                Text(item.title)
                     .font(.calloutText.weight(.semibold))
                     .foregroundStyle(.textPrimary)
-                    .accessibilityAddTraits(.isHeader)
-                ForEach(Array(next)) { item in
-                    VStack(alignment: .leading, spacing: Space.xxs) {
-                        HStack(spacing: Space.xs) {
-                            Image(systemName: item.icon)
-                                .font(.calloutText)
-                                .foregroundStyle(achievementTierColor(item.tier))
-                                .frame(width: 24)
-                                .accessibilityHidden(true)
-                            Text(item.title)
-                                .font(.calloutText.weight(.semibold))
-                                .foregroundStyle(.textPrimary)
-                            Spacer(minLength: Space.xs)
-                            Text(item.progressText)
-                                .font(.captionText.weight(.semibold))
-                                .foregroundStyle(.textSecondary)
-                        }
-                        ProgressBar(value: item.progress, tint: achievementTierColor(item.tier), height: 6)
-                            .accessibilityHidden(true)
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(item.title), \(Int((item.progress * 100).rounded())) percent, \(item.progressText)")
-                }
+                Text(Self.plain(item.detail))
+                    .font(.captionText)
+                    .foregroundStyle(.textSecondary)
             }
+            Spacer(minLength: Space.xs)
+            Image(systemName: "checkmark.seal.fill")
+                .font(.captionText)
+                .foregroundStyle(.positive)
+                .accessibilityHidden(true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(item.title), \(item.tier.name), earned. \(Self.plain(item.detail))")
     }
 
-    // MARK: Category grids
-
-    private func categoryGrid(_ category: String, items: [Achievement]) -> some View {
-        let columns = typeSize.isAccessibilitySize ? 1 : 2
-        let rows = stride(from: 0, to: items.count, by: columns).map {
-            Array(items[$0..<min($0 + columns, items.count)])
-        }
-        return VStack(alignment: .leading, spacing: Space.xs) {
-            SectionHeader(category) {
-                Text("\(items.filter(\.unlocked).count) of \(items.count)")
+    private func nextRow(_ item: Achievement) -> some View {
+        VStack(alignment: .leading, spacing: Space.xxs) {
+            HStack(spacing: Space.xs) {
+                Image(systemName: item.icon)
+                    .font(.calloutText)
+                    .foregroundStyle(achievementTierColor(item.tier))
+                    .frame(width: 24)
+                    .accessibilityHidden(true)
+                Text(item.title)
+                    .font(.calloutText.weight(.semibold))
+                    .foregroundStyle(.textPrimary)
+                Spacer(minLength: Space.xs)
+                Text(item.progressText)
                     .font(.captionText.weight(.semibold))
                     .foregroundStyle(.textSecondary)
             }
-            Grid(horizontalSpacing: Space.xs, verticalSpacing: Space.xs) {
-                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                    GridRow {
-                        ForEach(row) { AchievementCard(achievement: $0) }
-                        ForEach(0..<(columns - row.count), id: \.self) { _ in
-                            Color.clear.frame(maxWidth: .infinity, maxHeight: 0)
-                        }
-                    }
-                }
-            }
+            Text(Self.plain(item.detail))
+                .font(.captionText)
+                .foregroundStyle(.textSecondary)
+            ProgressBar(value: item.progress, tint: achievementTierColor(item.tier), height: 6)
+                .accessibilityHidden(true)
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(item.title), \(Int((item.progress * 100).rounded())) percent, \(item.progressText). \(Self.plain(item.detail))")
     }
 }

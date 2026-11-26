@@ -53,9 +53,7 @@ struct MistakeReviewView: View {
     private var isLast: Bool { index == session.items.count - 1 }
 
     private var catalogSpot: CatalogSpot? {
-        SpotCatalog.all.first { spot in
-            SpotID.key(cards: spot.cards, dealerUp: spot.dealerRank, canSplit: spot.isPair) == item.key
-        }
+        SpotCatalog.spot(forKey: item.key)
     }
 
     var body: some View {

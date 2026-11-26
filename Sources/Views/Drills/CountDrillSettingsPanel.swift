@@ -27,10 +27,8 @@ struct CountDrillSettingsPanel: View {
             VStack(alignment: .leading, spacing: Space.sm) {
                 VStack(alignment: .leading, spacing: Space.xs) {
                     Text("Decks in shoe").font(.calloutText).foregroundStyle(.textPrimary)
-                    Picker("Decks in shoe", selection: $engine.numDecks) {
-                        ForEach(CountDrillEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
-                    }
-                    .pickerStyle(.segmented)
+                    SegmentedChoice(CountDrillEngine.allowedDeckCounts, selection: $engine.numDecks,
+                                    accessibilityLabel: "Decks in shoe") { "\($0)" }
                 }
                 menuRow("Cards", selection: $engine.cardsPerDrill,
                         options: Self.cardCounts.map { ($0, "\($0)") })
@@ -47,7 +45,7 @@ struct CountDrillSettingsPanel: View {
                     .font(.calloutText)
                     .foregroundStyle(.textPrimary)
             }
-            .tint(.accent)
+            .toggleStyle(.themed)
             .disabled(engine.isActive)
             .padding(.top, Space.sm)
         } label: {
@@ -67,13 +65,8 @@ struct CountDrillSettingsPanel: View {
 
     private func menuRow<Value: Hashable>(_ title: String, selection: Binding<Value>,
                                           options: [(Value, String)]) -> some View {
-        HStack {
-            Text(title).font(.calloutText).foregroundStyle(.textPrimary)
-            Spacer()
-            Picker(title, selection: selection) {
-                ForEach(options, id: \.0) { Text($0.1).tag($0.0) }
-            }
-            .pickerStyle(.menu)
+        ThemedMenuPicker(title, selection: selection, options: options.map(\.0)) { value in
+            options.first { $0.0 == value }?.1 ?? "\(value)"
         }
     }
 }
