@@ -64,13 +64,15 @@ private struct SkipValue: Decodable {
 struct TolerantSpotStat: Decodable {
     let value: SpotStat
 
-    private enum Keys: String, CodingKey { case correct, total }
+    private enum Keys: String, CodingKey { case correct, total, close }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: Keys.self)
         let total = max(0, c.tolerant(Int.self, forKey: .total) ?? 0)
         let correct = min(total, max(0, c.tolerant(Int.self, forKey: .correct) ?? 0))
-        value = SpotStat(correct: correct, total: total)
+        // Added with three-tier grading; older saves have no "close" key.
+        let close = min(total - correct, max(0, c.tolerant(Int.self, forKey: .close) ?? 0))
+        value = SpotStat(correct: correct, total: total, close: close)
     }
 }
 

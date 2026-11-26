@@ -32,6 +32,8 @@ struct SkillRating {
     struct Inputs {
         var strategyCorrect = 0
         var strategyTotal = 0
+        /// Close calls (yellow): half credit. Defaults keep older callers exact.
+        var strategyClose = 0
         var spotsPracticed = 0
         var chartCells = 1
         var drillsCorrect = 0
@@ -40,6 +42,8 @@ struct SkillRating {
         var countChecks = 0
         var betCorrect = 0
         var betDecisions = 0
+        /// Bets graded yellow: half credit.
+        var betClose = 0
     }
 
     let score: Double            // 0–100
@@ -56,20 +60,19 @@ struct SkillRating {
     static func compute(from inputs: Inputs) -> SkillRating {
         // Accuracy alone can mislead at tiny sample sizes (3/3 ≠ mastery), so
         // each component is scaled by a confidence ramp on its sample count.
-        func component(correct: Int, total: Int, fullConfidenceAt: Int) -> Double {
-            guard total > 0 else { return 0 }
-            let accuracy = Double(correct) / Double(total)
+        func component(correct: Int, close: Int = 0, total: Int, fullConfidenceAt: Int) -> Double {
+            guard let accuracy = Accuracy.fraction(correct: correct, close: close, total: total) else { return 0 }
             let confidence = min(Double(total) / Double(fullConfidenceAt), 1)
             return accuracy * confidence
         }
 
-        let strategy = component(correct: inputs.strategyCorrect,
+        let strategy = component(correct: inputs.strategyCorrect, close: inputs.strategyClose,
                                  total: inputs.strategyTotal, fullConfidenceAt: 200)
         let coverage = min(Double(inputs.spotsPracticed) / Double(max(inputs.chartCells, 1)), 1)
         let counting = component(correct: inputs.drillsCorrect + inputs.countChecksCorrect,
                                  total: inputs.drillsCompleted + inputs.countChecks,
                                  fullConfidenceAt: 60)
-        let betting = component(correct: inputs.betCorrect,
+        let betting = component(correct: inputs.betCorrect, close: inputs.betClose,
                                 total: inputs.betDecisions, fullConfidenceAt: 40)
 
         // Strategy is the backbone of the game; counting and betting are what
