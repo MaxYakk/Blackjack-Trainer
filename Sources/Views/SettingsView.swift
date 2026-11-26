@@ -11,21 +11,24 @@ struct SettingsView: View {
 
     var body: some View {
         NavigationStack {
-            List {
-                remindersSection
-                dataSection
-                aboutSection
-                legalSection
-                supportSection
+            ScrollView {
+                VStack(spacing: Space.lg) {
+                    remindersSection
+                    dataSection
+                    aboutSection
+                    legalSection
+                    supportSection
+                }
+                .padding(Space.md)
             }
-            .scrollContentBackground(.hidden)
-            .background(Theme.feltDark.ignoresSafeArea())
+            .background(Color.bg.ignoresSafeArea())
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(Color.bg, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Done") { dismiss() }
-                        .frame(minHeight: 44)
+                        .frame(minHeight: Metrics.minTapTarget)
                 }
             }
             .confirmationDialog("Reset all progress?", isPresented: $showResetConfirm, titleVisibility: .visible) {
@@ -41,39 +44,43 @@ struct SettingsView: View {
         .onAppear(perform: refreshReminderAuthorization)
     }
 
-    // MARK: - Reminders
+    // MARK: Reminders
 
     private var remindersSection: some View {
-        Section {
+        SettingsSection(title: "Reminders") {
             Toggle(isOn: reminderBinding) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: Space.xxs / 2) {
                     Text("Daily reminder")
+                        .font(.bodyText)
+                        .foregroundStyle(.textPrimary)
                     Text("One evening nudge, personalized to your streak and weakest spot.")
-                        .font(.footnote)
+                        .font(.detail)
                         .foregroundStyle(.textSecondary)
                 }
             }
-            .tint(Theme.accent)
-            .frame(minHeight: 44)
+            .tint(.accent)
+            .settingsRowFrame()
             .accessibilityIdentifier("dailyReminderToggle")
 
             if reminderDenied {
-                VStack(alignment: .leading, spacing: 8) {
+                HairlineDivider()
+                VStack(alignment: .leading, spacing: Space.xxs) {
                     Text("Notifications are turned off for this app in iOS Settings, so reminders can't be sent.")
-                        .font(.footnote)
-                        .foregroundStyle(Theme.bad)
+                        .font(.detail)
+                        .foregroundStyle(.negative)
+                        .padding(.horizontal, Space.md)
+                        .padding(.top, Space.sm)
                     Button("Open iOS Settings") {
                         if let url = URL(string: UIApplication.openSettingsURLString) {
                             openURL(url)
                         }
                     }
-                    .frame(minHeight: 44, alignment: .leading)
+                    .font(.bodyText.weight(.semibold))
+                    .foregroundStyle(.accent)
+                    .settingsRowFrame()
                 }
             }
-        } header: {
-            Text("Reminders")
         }
-        .listRowBackground(rowBackground)
     }
 
     private var reminderBinding: Binding<Bool> {
@@ -104,81 +111,90 @@ struct SettingsView: View {
         }
     }
 
-    // MARK: - Data
+    // MARK: Data
 
     private var dataSection: some View {
-        Section {
+        SettingsSection(title: "Data",
+                        footer: "Erases all stats, history and practice chips on this device.") {
             Button(role: .destructive) {
                 showResetConfirm = true
             } label: {
                 Text("Reset all progress")
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .font(.bodyText.weight(.semibold))
+                    .foregroundStyle(.negative)
+                    .settingsRowFrame()
+                    .contentShape(Rectangle())
             }
+            .buttonStyle(.plain)
             .accessibilityIdentifier("resetProgressButton")
-        } header: {
-            Text("Data")
-        } footer: {
-            Text("Erases all stats, history and practice chips on this device.")
         }
-        .listRowBackground(rowBackground)
     }
 
-    // MARK: - About
+    // MARK: About
 
     private var aboutSection: some View {
-        Section {
-            LabeledContent("App", value: AppInfo.appName)
-            LabeledContent("Version", value: AppInfo.currentVersionString)
+        SettingsSection(title: "About", footer: AppInfo.copyrightLine) {
+            SettingsRow("App") {
+                Text(AppInfo.appName).font(.bodyText).foregroundStyle(.textSecondary)
+            }
+            HairlineDivider()
+            SettingsRow("Version") {
+                Text(AppInfo.currentVersionString).font(.bodyText).foregroundStyle(.textSecondary)
+            }
+            HairlineDivider()
             Text(AppInfo.tagline)
+                .font(.calloutText)
+                .foregroundStyle(.textPrimary)
+                .settingsRowFrame()
+            HairlineDivider()
             Text(AppInfo.practiceChipsNotice)
-                .foregroundStyle(Theme.mint)
-        } header: {
-            Text("About")
-        } footer: {
-            Text(AppInfo.copyrightLine)
+                .font(.calloutText)
+                .foregroundStyle(.accent)
+                .settingsRowFrame()
         }
-        .listRowBackground(rowBackground)
     }
 
-    // MARK: - Privacy
+    // MARK: Privacy
 
     private var legalSection: some View {
-        Section {
-            NavigationLink("Privacy Policy") { PrivacyPolicyView() }
-                .frame(minHeight: 44)
+        SettingsSection(title: "Privacy") {
+            NavigationLink {
+                PrivacyPolicyView()
+            } label: {
+                SettingsLinkLabel(title: "Privacy Policy")
+            }
+            .buttonStyle(.plain)
             if let url = AppInfo.privacyPolicyURL {
-                Link("Privacy Policy on the web", destination: url)
-                    .frame(minHeight: 44, alignment: .leading)
+                HairlineDivider()
+                Link(destination: url) {
+                    SettingsLinkLabel(title: "Privacy Policy on the web", trailingImage: "arrow.up.right")
+                }
             }
             if let url = AppInfo.termsURL {
-                Link("Terms of Use", destination: url)
-                    .frame(minHeight: 44, alignment: .leading)
+                HairlineDivider()
+                Link(destination: url) {
+                    SettingsLinkLabel(title: "Terms of Use", trailingImage: "arrow.up.right")
+                }
             }
-        } header: {
-            Text("Privacy")
         }
-        .listRowBackground(rowBackground)
     }
 
-    // MARK: - Support
+    // MARK: Support
 
     @ViewBuilder
     private var supportSection: some View {
-        if let url = AppInfo.supportMailURL(email: AppInfo.supportEmail,
-                                            subject: "\(AppInfo.appName) support (\(AppInfo.currentVersionString.replacingOccurrences(of: "Version ", with: "v")))") {
-            Section {
+        if let url = AppInfo.supportMailURL(
+            email: AppInfo.supportEmail,
+            subject: "\(AppInfo.appName) support (\(AppInfo.currentVersionString.replacingOccurrences(of: "Version ", with: "v")))"
+        ) {
+            SettingsSection(title: "Support") {
                 Link(destination: url) {
-                    Label("Contact support", systemImage: "envelope")
-                        .frame(minHeight: 44, alignment: .leading)
+                    SettingsLinkLabel(title: "Contact support", systemImage: "envelope",
+                                      trailingImage: "arrow.up.right")
                 }
-            } header: {
-                Text("Support")
             }
-            .listRowBackground(rowBackground)
         }
     }
-
-    private var rowBackground: some View { Color.surface }
 }
 
 /// Gear button for the Progress header.
@@ -189,8 +205,8 @@ struct SettingsGearButton: View {
         Button(action: action) {
             Image(systemName: "gearshape.fill")
                 .font(.title3)
-                .foregroundStyle(Theme.accent)
-                .frame(width: 44, height: 44)
+                .foregroundStyle(.accent)
+                .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
                 .contentShape(Rectangle())
         }
         .accessibilityLabel("Settings")
