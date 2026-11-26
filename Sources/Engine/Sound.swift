@@ -4,6 +4,10 @@ import AudioToolbox
 #endif
 
 /// Lightweight sound cues built from the system sound library (no bundled assets).
+///
+/// The cues are deliberately quiet and short: soft key-click "tock" and "tink"
+/// sounds for cards and chips, one gentle tink for a win. A loss and a push
+/// make no sound at all, so a bad hand never gets a buzzer on top of it.
 enum Sound {
     static var enabled = true
 
@@ -11,22 +15,32 @@ enum Sound {
         case card, chip, win, lose, push
 
         #if canImport(AudioToolbox)
-        var systemID: SystemSoundID {
+        /// The system sound for this cue, or nil when the cue is silent.
+        var systemID: SystemSoundID? {
             switch self {
-            case .card: return 1104   // short "tock" — card landing
-            case .chip: return 1105   // "tink" — chip placed
-            case .win:  return 1025   // bright positive
-            case .lose: return 1073   // muted negative
-            case .push: return 1103
+            case .card: return 1104   // soft "tock": a card landing
+            case .chip: return 1103   // light "tink": a chip placed
+            case .win:  return 1057   // single gentle tink
+            case .lose: return nil    // silent on purpose
+            case .push: return nil    // silent on purpose
             }
         }
         #endif
+
+        /// Whether the cue makes any sound at all.
+        var isAudible: Bool {
+            switch self {
+            case .card, .chip, .win: return true
+            case .lose, .push: return false
+            }
+        }
     }
 
     static func play(_ cue: Cue) {
         guard enabled else { return }
         #if canImport(AudioToolbox)
-        AudioServicesPlaySystemSound(cue.systemID)
+        guard let id = cue.systemID else { return }
+        AudioServicesPlaySystemSound(id)
         #endif
     }
 }

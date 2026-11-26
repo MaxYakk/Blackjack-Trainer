@@ -175,7 +175,6 @@ struct BetChipsView: View {
         if lost {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 200_000_000)
-                Sound.play(.chip)
                 Motion.perform(.standard, reduceMotion: reduceMotion) { swept = true }
             }
         } else if won {
