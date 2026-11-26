@@ -66,11 +66,55 @@ enum BasicStrategy {
         "A":  row("P P P P P P P P P P"),
     ]
 
+    /// The cells of a chart that change when the dealer hits soft 17,
+    /// keyed "h11/A" (hard 11 vs A) or "s18/2" (soft 18 vs 2).
+    typealias H17Changes = [String: String]
+
+    /// One complete chart for a deck count.
+    struct Chart {
+        let hard: [Int: [String]]
+        let soft: [Int: [String]]
+        let pairs: [String: [String]]
+        let h17Changes: H17Changes
+    }
+
+    /// The 4–8 deck chart above (the one the Strategy screen shows).
+    static let multiDeck = Chart(hard: hard, soft: soft, pairs: pairs,
+                                 h17Changes: ["h11/A": "D", "s18/2": "Ds", "s19/6": "Ds"])
+
+    /// Double deck (2 decks), dealer stands on soft 17, double after split,
+    /// no surrender. Checked cell by cell against two published charts that
+    /// agree: wizardofodds.com/games/blackjack/strategy/2-decks/ and the
+    /// blackjackinfo.com basic strategy engine (2 decks, S17/H17, DAS, no
+    /// surrender). Differences from 4–8 decks: 9 doubles vs 2, 11 doubles
+    /// vs A, 6,6 splits vs 7, 7,7 splits vs 8; under H17, A,3 also doubles
+    /// vs 4.
+    static let doubleDeck = Chart(
+        hard: hard.merging([
+            9:  row("D D D D D H H H H H"),
+            11: row("D D D D D D D D D D"),
+        ]) { _, dd in dd },
+        soft: soft,
+        pairs: pairs.merging([
+            "6": row("P P P P P P H H H H"),
+            "7": row("P P P P P P P H H H"),
+        ]) { _, dd in dd },
+        h17Changes: ["s14/4": "D", "s18/2": "Ds", "s19/6": "Ds"]
+    )
+
+    /// Double-deck rules apply to 1–2 deck games (the app offers 2).
+    static func isDoubleDeck(_ numDecks: Int) -> Bool { numDecks <= 2 }
+
+    /// The chart for a shoe of `numDecks` decks.
+    static func chart(forDecks numDecks: Int) -> Chart {
+        isDoubleDeck(numDecks) ? doubleDeck : multiDeck
+    }
+
     /// The correct basic-strategy action for the given hand and dealer up-card.
-    /// The tables encode S17; `dealerHitsSoft17` applies the three multi-deck
-    /// cells that flip under H17 (11 vs A, soft 18 vs 2, soft 19 vs 6).
+    /// The tables encode S17; `dealerHitsSoft17` applies the chart's H17 cells.
     static func correctAction(cards: [Card], dealerUp: Rank, canDouble: Bool, canSplit: Bool,
-                              dealerHitsSoft17: Bool = false) -> Action {
+                              dealerHitsSoft17: Bool = false, numDecks: Int = 6) -> Action {
+        let chart = chart(forDecks: numDecks)
         let colKey = dealerUp.strategyKey
         guard let col = dealerCols.firstIndex(of: colKey) else { return .stand }
 
@@ -79,7 +123,7 @@ enum BasicStrategy {
            cards[0].rank.strategyKey == cards[1].rank.strategyKey,
            canSplit {
             let key = cards[0].rank.strategyKey
-            if let prow = pairs[key], prow[col] == "P" {
+            if let prow = chart.pairs[key], prow[col] == "P" {
                 return .split
             }
             // Otherwise fall through to hard/soft logic (e.g. 10,10 or 5,5).
@@ -91,12 +135,9 @@ enum BasicStrategy {
         // at 13, so without this it would be graded as hard 12 (stand vs 4–6).
         if hv.soft && hv.total == 12 { return .hit }
 
-        if hv.soft, hv.total >= 13, hv.total <= 20, let row = soft[hv.total], col < row.count {
+        if hv.soft, hv.total >= 13, hv.total <= 20, let row = chart.soft[hv.total], col < row.count {
             var a = row[col]
-            if dealerHitsSoft17 {
-                if hv.total == 18 && colKey == "2" { a = "Ds" }
-                if hv.total == 19 && colKey == "6" { a = "Ds" }
-            }
+            if dealerHitsSoft17, let h17 = chart.h17Changes["s\(hv.total)/\(colKey)"] { a = h17 }
             if a == "D" && !canDouble { a = "H" }
             if a == "Ds" { a = canDouble ? "D" : "S" }
             return Action(rawValue: a) ?? .hit
@@ -105,11 +146,11 @@ enum BasicStrategy {
         let hardTotal = min(hv.total, 21)
         let key = hardTotal >= 17 ? 17 : max(hardTotal, 5)
         // Defensive: never trap on an unexpected key/column — fall back to a safe play.
-        guard let row = hard[key], col < row.count else {
+        guard let row = chart.hard[key], col < row.count else {
             return hv.total >= 17 ? .stand : .hit
         }
         var a = row[col]
-        if dealerHitsSoft17 && key == 11 && colKey == "A" { a = "D" }
+        if dealerHitsSoft17, let h17 = chart.h17Changes["h\(key)/\(colKey)"] { a = h17 }
         if a == "D" && !canDouble { a = "H" }
         return Action(rawValue: a) ?? .hit
     }
@@ -129,13 +170,17 @@ struct Deviation {
     let note: String
     var h17Index: Double? = nil
     var h17Note: String? = nil
+    /// False where double-deck basic strategy already makes the deviation
+    /// play at a neutral count, so the 4–8 deck index would contradict it.
+    var appliesToDoubleDeck = true
 
     /// This play under the given dealer rule: a copy whose `index` and
     /// `note` are the H17 values when the dealer hits soft 17.
     func resolved(dealerHitsSoft17: Bool) -> Deviation {
         guard dealerHitsSoft17, let h17Index else { return self }
         return Deviation(handKey: handKey, dealerKey: dealerKey, index: h17Index,
-                         atOrAbove: atOrAbove, below: below, note: h17Note ?? note)
+                         atOrAbove: atOrAbove, below: below, note: h17Note ?? note,
+                         appliesToDoubleDeck: appliesToDoubleDeck)
     }
 }
 
@@ -150,6 +195,11 @@ enum Deviations {
     /// blackjackstrategy.io/strategy/deviations (H17 grid, 10vA and 12v6).
     /// Entries where H17 sources disagree by a point (16 vs 9, 16 vs 10) keep
     /// the S17 value.
+    /// Double deck: blackjackinfo.com/card-counting/illustrious-18/ notes the
+    /// indices are "used essentially unchanged for double deck". The two
+    /// exceptions are 11 vs A and 9 vs 2, which double-deck basic strategy
+    /// already doubles; no published double-deck index was found for them,
+    /// so in double deck they are graded by basic strategy (double).
     static let illustrious: [Deviation] = [
         Deviation(handKey: "16", dealerKey: "10", index: 0,  atOrAbove: .stand, below: .hit,  note: "16 vs 10: stand at TC 0+"),
         Deviation(handKey: "15", dealerKey: "10", index: 4,  atOrAbove: .stand, below: .hit,  note: "15 vs 10: stand at TC +4"),
@@ -159,8 +209,10 @@ enum Deviations {
         Deviation(handKey: "12", dealerKey: "3",  index: 2,  atOrAbove: .stand, below: .hit,  note: "12 vs 3: stand at TC +2"),
         Deviation(handKey: "12", dealerKey: "2",  index: 3,  atOrAbove: .stand, below: .hit,  note: "12 vs 2: stand at TC +3"),
         Deviation(handKey: "11", dealerKey: "A",  index: 1,  atOrAbove: .double, below: .hit, note: "11 vs A: double at TC +1",
-                  h17Index: -1, h17Note: "11 vs A: hit below a true count of negative 1"),
-        Deviation(handKey: "9",  dealerKey: "2",  index: 1,  atOrAbove: .double, below: .hit, note: "9 vs 2: double at TC +1"),
+                  h17Index: -1, h17Note: "11 vs A: hit below a true count of negative 1",
+                  appliesToDoubleDeck: false),
+        Deviation(handKey: "9",  dealerKey: "2",  index: 1,  atOrAbove: .double, below: .hit, note: "9 vs 2: double at TC +1",
+                  appliesToDoubleDeck: false),
         Deviation(handKey: "10", dealerKey: "A",  index: 4,  atOrAbove: .double, below: .hit, note: "10 vs A: double at TC +4",
                   h17Index: 3, h17Note: "10 vs A: double at TC +3"),
         Deviation(handKey: "9",  dealerKey: "7",  index: 3,  atOrAbove: .double, below: .hit, note: "9 vs 7: double at TC +3"),
@@ -181,19 +233,23 @@ enum Deviations {
     /// played as a pair (8,8 vs 10 splits; it is not "16 vs 10"). A pair that
     /// can't be split, or that the chart doesn't split (5,5), is played by its
     /// hard total. 10,10 has its own split index plays.
-    private static func handKey(for cards: [Card], dealerUp: Rank, canSplit: Bool) -> String? {
+    private static func handKey(for cards: [Card], dealerUp: Rank, canSplit: Bool,
+                                numDecks: Int) -> String? {
         let isPair = cards.count == 2
             && cards[0].rank.strategyKey == cards[1].rank.strategyKey
         if isPair && cards[0].rank.strategyKey == "10" { return "10,10" }
-        if isPair && canSplit && chartSplits(cards[0].rank, against: dealerUp) { return nil }
+        if isPair && canSplit && chartSplits(cards[0].rank, against: dealerUp, numDecks: numDecks) {
+            return nil
+        }
         let hv = evaluate(cards)
         if hv.soft { return nil }   // deviations here are hard-total only
         return String(hv.total)
     }
 
-    private static func chartSplits(_ rank: Rank, against dealerUp: Rank) -> Bool {
+    private static func chartSplits(_ rank: Rank, against dealerUp: Rank, numDecks: Int) -> Bool {
+        let pairs = BasicStrategy.chart(forDecks: numDecks).pairs
         guard let col = BasicStrategy.dealerCols.firstIndex(of: dealerUp.strategyKey),
-              let row = BasicStrategy.pairs[rank.strategyKey], col < row.count else { return false }
+              let row = pairs[rank.strategyKey], col < row.count else { return false }
         return row[col] == "P"
     }
 
@@ -201,22 +257,25 @@ enum Deviations {
     /// its index and note for the given dealer rule. Pass the same `canSplit`
     /// used for grading; the default (false) treats a pair by its total.
     static func matching(cards: [Card], dealerUp: Rank, canSplit: Bool = false,
-                         dealerHitsSoft17: Bool = false) -> Deviation? {
-        guard let key = handKey(for: cards, dealerUp: dealerUp, canSplit: canSplit) else { return nil }
+                         dealerHitsSoft17: Bool = false, numDecks: Int = 6) -> Deviation? {
+        guard let key = handKey(for: cards, dealerUp: dealerUp, canSplit: canSplit,
+                                numDecks: numDecks) else { return nil }
         let dk = dealerUp.strategyKey
-        return illustrious.first { $0.handKey == key && $0.dealerKey == dk }?
-            .resolved(dealerHitsSoft17: dealerHitsSoft17)
+        let isDoubleDeck = BasicStrategy.isDoubleDeck(numDecks)
+        return illustrious.first {
+            $0.handKey == key && $0.dealerKey == dk && (!isDoubleDeck || $0.appliesToDoubleDeck)
+        }?.resolved(dealerHitsSoft17: dealerHitsSoft17)
     }
 
     /// The count-aware correct action: basic strategy unless an index play overrides it.
     static func correctAction(cards: [Card], dealerUp: Rank, trueCount: Double,
                               canDouble: Bool, canSplit: Bool,
-                              dealerHitsSoft17: Bool = false) -> Action {
+                              dealerHitsSoft17: Bool = false, numDecks: Int = 6) -> Action {
         let basic = BasicStrategy.correctAction(cards: cards, dealerUp: dealerUp,
                                                 canDouble: canDouble, canSplit: canSplit,
-                                                dealerHitsSoft17: dealerHitsSoft17)
+                                                dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks)
         guard let dev = matching(cards: cards, dealerUp: dealerUp, canSplit: canSplit,
-                                 dealerHitsSoft17: dealerHitsSoft17) else { return basic }
+                                 dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks) else { return basic }
         var action = trueCount >= dev.index ? dev.atOrAbove : dev.below
         // Respect table constraints.
         if action == .double && !canDouble { action = .hit }
