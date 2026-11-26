@@ -11,8 +11,9 @@ struct SettingsSheet: View {
         NavigationStack {
             Form {
                 Section("Table Rules") {
+                    // Only shoe games: the strategy chart and index plays are for 4–8 decks.
                     Picker("Decks", selection: $engine.numDecks) {
-                        ForEach([1, 2, 4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
+                        ForEach([4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
                     }
                     .accessibilityIdentifier("tableOptionsDeckPicker")
                     .accessibilityValue("\(engine.numDecks)")
