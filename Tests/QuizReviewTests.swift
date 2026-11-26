@@ -188,6 +188,28 @@ struct QuizReviewTests {
         #expect(engine.handText == "Hard 16")
     }
 
+    @Test func drillingWithNothingToReviewLeavesTheEmptyReviewForSmart() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        let engine = QuizEngine(stats: stats)
+        engine.difficulty = .smart
+        engine.startReview()
+        #expect(engine.reviewIsEmpty, "Review list cleared: all caught up")
+        engine.drillWeakSpots()
+        #expect(engine.difficulty == .smart, "Smart was already saved; still leaves review")
+        #expect(!engine.reviewIsEmpty && engine.dealerUp != nil)
+    }
+
+    @Test func drillingWithMissedHandsOpensReview() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        stats.recordQuiz(correct: false, streak: 0, spotKey: "H16v10")
+        stats.logMistake(spotKey: "H16v10", chose: "Stand", correctPlay: "Hit")
+        let engine = QuizEngine(stats: stats)
+        engine.drillWeakSpots()
+        #expect(engine.isReviewing && engine.handText == "Hard 16")
+    }
+
     @Test func refreshLeavesAShowingReviewHandAlone() {
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)

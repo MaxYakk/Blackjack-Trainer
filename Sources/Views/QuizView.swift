@@ -6,8 +6,8 @@ struct QuizView: View {
     /// Mirrors the engine's saved difficulty so a mode chosen elsewhere
     /// (Progress "Drill these") applies when the tab opens.
     @AppStorage(QuizEngine.difficultyKey) private var storedDifficulty = QuizDifficulty.normal.rawValue
-    /// Set by Progress "Drill these" to open straight into review.
-    @AppStorage(QuizEngine.reviewRequestKey) private var reviewRequested = false
+    /// Set by Progress "Drill these" to drill the weak spots.
+    @AppStorage(QuizEngine.drillRequestKey) private var drillRequested = false
 
     var body: some View {
         Group {
@@ -19,10 +19,10 @@ struct QuizView: View {
         }
         .onAppear {
             if engine == nil { engine = QuizEngine(stats: stats) }
-            applyReviewRequest()
+            applyDrillRequest()
             engine?.refreshReview()
         }
-        .onChange(of: reviewRequested) { _, _ in applyReviewRequest() }
+        .onChange(of: drillRequested) { _, _ in applyDrillRequest() }
         // New misses from Play or the Daily Challenge refill an emptied review.
         .onChange(of: engine?.reviewRemaining) { _, _ in engine?.refreshReview() }
         .onChange(of: storedDifficulty) { _, raw in
@@ -32,10 +32,10 @@ struct QuizView: View {
         }
     }
 
-    private func applyReviewRequest() {
-        guard reviewRequested, let engine else { return }
-        reviewRequested = false
-        if engine.isReviewing { engine.refreshReview() } else { engine.startReview() }
+    private func applyDrillRequest() {
+        guard drillRequested, let engine else { return }
+        drillRequested = false
+        engine.drillWeakSpots()
     }
 }
 

@@ -48,9 +48,10 @@ final class QuizEngine {
     /// Saved difficulty. Other screens (Progress "Drill these") write it to
     /// switch the quiz's mode; QuizView applies the change.
     static let difficultyKey = "qe_difficulty"
-    /// One-shot flag other screens set (Progress "Drill these") to open the
-    /// quiz in review mode; QuizView clears it once it has acted.
-    static let reviewRequestKey = "qe_reviewRequest"
+    /// One-shot flag Progress "Drill these" sets; QuizView clears it once it
+    /// has called `drillWeakSpots()`. A flag (not the saved mode) so the
+    /// request is seen even when the saved mode already matches.
+    static let drillRequestKey = "qe_reviewRequest"
 
     var difficulty: QuizDifficulty = .normal {
         didSet {
@@ -109,6 +110,17 @@ final class QuizEngine {
     var reviewIsEmpty: Bool { isReviewing && dealerUp == nil }
 
     func startReview() { difficulty = .review }
+
+    /// Progress "Drill these": review the missed hands when there are any,
+    /// otherwise Smart mode (which leans on weak spots). Never leaves the
+    /// player on an empty review.
+    func drillWeakSpots() {
+        if !stats.reviewQueue.isEmpty {
+            if isReviewing { refreshReview() } else { startReview() }
+        } else if difficulty != .smart {
+            difficulty = .smart
+        }
+    }
 
     /// Deals a hand when review had run out but new misses have arrived since
     /// (from Play or the Daily Challenge). Does nothing while a hand is showing.
