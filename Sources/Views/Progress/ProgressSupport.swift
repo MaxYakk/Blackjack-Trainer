@@ -1,11 +1,5 @@
 import SwiftUI
 
-extension Stats {
-    /// Strategy accuracy across graded play and the quiz, as one number.
-    var overallStrategyCorrect: Int { data.strategyCorrect + data.quizCorrect }
-    var overallStrategyTotal: Int { data.strategyTotal + data.quizTotal }
-}
-
 extension ProgressFormat {
     /// The store's coaching copy uses long dashes; the app shows none.
     static func plain(_ text: String) -> String {

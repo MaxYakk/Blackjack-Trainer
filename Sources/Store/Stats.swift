@@ -81,6 +81,11 @@ struct StatsData: Codable {
     var quizCorrect = 0
     var quizBestStreak = 0
 
+    // Counted Daily Challenge answers (the day's first run only; practice
+    // replays never count). Part of overall strategy accuracy.
+    var challengeAnswersTotal = 0
+    var challengeAnswersCorrect = 0
+
     // Mid-session "what's the count?" checks
     var countChecks = 0
     var countChecksCorrect = 0
@@ -132,6 +137,7 @@ extension StatsData {
         case drillsCompleted, drillsCorrect, bestStreak, currentStreak
         case bankroll, betDecisions, betCorrect, inPlayWager, bestSessionNet
         case quizTotal, quizCorrect, quizBestStreak
+        case challengeAnswersTotal, challengeAnswersCorrect
         case countChecks, countChecksCorrect
         case bankrollHistory
         case days
@@ -189,6 +195,17 @@ extension StatsData {
         dailyGoal       = goal > 0 ? goal : StatsData().dailyGoal
         challenges      = c.lossyDictionary(ChallengeResult.self, forKey: .challenges) ?? challenges
         challengesStarted = Set(c.lossyArray(String.self, forKey: .challengesStarted) ?? [])
+        if let total = c.tolerant(Int.self, forKey: .challengeAnswersTotal) {
+            challengeAnswersTotal = max(0, total)
+            challengeAnswersCorrect = min(challengeAnswersTotal,
+                                          max(0, c.tolerant(Int.self, forKey: .challengeAnswersCorrect) ?? 0))
+        } else {
+            // Saved before these were tracked: start from the finished
+            // challenges, so earlier counted runs aren't lost from accuracy.
+            let finished = challenges.values.filter { $0.total > 0 }
+            challengeAnswersTotal = finished.reduce(0) { $0 + $1.total }
+            challengeAnswersCorrect = finished.reduce(0) { $0 + min(max($1.score, 0), $1.total) }
+        }
     }
 
     private static func finite(_ value: Double?) -> Double? {
@@ -488,11 +505,20 @@ final class Stats {
         )
     }
 
+    /// Strategy accuracy across graded play, the quiz and counted Daily
+    /// Challenge answers, as one number (Progress, skill rating, trophies).
+    var overallStrategyCorrect: Int {
+        data.strategyCorrect + data.quizCorrect + data.challengeAnswersCorrect
+    }
+    var overallStrategyTotal: Int {
+        data.strategyTotal + data.quizTotal + data.challengeAnswersTotal
+    }
+
     /// Composite player level across strategy, coverage, counting, and betting.
     var skillRating: SkillRating {
         SkillRating.compute(from: SkillRating.Inputs(
-            strategyCorrect: data.strategyCorrect + data.quizCorrect,
-            strategyTotal: data.strategyTotal + data.quizTotal,
+            strategyCorrect: overallStrategyCorrect,
+            strategyTotal: overallStrategyTotal,
             spotsPracticed: data.spots.count,
             chartCells: SpotCatalog.chartCellCount,
             drillsCorrect: data.drillsCorrect,
@@ -507,8 +533,8 @@ final class Stats {
     /// The full trophy list, live against current data.
     var achievements: [Achievement] {
         Achievements.all(from: Achievements.Inputs(
-            decisions: data.strategyTotal + data.quizTotal,
-            decisionsCorrect: data.strategyCorrect + data.quizCorrect,
+            decisions: overallStrategyTotal,
+            decisionsCorrect: overallStrategyCorrect,
             spotsPracticed: data.spots.count,
             masteredSpots: data.spots.values.filter { $0.total >= 5 && $0.accuracy >= 0.9 }.count,
             quizBestStreak: data.quizBestStreak,
@@ -551,9 +577,11 @@ final class Stats {
 
     var todayChallenge: ChallengeResult? { data.challenges[todayKey()] }
 
-    /// A challenge rep counts toward day totals and spot accuracy like any
-    /// other graded decision, without inflating quiz stats.
+    /// A counted challenge rep counts toward overall accuracy, day totals and
+    /// spot accuracy like any other graded decision, without inflating quiz stats.
     func recordChallengeAnswer(correct: Bool, spotKey: String?) {
+        data.challengeAnswersTotal += 1
+        if correct { data.challengeAnswersCorrect += 1 }
         bumpDay(correct: correct)
         bumpSpot(spotKey, correct: correct)
     }

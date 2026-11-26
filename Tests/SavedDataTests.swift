@@ -154,6 +154,46 @@ struct SavedDataTests {
         #expect(stats.data.challenges["2026-11-25"] == nil)
     }
 
+    @Test func countedChallengeAnswersCountTowardOverallAccuracy() {
+        let store = TestDefaults()
+        let dateKey = "2026-11-25"
+        let stats = Stats(defaults: store.defaults)
+        let run = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
+        while !run.finished {
+            run.answer(.stand)
+            run.next()
+        }
+        #expect(stats.overallStrategyTotal == run.spots.count)
+        #expect(stats.overallStrategyCorrect == run.score)
+
+        let practice = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
+        practice.answer(.hit)
+        #expect(stats.overallStrategyTotal == run.spots.count, "Practice replays never count")
+
+        stats.flush()
+        let relaunched = Stats(defaults: store.defaults)
+        #expect(relaunched.data.challengeAnswersTotal == run.spots.count)
+        #expect(relaunched.data.challengeAnswersCorrect == run.score)
+    }
+
+    @Test func olderSaveCountsFinishedChallengesOnce() {
+        let store = TestDefaults()
+        let json = """
+        {"quizTotal": 5, "quizCorrect": 4,
+         "challenges": {"2026-11-20": {"score": 7, "total": 10}, "2026-11-21": {"score": 10, "total": 10}}}
+        """
+        store.defaults.set(Data(json.utf8), forKey: Stats.storageKey)
+        let stats = Stats(defaults: store.defaults)
+        #expect(stats.data.challengeAnswersTotal == 20 && stats.data.challengeAnswersCorrect == 17)
+        #expect(stats.overallStrategyTotal == 25 && stats.overallStrategyCorrect == 21)
+
+        // Saved again with the new fields, it isn't counted a second time.
+        stats.recordQuiz(correct: true, streak: 1, spotKey: nil)
+        stats.flush()
+        let relaunched = Stats(defaults: store.defaults)
+        #expect(relaunched.data.challengeAnswersTotal == 20)
+    }
+
     @Test func openingWithoutAnsweringKeepsTheFirstRun() {
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)
