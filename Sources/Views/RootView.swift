@@ -27,7 +27,6 @@ enum Tab: Int, CaseIterable, Identifiable {
 }
 
 struct RootView: View {
-    @State private var selection: Tab = .play
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(Stats.self) private var stats
     @State private var showLoadIssue = false
@@ -63,21 +62,7 @@ struct RootView: View {
     }
 
     private var tabs: some View {
-        TabView(selection: $selection) {
-            tabContent(.play) { PlayView() }
-            tabContent(.quiz) { QuizView() }
-            tabContent(.count) { CountDrillView() }
-            tabContent(.strategy) { StrategyChartView() }
-            tabContent(.progress) { ProgressStatsView() }
-        }
-        .tint(.accent)
-        .environment(\.selectTab, { selection = $0 })
-    }
-
-    private func tabContent<Content: View>(_ tab: Tab, @ViewBuilder content: () -> Content) -> some View {
-        content()
-            .tabItem { Label(tab.title, systemImage: tab.icon) }
-            .tag(tab)
+        MainTabsView()
     }
 
     /// The welcome screen is a full-screen cover shown until it is completed.
