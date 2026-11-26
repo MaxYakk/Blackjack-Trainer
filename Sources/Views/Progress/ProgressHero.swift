@@ -47,7 +47,7 @@ struct ProgressHero: View {
     }
 
     private func levelCaption(_ rating: SkillRating) -> String {
-        let percent = Achievements.roundedPercent(rating.levelProgress)
+        let percent = Achievements.percentShort(of: 1, at: rating.levelProgress)
         if let next = SkillRating.Level(rawValue: rating.level.rawValue + 1) {
             return "\(percent)% of the way to \(next.name)."
         }

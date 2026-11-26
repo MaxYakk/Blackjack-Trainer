@@ -121,4 +121,11 @@ struct ReviewFixesTests {
             .first { $0.id == "sharp" }?.progressText
         #expect(text == "89%/90%")
     }
+
+    @Test func progressTowardATargetNeverShowsTheTargetEarly() {
+        #expect(Achievements.percentShort(of: 0.9, at: 0.896) == 89)
+        #expect(Achievements.percentShort(of: 0.9, at: 0.80) == 80)
+        #expect(Achievements.percentShort(of: 1, at: 0.996) == 99)
+        #expect(Achievements.roundedPercent(0.29) == 29)
+    }
 }

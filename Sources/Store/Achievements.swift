@@ -119,6 +119,12 @@ enum Achievements {
         Int((fraction * 100).rounded())
     }
 
+    /// Percent toward a target that isn't reached yet: rounded, but never
+    /// shown as the target itself (89.6% toward 90% reads 89%, not 90%).
+    static func percentShort(of target: Double, at fraction: Double) -> Int {
+        min(roundedPercent(fraction), roundedPercent(target) - 1)
+    }
+
     static let categories = ["Strategy", "Table Play", "Card Counting", "Dedication"]
 
     static func all(from i: Inputs) -> [Achievement] {
@@ -260,7 +266,7 @@ enum Achievements {
         let done = volumePart >= 1 && qualityPart >= 1
         let text = volumePart < 1
             ? "\(volume)/\(volumeTarget) played"
-            : "\(roundedPercent(quality))%/\(roundedPercent(qualityTarget))%"
+            : "\(qualityPart >= 1 ? roundedPercent(quality) : percentShort(of: qualityTarget, at: quality))%/\(roundedPercent(qualityTarget))%"
         return Achievement(
             id: id, icon: icon, title: title, detail: detail, tier: tier, category: category,
             progress: done ? 1 : min(volumePart * 0.5 + qualityPart * 0.5, 0.99),
