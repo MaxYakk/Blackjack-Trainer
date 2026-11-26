@@ -1,8 +1,8 @@
 import SwiftUI
 
 /// The lobby shown when no practice session is running: pick the starting
-/// money, the table minimum, how many hands to play and the table rules,
-/// then start. Also shows the summary of the session that just ended, and a
+/// money, the table minimum and every table setting (shared with the Table
+/// Options sheet), then start with the button pinned at the bottom. Also shows the summary of the session that just ended, and a
 /// "learn the basics" shortcut for players who have never played a hand.
 struct SessionSetupView: View {
     @Bindable var engine: PlayEngine
@@ -42,8 +42,8 @@ struct SessionSetupView: View {
                                 learnBasicsCard
                             }
                             buyInSection
-                            tableSection
-                            startSection
+                            minimumSection
+                            TableSettingsSections(engine: engine, context: .setup, hands: $hands)
                             Text("Play until you end the session or run out of money.")
                                 .font(.captionText)
                                 .foregroundStyle(.textTertiary)
@@ -54,6 +54,11 @@ struct SessionSetupView: View {
                         .frame(minHeight: geometry.size.height)
                     }
                 }
+                startSection
+                    .padding(.horizontal, Space.md)
+                    .padding(.top, Space.sm)
+                    .padding(.bottom, Space.sm)
+                    .background(Color.bg)
             }
         }
         .themedTextPrompt(editing?.rawValue ?? "",
@@ -129,34 +134,20 @@ struct SessionSetupView: View {
         .panel()
     }
 
-    // MARK: - Table
+    // MARK: - Minimum bet
 
-    private var tableSection: some View {
-        VStack(alignment: .leading, spacing: Space.md) {
-            sectionLabel("TABLE")
-            VStack(alignment: .leading, spacing: Space.xs) {
-                rowTitle("Minimum bet")
-                amountSelector(
-                    value: minimum,
-                    field: .minimum,
-                    ids: ("minimumBetDecrease", "minimumBetAmount", "minimumBetIncrease", "minimumBetEdit"),
-                    labels: ("Lower minimum bet", "Raise minimum bet", "Type minimum bet"),
-                    canDecrease: ChipSizing.minimumOptions.contains { $0 < minimum },
-                    canIncrease: ChipSizing.minimumOptions.contains { $0 > minimum },
-                    step: adjustMinimum
-                )
-            }
-            VStack(alignment: .leading, spacing: Space.xs) {
-                rowTitle("Hands per round")
-                SegmentedChoice(Array(PlayEngine.spotRange), selection: $hands,
-                                accessibilityLabel: "Hands per round") { "\($0)" }
-            }
-            ThemedMenuPicker("Decks", selection: $engine.numDecks,
-                             options: PlayEngine.allowedDeckCounts) { "\($0)" }
-                .accessibilityIdentifier("buyInDeckPicker")
-            ThemedMenuPicker("Dealer", selection: $engine.dealerHitsSoft17,
-                             options: [false, true]) { $0 ? "Hits soft 17" : "Stands soft 17" }
-                .accessibilityIdentifier("buyInDealerPicker")
+    private var minimumSection: some View {
+        VStack(spacing: Space.sm) {
+            sectionLabel("MINIMUM BET")
+            amountSelector(
+                value: minimum,
+                field: .minimum,
+                ids: ("minimumBetDecrease", "minimumBetAmount", "minimumBetIncrease", "minimumBetEdit"),
+                labels: ("Lower minimum bet", "Raise minimum bet", "Type minimum bet"),
+                canDecrease: ChipSizing.minimumOptions.contains { $0 < minimum },
+                canIncrease: ChipSizing.minimumOptions.contains { $0 > minimum },
+                step: adjustMinimum
+            )
         }
         .panel()
     }
@@ -263,12 +254,6 @@ struct SessionSetupView: View {
             .foregroundStyle(.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .accessibilityAddTraits(.isHeader)
-    }
-
-    private func rowTitle(_ text: String) -> some View {
-        Text(text)
-            .font(.calloutText.weight(.semibold))
-            .foregroundStyle(.textPrimary)
     }
 
     // MARK: - Actions
