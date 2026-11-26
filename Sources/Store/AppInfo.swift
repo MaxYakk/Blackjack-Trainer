@@ -7,7 +7,7 @@ enum AppInfo {
     static let companyName = "Vyne Events LLC"
     static let copyrightLine = "© Vyne Events LLC"
     static let tagline = "Practice blackjack basic strategy, card counting and bet sizing."
-    static let practiceChipsNotice = "Practice chips only. No real money, no prizes. For training and entertainment."
+    static let practiceChipsNotice = "\(PracticeNotice.line) For training and entertainment."
 
     /// Hosted privacy policy page. Leave nil until the owner publishes one;
     /// Settings shows the link only when this is set.

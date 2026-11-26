@@ -14,39 +14,8 @@ struct SettingsSheet: View {
     var body: some View {
         NavigationStack {
             Form {
-                rulesSection
-                Section {
-                    Toggle("Show hand totals", isOn: $engine.showHandTotals)
-                        .accessibilityIdentifier("showHandTotalsToggle")
-                } header: {
-                    Text("Realism")
-                } footer: {
-                    Text("Turn off to hide the totals above your hands and the dealer's, so you add the cards up yourself like at a real table.")
-                }
-                .listRowBackground(Color.surface)
-                Section {
-                    Toggle("Show running / true count", isOn: $engine.showCount)
-                    Toggle("Betting hints", isOn: $engine.betHints)
-                    Toggle("Ask for count checks during play", isOn: $engine.askCountChecks)
-                } header: {
-                    Text("Counting")
-                } footer: {
-                    Text("With betting hints off, the app only tells you if your bet was too high or too low. It does not reveal the count. Count checks occasionally ask for your running count before you act.")
-                }
-                .listRowBackground(Color.surface)
-                Section {
-                    Toggle("Count-based strategy changes", isOn: $engine.useDeviations)
-                        .accessibilityIdentifier("deviationsToggle")
-                } header: {
-                    Text("Advanced")
-                } footer: {
-                    Text("Grades your plays against the Illustrious 18, the best known count-based changes to basic strategy. For example, stand on 16 against a 10 when the true count is 0 or higher. Also grades insurance: take it at a true count of +3 or higher. See the full list on the Strategy tab.")
-                }
-                .listRowBackground(Color.surface)
-                Section("Sound") {
-                    Toggle("Sound effects", isOn: $engine.soundOn)
-                }
-                .listRowBackground(Color.surface)
+                tableRulesSection
+                trainingHelpSection
                 sessionSection
             }
             .tint(.accent)
@@ -65,30 +34,57 @@ struct SettingsSheet: View {
         .preferredColorScheme(.dark)
     }
 
-    private var rulesSection: some View {
+    private var tableRulesSection: some View {
         Section {
             // Each deck count is graded with its own chart (double deck or 4–8 decks).
-            Picker("Decks", selection: $engine.numDecks) {
-                ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
-            }
-            .accessibilityIdentifier("tableOptionsDeckPicker")
-            .accessibilityValue("\(engine.numDecks)")
-            Picker("Dealer", selection: $engine.dealerHitsSoft17) {
-                Text("Stands soft 17").tag(false)
-                Text("Hits soft 17").tag(true)
-            }
-            .accessibilityIdentifier("tableOptionsDealerPicker")
-            .accessibilityValue(engine.dealerHitsSoft17 ? "Hits soft 17" : "Stands soft 17")
+            ThemedMenuPicker("Decks", selection: $engine.numDecks,
+                             options: PlayEngine.allowedDeckCounts) { "\($0)" }
+                .accessibilityIdentifier("tableOptionsDeckPicker")
+                .accessibilityValue("\(engine.numDecks)")
+                .disabled(!rulesEditable)
+            ThemedMenuPicker("Dealer", selection: $engine.dealerHitsSoft17,
+                             options: [false, true]) { $0 ? "Hits soft 17" : "Stands soft 17" }
+                .accessibilityIdentifier("tableOptionsDealerPicker")
+                .accessibilityValue(engine.dealerHitsSoft17 ? "Hits soft 17" : "Stands soft 17")
+                .disabled(!rulesEditable)
+            toggleRow("Show hand totals", "Off: add up the cards yourself.", $engine.showHandTotals)
+                .accessibilityIdentifier("showHandTotalsToggle")
+            toggleRow("Sound effects", nil, $engine.soundOn)
         } header: {
-            Text("Table Rules")
+            Text("Table rules")
         } footer: {
             if !rulesEditable {
-                Text("Rules can change between rounds. Finish this hand, then come back.")
+                Text("Decks and dealer can change between rounds. Finish this hand, then come back.")
                     .accessibilityIdentifier("rulesLockedNote")
             }
         }
-        .disabled(!rulesEditable)
         .listRowBackground(Color.surface)
+    }
+
+    private var trainingHelpSection: some View {
+        Section {
+            toggleRow("Show running / true count", nil, $engine.showCount)
+            toggleRow("Betting hints", "Off: only told if a bet is too high or low.", $engine.betHints)
+            toggleRow("Ask for count checks during play", "Now and then, asks for your running count.",
+                      $engine.askCountChecks)
+            toggleRow("Count-based strategy changes", "Grades the Illustrious 18 plays.", $engine.useDeviations)
+                .accessibilityIdentifier("deviationsToggle")
+        } header: {
+            Text("Training help")
+        }
+        .listRowBackground(Color.surface)
+    }
+
+    private func toggleRow(_ title: String, _ subtitle: String?, _ isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            VStack(alignment: .leading, spacing: Space.xxs / 2) {
+                Text(title).font(.bodyText).foregroundStyle(.textPrimary)
+                if let subtitle {
+                    Text(subtitle).font(.detail).foregroundStyle(.textSecondary)
+                }
+            }
+        }
+        .toggleStyle(.themed)
     }
 
     private var sessionSection: some View {

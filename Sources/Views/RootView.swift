@@ -17,11 +17,11 @@ enum Tab: Int, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .play: return "suit.spade.fill"
-        case .quiz: return "bolt.fill"
-        case .count: return "eye.fill"
-        case .strategy: return "tablecells.fill"
-        case .progress: return "chart.line.uptrend.xyaxis"
+        case .play: return "rectangle.on.rectangle.angled"
+        case .quiz: return "questionmark.circle.fill"
+        case .count: return "plusminus.circle.fill"
+        case .strategy: return "square.grid.3x3.fill"
+        case .progress: return "trophy.fill"
         }
     }
 }
@@ -57,11 +57,9 @@ struct RootView: View {
             // With the welcome cover up, wait for it to close (onDismiss).
             if hasCompletedOnboarding { presentPendingLoadIssue() }
         }
-        .alert("Your progress couldn't be loaded", isPresented: $showLoadIssue) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("Your saved progress couldn't be read, so you're starting fresh. A backup of the old data was kept on this device.")
-        }
+        .themedConfirm("Your progress couldn't be loaded", isPresented: $showLoadIssue,
+                       message: "Your saved progress couldn't be read, so you're starting fresh. A backup of the old data was kept on this device.",
+                       actions: [.primary("OK")])
     }
 
     private var tabs: some View {
