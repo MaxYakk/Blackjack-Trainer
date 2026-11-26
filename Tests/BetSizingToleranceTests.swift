@@ -5,10 +5,12 @@ import Testing
 struct BetSizingToleranceTests {
     @Test static func runAll() {
         expect(.acceptable, for: 1, recommended: 1)
-        expect(.acceptable, for: 3, recommended: 1)
+        expect(.acceptable, for: 2, recommended: 1)
+        expect(.tooHigh, for: 3, recommended: 1)        // was acceptable: 3 units at a low count is betting into a house edge
         expect(.tooHigh, for: 4, recommended: 1)
 
-        expect(.acceptable, for: 1, recommended: 3)
+        expect(.tooLow, for: 1, recommended: 3)         // was acceptable: the count calls for a raise
+        expect(.acceptable, for: 2, recommended: 3)
         expect(.acceptable, for: 5, recommended: 3)
         expect(.tooHigh, for: 6, recommended: 3)
 
@@ -19,7 +21,8 @@ struct BetSizingToleranceTests {
 
         // Bankroll-aware grading. $1,500 at a $25 table carries up to $100 a spot.
         #expect(BetSizingEvaluator.maxBet(bankroll: 1500, tableMinimum: 25, spreadCap: 6) == 100)
-        expect(.acceptable, bet: 100, count: 1, min: 25, bankroll: 1500)   // neutral count, stack can take it
+        expect(.tooHigh, bet: 100, count: 1, min: 25, bankroll: 1500)      // was acceptable: stack can take it, but 4 units at a low count is too big
+        expect(.acceptable, bet: 50, count: 1, min: 25, bankroll: 1500)    // one unit over the minimum is forgiven
         expect(.acceptable, bet: 25, count: 1, min: 25, bankroll: 1500)
         expect(.tooHigh, bet: 125, count: 1, min: 25, bankroll: 1500)      // past 1/15 of the stack
         expect(.tooHigh, bet: 150, count: 6, min: 25, bankroll: 1500)      // count wants $150, stack caps at $100
