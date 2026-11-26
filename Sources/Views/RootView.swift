@@ -31,37 +31,31 @@ struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
     @Environment(Stats.self) private var stats
     @State private var showLoadIssue = false
+    @State private var loadIssuePending = false
     @State private var loadIssueChecked = false
 
     var body: some View {
         ZStack {
-            VStack(spacing: 0) {
-                TabView(selection: $selection) {
-                    PlayView().tag(Tab.play)
-                    QuizView().tag(Tab.quiz)
-                    CountDrillView().tag(Tab.count)
-                    StrategyChartView().tag(Tab.strategy)
-                    ProgressStatsView().tag(Tab.progress)
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
+            Color.bg.ignoresSafeArea()
 
-                CustomTabBar(selection: $selection)
-            }
-            .background(Theme.feltDark.ignoresSafeArea())
-
-            if !hasCompletedOnboarding {
-                OnboardingView {
-                    hasCompletedOnboarding = true
-                }
-                .transition(.opacity)
+            // Nothing is built behind the welcome screen: the first thing a
+            // new player sees is the launch color, then the welcome cover.
+            if hasCompletedOnboarding {
+                tabs
             }
         }
-        .animation(.easeInOut(duration: 0.25), value: hasCompletedOnboarding)
+        .fullScreenCover(isPresented: showOnboarding, onDismiss: presentPendingLoadIssue) {
+            OnboardingView {
+                hasCompletedOnboarding = true
+            }
+        }
         .onAppear {
             // Once per launch: explain why stats look empty after an unreadable save.
             guard !loadIssueChecked else { return }
             loadIssueChecked = true
-            if stats.loadIssue == .unreadableSaveBackedUp { showLoadIssue = true }
+            if stats.loadIssue == .unreadableSaveBackedUp { loadIssuePending = true }
+            // With the welcome cover up, wait for it to close (onDismiss).
+            if hasCompletedOnboarding { presentPendingLoadIssue() }
         }
         .alert("Your progress couldn't be loaded", isPresented: $showLoadIssue) {
             Button("OK", role: .cancel) {}
@@ -69,36 +63,36 @@ struct RootView: View {
             Text("Your saved progress couldn't be read, so you're starting fresh. A backup of the old data was kept on this device.")
         }
     }
-}
 
-private struct CustomTabBar: View {
-    @Binding var selection: Tab
+    private var tabs: some View {
+        TabView(selection: $selection) {
+            tabContent(.play) { PlayView() }
+            tabContent(.quiz) { QuizView() }
+            tabContent(.count) { CountDrillView() }
+            tabContent(.strategy) { StrategyChartView() }
+            tabContent(.progress) { ProgressStatsView() }
+        }
+        .tint(.accent)
+        .environment(\.selectTab, { selection = $0 })
+    }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases) { tab in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) { selection = tab }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 18))
-                        Text(tab.title)
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(selection == tab ? Theme.accent : Color.textSecondary)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityIdentifier("tab_\(tab.title.lowercased())")
-            }
-        }
-        .padding(.top, 8)
-        .padding(.bottom, 2)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) {
-            Divider().opacity(0.3)
-        }
+    private func tabContent<Content: View>(_ tab: Tab, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .tabItem { Label(tab.title, systemImage: tab.icon) }
+            .tag(tab)
+    }
+
+    /// The welcome screen is a full-screen cover shown until it is completed.
+    private var showOnboarding: Binding<Bool> {
+        Binding(
+            get: { !hasCompletedOnboarding },
+            set: { if !$0 { hasCompletedOnboarding = true } }
+        )
+    }
+
+    private func presentPendingLoadIssue() {
+        guard loadIssuePending else { return }
+        loadIssuePending = false
+        showLoadIssue = true
     }
 }

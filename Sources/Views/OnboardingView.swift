@@ -1,190 +1,130 @@
 import SwiftUI
 
+/// The welcome screen, shown as a full-screen cover on first launch. One
+/// primary action (start training) and one optional detour (learn the basics).
 struct OnboardingView: View {
     let onComplete: () -> Void
 
+    @State private var showTutorial = false
+
     var body: some View {
         GeometryReader { proxy in
-            ZStack {
-                onboardingBackground
+            ScrollView {
+                VStack(spacing: 0) {
+                    OnboardingBrand()
 
-                ScrollView {
-                    VStack(spacing: 0) {
-                        brand
+                    WelcomeTableau()
+                        .frame(height: min(max(proxy.size.height * 0.24, 150), 210))
+                        .padding(.top, Space.md)
 
-                        Spacer(minLength: 18)
-
-                        WelcomeTableau()
-                            .frame(height: min(max(proxy.size.height * 0.27, 178), 224))
-
-                        VStack(spacing: 12) {
-                            Text("Know the right move.")
-                                .font(.system(size: 38, weight: .bold, design: .rounded))
-                                .tracking(-0.8)
-                                .foregroundStyle(.textPrimary)
-                                .multilineTextAlignment(.center)
-                                .minimumScaleFactor(0.8)
-
-                            Text("Practice blackjack decisions with clear feedback after every move.")
-                                .font(.system(.body, design: .rounded, weight: .medium))
-                                .foregroundStyle(Color.textSecondary)
-                                .multilineTextAlignment(.center)
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                        .padding(.horizontal, 26)
-
-                        TrainingModes()
-                            .padding(.top, 28)
-
-                        Spacer(minLength: 24)
-
-                        Button(action: onComplete) {
-                            HStack(spacing: 10) {
-                                Text("Start training")
-                                Image(systemName: "arrow.right")
-                            }
-                            .font(.headline.weight(.bold))
-                            .foregroundStyle(Color.onAccent)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 56)
-                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityIdentifier("onboardingGetStarted")
-                        .padding(.horizontal, 24)
-
-                        Text(PracticeNotice.line)
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.textSecondary)
+                    VStack(spacing: Space.sm) {
+                        Text("Know the right move.")
+                            .font(.display)
+                            .foregroundStyle(.textPrimary)
                             .multilineTextAlignment(.center)
-                            .padding(.horizontal, 24)
-                            .padding(.top, 12)
-                            .accessibilityIdentifier("practiceNotice")
+                            .minimumScaleFactor(0.8)
+                            .accessibilityAddTraits(.isHeader)
 
-                        Label("Progress is saved on this device", systemImage: "lock.fill")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(Color.textTertiary)
-                            .padding(.top, 8)
+                        Text("Practice blackjack decisions with clear feedback after every move.")
+                            .font(.bodyText)
+                            .foregroundStyle(.textSecondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
-                    .padding(.top, 12)
-                    .padding(.bottom, 18)
-                    .frame(minHeight: proxy.size.height, alignment: .top)
+                    .padding(.top, Space.md)
+
+                    TrainingModes()
+                        .padding(.top, Space.lg)
+
+                    Spacer(minLength: Space.lg)
+
+                    actions
                 }
-                .scrollIndicators(.hidden)
-                .scrollBounceBehavior(.basedOnSize)
+                .padding(.horizontal, Space.lg)
+                .padding(.vertical, Space.md)
+                .frame(minHeight: proxy.size.height, alignment: .top)
             }
+            .scrollIndicators(.hidden)
+            .scrollBounceBehavior(.basedOnSize)
+        }
+        .background { OnboardingBackdrop() }
+        .presentationBackground(Color.bg)
+        .fullScreenCover(isPresented: $showTutorial) {
+            // Finishing the tutorial also finishes the welcome screen.
+            BeginnerBlackjackTutorial(onFinish: onComplete)
         }
     }
 
-    private var onboardingBackground: some View {
-        ZStack {
-            Color.bg
+    private var actions: some View {
+        VStack(spacing: Space.sm) {
+            Button(action: onComplete) {
+                HStack(spacing: Space.xs) {
+                    Text("Start training")
+                    Image(systemName: "arrow.right")
+                        .accessibilityHidden(true)
+                }
+            }
+            .buttonStyle(.primary)
+            .accessibilityIdentifier("onboardingGetStarted")
 
-            Text("\u{2660}")
-                .font(.system(size: 310, weight: .black))
-                .foregroundStyle(Color.surfaceSubtle)
-                .rotationEffect(.degrees(-14))
-                .offset(x: -150, y: 285)
+            SecondaryButton("New to blackjack? Learn the basics") {
+                showTutorial = true
+            }
+            .accessibilityIdentifier("onboardingLearnBasics")
+
+            Text(PracticeNotice.line)
+                .font(.captionText.weight(.semibold))
+                .foregroundStyle(.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.top, Space.xxs)
+                .accessibilityIdentifier("practiceNotice")
+
+            Label("Progress is saved on this device", systemImage: "lock.fill")
+                .font(.captionText)
+                .foregroundStyle(.textTertiary)
+                .multilineTextAlignment(.center)
+        }
+    }
+}
+
+/// Flat navy base with a large, quiet spade watermark that is allowed to run
+/// off the screen edge. Sized from the screen width so it never depends on a
+/// fixed font size.
+private struct OnboardingBackdrop: View {
+    var body: some View {
+        GeometryReader { proxy in
+            ZStack(alignment: .bottomLeading) {
+                Color.bg
+                Image(systemName: "suit.spade.fill")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: proxy.size.width * 0.85)
+                    .foregroundStyle(.surfaceSubtle)
+                    .rotationEffect(.degrees(-14))
+                    .offset(x: -proxy.size.width * 0.28, y: proxy.size.width * 0.18)
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
         }
         .ignoresSafeArea()
         .accessibilityHidden(true)
     }
+}
 
-    private var brand: some View {
-        HStack(spacing: 10) {
-            ZStack {
-                Circle()
-                    .fill(Theme.accent)
-                Image(systemName: "suit.spade.fill")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Color.onAccent)
-            }
-            .frame(width: 30, height: 30)
+private struct OnboardingBrand: View {
+    var body: some View {
+        HStack(spacing: Space.xs) {
+            Image(systemName: "suit.spade.fill")
+                .font(.captionText.weight(.bold))
+                .foregroundStyle(.onAccent)
+                .frame(width: 30, height: 30)
+                .background(.accent, in: Circle())
 
-            Text("HIT ME")
-                .font(.caption.weight(.bold))
-                .tracking(1.6)
-                .foregroundStyle(Color.textPrimary)
+            Text("Hit Me")
+                .font(.heading)
+                .foregroundStyle(.textPrimary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Hit Me")
-    }
-}
-
-private struct WelcomeTableau: View {
-    var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 90)
-                .stroke(Theme.accent.opacity(0.22), lineWidth: 1)
-                .frame(width: 310, height: 166)
-
-            RoundedRectangle(cornerRadius: 76)
-                .stroke(Color.divider, lineWidth: 1)
-                .frame(width: 274, height: 132)
-
-            CardView(card: Card(rank: .ace, suit: .spades), size: 1.55)
-                .rotationEffect(.degrees(-9))
-                .offset(x: -36, y: 6)
-
-            CardView(card: Card(rank: .king, suit: .hearts), size: 1.55)
-                .rotationEffect(.degrees(8))
-                .offset(x: 38, y: 3)
-
-            ChipView(value: 25, size: 50)
-                .rotationEffect(.degrees(-12))
-                .offset(x: -108, y: 64)
-
-            ChipView(value: 100, size: 42)
-                .rotationEffect(.degrees(10))
-                .offset(x: 112, y: 59)
-
-            Text("21")
-                .font(.system(size: 16, weight: .black, design: .rounded))
-                .foregroundStyle(Color.onAccent)
-                .padding(.horizontal, 13)
-                .padding(.vertical, 7)
-                .background(Theme.accent, in: Capsule())
-                .shadow(color: .shadowColor, radius: 6, y: 3)
-                .offset(y: 72)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .accessibilityHidden(true)
-    }
-}
-
-private struct TrainingModes: View {
-    private let modes = [
-        ("suit.spade.fill", "Real hands"),
-        ("bolt.fill", "Fast drills"),
-        ("chart.line.uptrend.xyaxis", "Clear progress")
-    ]
-
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(modes.enumerated()), id: \.offset) { index, mode in
-                VStack(spacing: 8) {
-                    Image(systemName: mode.0)
-                        .font(.system(size: 17, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
-                        .frame(height: 20)
-
-                    Text(mode.1)
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color.textSecondary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                }
-                .frame(maxWidth: .infinity)
-
-                if index < modes.count - 1 {
-                    Rectangle()
-                        .fill(Color.divider)
-                        .frame(width: 1, height: 34)
-                }
-            }
-        }
-        .padding(.vertical, 4)
-        .padding(.horizontal, 22)
-        .accessibilityElement(children: .contain)
     }
 }
