@@ -42,6 +42,18 @@ struct ChallengeResult: Codable {
     /// Green hands plus half a point per close call.
     var points: Double { Double(score) + 0.5 * Double(close) }
     var isPerfect: Bool { total > 0 && score == total }
+
+    /// "8" or "8½".
+    var pointsText: String {
+        let whole = Int(points.rounded(.down))
+        return points > Double(whole) ? "\(whole)½" : "\(whole)"
+    }
+
+    /// "8" or "8 and a half", for VoiceOver.
+    var pointsSpoken: String {
+        let whole = Int(points.rounded(.down))
+        return points > Double(whole) ? "\(whole) and a half" : "\(whole)"
+    }
 }
 
 extension ChallengeResult {

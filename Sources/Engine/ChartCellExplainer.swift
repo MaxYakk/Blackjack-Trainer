@@ -121,12 +121,12 @@ enum ChartAccuracy {
         }
     }
 
-    /// Whole percent for display. Never shows 100 unless every try was right,
-    /// and never shows 0 unless every try was wrong.
+    /// Whole percent for display (a close call is half credit). Never shows
+    /// 100 unless every try was right, and never shows 0 unless every try was wrong.
     static func percent(for spot: SpotStat) -> Int {
         guard spot.total > 0 else { return 0 }
         if spot.correct >= spot.total { return 100 }
-        if spot.correct <= 0 { return 0 }
+        if spot.correct <= 0 && spot.close <= 0 { return 0 }
         return min(99, max(1, Int((spot.accuracy * 100).rounded())))
     }
 }

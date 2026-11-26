@@ -24,12 +24,12 @@ struct TableMessage {
         }
         if !engine.feedbackText.isEmpty {
             return TableMessage(text: engine.feedbackText,
-                                kind: engine.feedbackGood ? .correct : .incorrect,
+                                kind: FeedbackPill.Kind(grade: engine.feedbackGrade),
                                 announces: true, identifier: "moveFeedback")
         }
         if !engine.betAdviceText.isEmpty && phase != .betting {
             return TableMessage(text: engine.betAdviceText,
-                                kind: engine.betAdviceGood ? .correct : .warning,
+                                kind: FeedbackPill.Kind(grade: engine.betGrade),
                                 announces: true, identifier: "betAdvice")
         }
         if refundedChips > 0 && phase == .betting {

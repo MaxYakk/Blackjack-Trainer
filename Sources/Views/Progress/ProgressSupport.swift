@@ -10,6 +10,8 @@ extension Stats {
 
     /// Strategy accuracy across graded play and the quiz, as one number.
     var overallStrategyCorrect: Int { data.strategyCorrect + data.quizCorrect }
+    /// Close calls (yellow) across play and the quiz: half credit.
+    var overallStrategyClose: Int { data.strategyClose + data.quizClose }
     var overallStrategyTotal: Int { data.strategyTotal + data.quizTotal }
 }
 

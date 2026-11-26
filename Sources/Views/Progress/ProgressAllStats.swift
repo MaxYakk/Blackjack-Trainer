@@ -81,7 +81,8 @@ struct ProgressAllStats: View {
         let d = stats.data
         return [
             ("Questions", "\(d.quizTotal)", .textPrimary),
-            ("Quiz accuracy", ProgressFormat.percent(correct: d.quizCorrect, total: d.quizTotal) ?? "N/A", .accent),
+            ("Quiz accuracy", ProgressFormat.percent(correct: d.quizCorrect, close: d.quizClose,
+                                                     total: d.quizTotal) ?? "N/A", .accent),
             ("Best quiz streak", "\(d.quizBestStreak)", .accent),
             ("Plays graded", "\(d.strategyTotal)", .textPrimary),
         ]

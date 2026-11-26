@@ -155,6 +155,16 @@ struct HalfCreditTests {
         #expect(ChallengeResult(score: 7, total: 10, close: 2).points == 8)
     }
 
+    @Test func displayHelpersShowHalfCredit() {
+        #expect(ChallengeResult(score: 8, total: 10, close: 1).pointsText == "8½")
+        #expect(ChallengeResult(score: 8, total: 10, close: 1).pointsSpoken == "8 and a half")
+        #expect(ChallengeResult(score: 8, total: 10, close: 2).pointsText == "9")
+        // A cell played only with close calls is 50%, not 0%.
+        #expect(ChartAccuracy.percent(for: SpotStat(correct: 0, total: 2, close: 2)) == 50)
+        #expect(ChartAccuracy.percent(for: SpotStat(correct: 0, total: 2, close: 0)) == 0)
+        #expect(ChartAccuracy.percent(for: SpotStat(correct: 3, total: 4, close: 1)) == 88)
+    }
+
     @Test func yellowDecisionIsHalfCreditEverywhere() {
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)

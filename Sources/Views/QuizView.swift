@@ -76,7 +76,7 @@ private struct QuizContent: View {
                 VStack(spacing: Space.xs) {
                     DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
                     DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
-                                  good: engine.feedbackGood,
+                                  grade: engine.grade,
                                   reason: engine.reason)
                 }
                 .padding(.horizontal, Space.md)
@@ -112,7 +112,7 @@ private struct QuizContent: View {
                     .foregroundStyle(.textPrimary)
                 Spacer()
                 if let result = stats.todayChallenge {
-                    Text("\(result.score)/\(result.total)")
+                    Text("\(result.pointsText)/\(result.total)")
                         .font(.numberInline)
                         .foregroundStyle(.positive)
                 } else {
@@ -131,7 +131,7 @@ private struct QuizContent: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityValue(stats.todayChallenge.map { "Scored \($0.score) of \($0.total) today" }
+        .accessibilityValue(stats.todayChallenge.map { "Scored \($0.pointsSpoken) of \($0.total) today" }
                             ?? "Not played today")
         .sheet(isPresented: $showChallenge) {
             DailyChallengeView()
