@@ -690,9 +690,14 @@ final class PlayEngine {
         let correct = verdict == .acceptable
         // Allowed (the stack can take it) but a counter would still bet the
         // minimum here. Coached, not scored as a mistake.
-        let bigAtLowCount = correct && tc < 2 && averageSpotBet > tableMinimum * 3 + 0.001
+        // (3+ units already grades as too high, so this covers the 2-unit bet.)
+        let bigAtLowCount = correct && tc < 2 && averageSpotBet > tableMinimum + 0.001
         // The count wants more than the stack should carry.
         let stackLimited = countUnits > rec
+        // Too high can mean too much for the stack, or too much for the count.
+        let overStack = BetSizingEvaluator.exceedsStack(
+            spotBet: averageSpotBet, tableMinimum: tableMinimum,
+            bankroll: bankroll, spreadCap: betSpreadCap)
         stats.recordBet(correct: correct)
         // The terse mode never hints at the count, so it only grades.
         betAdviceGood = correct && !(bigAtLowCount && betHints)
@@ -702,7 +707,9 @@ final class PlayEngine {
             let tcStr = String(format: "%+.1f", tc)
             switch verdict {
             case .tooHigh:
-                betAdviceText = "Too big for your stack. With \(money(bankroll)), keep each bet at \(money(cap)) or less."
+                betAdviceText = overStack
+                    ? "Too big for your stack. With \(money(bankroll)), keep each bet at \(money(cap)) or less."
+                    : "Too big for the count. The true count is \(tcStr), so bet about \(rec) unit\(rec == 1 ? "" : "s") (\(money(recommendedBet)))."
             case .tooLow:
                 betAdviceText = stackLimited
                     ? "The true count is \(tcStr). Bet more, up to \(money(recommendedBet)), the most your stack should carry."
@@ -722,7 +729,7 @@ final class PlayEngine {
             case .acceptable:
                 betAdviceText = "Good bet."
             case .tooHigh:
-                betAdviceText = "Too much for your stack."
+                betAdviceText = overStack ? "Too much for your stack." : "Too big for the count."
             case .tooLow:
                 betAdviceText = "You bet too little."
             }
@@ -753,8 +760,9 @@ final class PlayEngine {
         // cell at all, so it stays out of spot stats entirely (spotKey nil).
         let isPairShape = h.cards.count == 2
             && h.cards[0].rank.strategyKey == h.cards[1].rank.strategyKey
-        // The chart (and every spot stat built on it) is S17. In the three
-        // cells H17 flips, the graded play no longer matches the chart cell,
+        // The chart (and every spot stat built on it) is the 4–8 deck S17
+        // chart. In the cells H17 or double deck flips, the graded play no
+        // longer matches the chart cell,
         // so those decisions stay out of spot stats — same reasoning as
         // count deviations below.
         let chartAction = BasicStrategy.correctAction(
@@ -1013,6 +1021,9 @@ final class PlayEngine {
         // can't be inflated by a big buy-in or erased by the next session.
         stats.recordSessionProfit(sessionPeak - sessionBuyIn)
         saveSession()
+        // Session counters save immediately; write the settled chips now too
+        // so a hard kill can't leave them a round behind.
+        stats.flush()
         // Cut card reached? Shuffle now, before the next bets (and before a
         // Rebet), so the next round's bet is graded on the count you see.
         reshuffleIfNeededBetweenRounds()

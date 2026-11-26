@@ -31,3 +31,37 @@ struct DeviationFeedbackTests {
                 "Got: \(engine.feedbackText)")
     }
 }
+
+// Bet feedback must say why a bet failed: too big for the stack, or too big
+// for the count. And a 2-unit bet at a low count gets the "minimum is
+// sharper" coaching (it was unreachable before).
+@MainActor
+struct BetFeedbackTests {
+
+    private func table(_ store: TestDefaults) -> PlayEngine {
+        let (_, engine) = makeTable(store, buyIn: 500, minimum: 5)
+        engine.betHints = true
+        engine.askCountChecks = false
+        // A fresh shoe: the count at the bet is 0.
+        engine.installShoe(Shoe(numDecks: 6))
+        return engine
+    }
+
+    @Test func bigBetAtLowCountIsTooBigForTheCountNotTheStack() async {
+        let store = TestDefaults()
+        let engine = table(store)
+        betEverySpot(engine, 15)   // 3 units; the stack could carry 6
+        await dealAndWait(engine)
+        #expect(!engine.betAdviceGood)
+        #expect(engine.betAdviceText.hasPrefix("Too big for the count"), "Got: \(engine.betAdviceText)")
+    }
+
+    @Test func twoUnitsAtLowCountIsCoachedTowardTheMinimum() async {
+        let store = TestDefaults()
+        let engine = table(store)
+        betEverySpot(engine, 10)
+        await dealAndWait(engine)
+        #expect(!engine.betAdviceGood)
+        #expect(engine.betAdviceText.contains("is the sharper bet"), "Got: \(engine.betAdviceText)")
+    }
+}
