@@ -24,7 +24,7 @@ struct PrivacyPolicyView: View {
                     }
                     .accessibilityElement(children: .combine)
                 }
-                Text("\(AppInfo.appName) is made by \(AppInfo.companyName).")
+                Text(AppInfo.copyrightLine)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }

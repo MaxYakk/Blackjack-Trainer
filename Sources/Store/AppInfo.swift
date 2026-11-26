@@ -5,6 +5,7 @@ import Foundation
 enum AppInfo {
     static let appName = "Hit Me"
     static let companyName = "Vyne Events LLC"
+    static let copyrightLine = "© Vyne Events LLC"
     static let tagline = "Practice blackjack basic strategy, card counting and bet sizing."
     static let practiceChipsNotice = "Practice chips only. No real money, no prizes. For training and entertainment."
 
@@ -12,7 +13,11 @@ enum AppInfo {
     /// Settings shows the link only when this is set.
     static let privacyPolicyURL: URL? = nil
 
-    /// Support address. Leave nil until the owner provides one; Settings hides
+    /// Hosted terms of use page. Leave nil until published; Settings shows
+    /// the row only when this is set.
+    static let termsURL: URL? = nil
+
+    /// Support address. Settings hides
     /// the "Contact support" row while this is nil.
     static let supportEmail: String? = nil
 

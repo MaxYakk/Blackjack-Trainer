@@ -25,8 +25,10 @@ struct AppInfoTests {
         #expect(url?.absoluteString.contains("Hit%20Me%20support") == true)
     }
 
-    @Test func shippedConstantsAreUnsetUntilOwnerProvidesThem() {
+    @Test func shippedConstants() {
         #expect(AppInfo.privacyPolicyURL == nil)
+        #expect(AppInfo.termsURL == nil)
         #expect(AppInfo.supportEmail == nil)
+        #expect(AppInfo.supportMailURL(email: AppInfo.supportEmail, subject: "x") == nil)
     }
 }

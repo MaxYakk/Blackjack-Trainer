@@ -129,12 +129,13 @@ struct SettingsView: View {
         Section {
             LabeledContent("App", value: AppInfo.appName)
             LabeledContent("Version", value: AppInfo.currentVersionString)
-            Text("Made by \(AppInfo.companyName)")
             Text(AppInfo.tagline)
             Text(AppInfo.practiceChipsNotice)
                 .foregroundStyle(Theme.mint)
         } header: {
             Text("About")
+        } footer: {
+            Text(AppInfo.copyrightLine)
         }
         .listRowBackground(rowBackground)
     }
@@ -149,6 +150,10 @@ struct SettingsView: View {
                 Link("Privacy Policy on the web", destination: url)
                     .frame(minHeight: 44, alignment: .leading)
             }
+            if let url = AppInfo.termsURL {
+                Link("Terms of Use", destination: url)
+                    .frame(minHeight: 44, alignment: .leading)
+            }
         } header: {
             Text("Privacy")
         }
@@ -160,7 +165,7 @@ struct SettingsView: View {
     @ViewBuilder
     private var supportSection: some View {
         if let url = AppInfo.supportMailURL(email: AppInfo.supportEmail,
-                                            subject: "\(AppInfo.appName) support") {
+                                            subject: "\(AppInfo.appName) support (\(AppInfo.currentVersionString.replacingOccurrences(of: "Version ", with: "v")))") {
             Section {
                 Link(destination: url) {
                     Label("Contact support", systemImage: "envelope")
