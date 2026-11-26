@@ -91,21 +91,21 @@ struct PlayStatsStrip: View {
 
     /// Arrows instead of signs, so it reads like a scoreboard.
     private var sessionText: String {
-        let net = engine.sessionNet
+        let net = engine.sessionNetShown
         if net > 0.005 { return "▲ \(engine.money(net))" }
         if net < -0.005 { return "▼ \(engine.money(-net))" }
         return "Even"
     }
 
     private var sessionSpoken: String {
-        let net = engine.sessionNet
+        let net = engine.sessionNetShown
         if net > 0.005 { return "up \(Money.chips(net))" }
         if net < -0.005 { return "down \(Money.chips(-net))" }
         return "even"
     }
 
     private var sessionColor: Color {
-        let net = engine.sessionNet
+        let net = engine.sessionNetShown
         if net > 0.005 { return .positive }
         if net < -0.005 { return .negative }
         return .textPrimary
