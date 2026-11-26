@@ -54,14 +54,14 @@ private struct QuizContent: View {
             // below are pinned, so the cards and Hit / Stand never move.
             ScrollView {
                 VStack(spacing: Space.md) {
-                    // What you pick before answering comes first, so Review
-                    // missed hands is visible without scrolling; stats follow.
+                    // What you pick before answering comes first (challenge, review,
+                    // difficulty), so it is visible without scrolling; stats follow.
                     challengeCard
                     if engine.isReviewing {
                         reviewPanel
                     } else {
-                        difficultyPicker
                         reviewEntry
+                        difficultyPicker
                     }
                     scoreTiles
                     if !engine.reviewIsEmpty { autoAdvanceToggle }
