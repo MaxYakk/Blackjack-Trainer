@@ -44,4 +44,11 @@ enum StrategyNames {
     static func dealer(_ column: String) -> String {
         column == "A" ? "dealer ace" : "dealer \(column)"
     }
+
+    /// "You get this right 67 percent of the time, 3 tries", or the not practiced line.
+    static func accuracySentence(_ spot: SpotStat?) -> String {
+        guard let spot, spot.total > 0 else { return "Not practiced yet" }
+        let tries = spot.total == 1 ? "1 try" : "\(spot.total) tries"
+        return "You get this right \(ChartAccuracy.percent(for: spot)) percent of the time, \(tries)"
+    }
 }

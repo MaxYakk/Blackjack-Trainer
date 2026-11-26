@@ -113,27 +113,36 @@ extension ShapeStyle where Self == Color {
 
 // MARK: - Strategy chart
 
-/// Cell colors for the basic-strategy chart. Hues follow the Okabe–Ito
-/// colorblind-safe set (orange / blue / green / teal / amber / purple) and every
-/// cell also prints its letter, so no meaning rests on red vs green alone.
-/// White (`textPrimary`) text is at least 4.7:1 on each.
+/// Cell colors for the basic-strategy chart. Muted, flat mid-tones with dark ink
+/// letters (`text`, 7:1 or better on every fill). Hues come from the Okabe-Ito
+/// colorblind-safe set (vermillion / sky blue / bluish green / reddish purple /
+/// yellow) and every cell also prints its letter, so no meaning rests on color alone.
 enum ChartColors {
-    /// H. #A84C2A (coral, deep)
-    static let hit = Color(hex: 0xA84C2A)
-    /// S. #2F5FB3 (blue)
-    static let stand = Color(hex: 0x2F5FB3)
-    /// D. #1F7A5A (green)
-    static let double = Color(hex: 0x1F7A5A)
-    /// Ds (double, otherwise stand). #2B6E86 (teal)
-    static let doubleOrStand = Color(hex: 0x2B6E86)
-    /// P. #806210 (amber, deep)
-    static let split = Color(hex: 0x806210)
-    /// R (surrender), for charts that offer it. #6E4FB8 (purple)
-    static let surrender = Color(hex: 0x6E4FB8)
+    /// H, hit. #D9826A (coral)
+    static let hit = Color(hex: 0xD9826A)
+    /// S, stand. #7BA7DC (sky blue)
+    static let stand = Color(hex: 0x7BA7DC)
+    /// D, double (else hit). #62B896 (bluish green)
+    static let double = Color(hex: 0x62B896)
+    /// Ds, double (else stand). #A99BD6 (lavender)
+    static let doubleOrStand = Color(hex: 0xA99BD6)
+    /// P, split. #DDBB66 (yellow)
+    static let split = Color(hex: 0xDDBB66)
+    /// R (surrender), for charts that offer it. #C98FB0 (rose)
+    static let surrender = Color(hex: 0xC98FB0)
     /// Unknown code.
     static let unknown = Color(hex: 0x2A3346)
-    /// Text on every chart cell.
-    static let text = Color(hex: 0xEEF2FA)
+    /// Text on every chart cell. #0B0F1A
+    static let text = Color(hex: 0x0B0F1A)
+
+    /// My accuracy bands: blue (solid) to orange (leak), safe for red-green
+    /// colorblindness; every cell also prints its percentage.
+    static let masterySolid = Color(hex: 0x7BA7DC)
+    /// #C3CBD8 (pale silver, between the two ends)
+    static let masteryWorking = Color(hex: 0xC3CBD8)
+    static let masteryLeak = Color(hex: 0xD9826A)
+    /// Too few tries to judge: a quiet raised tile with light text.
+    static let masteryEarly = Color(hex: 0x252E44)
 
     /// Fill for a chart code ("H", "S", "D", "Ds", "P", "R").
     static func fill(for code: String) -> Color {
