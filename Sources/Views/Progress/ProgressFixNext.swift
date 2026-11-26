@@ -4,7 +4,7 @@ import SwiftUI
 /// actions that act on them (review the mistakes, drill them in the quiz).
 struct ProgressFixNext: View {
     @Environment(Stats.self) private var stats
-    @Environment(\.progressNavigation) private var navigation
+    @Environment(\.selectTab) private var selectTab
     @State private var review: ReviewSession?
 
     var body: some View {
@@ -50,11 +50,9 @@ struct ProgressFixNext: View {
 
     @ViewBuilder
     private var actions: some View {
-        if let openQuiz = navigation.openQuiz {
-            PrimaryButton("Drill these in Smart mode", systemImage: "bolt.fill", action: openQuiz)
-                .accessibilityHint("Opens the Quiz tab. Smart mode deals your weak spots first.")
-                .accessibilityIdentifier("drillLeaksButton")
-        }
+        PrimaryButton("Drill these in Smart mode", systemImage: "bolt.fill") { selectTab(.quiz) }
+            .accessibilityHint("Opens the Quiz tab. Smart mode deals your weak spots first.")
+            .accessibilityIdentifier("drillLeaksButton")
         let recurring = stats.recurringMistakes
         if !recurring.isEmpty {
             SecondaryButton("Review mistakes", systemImage: "arrow.triangle.2.circlepath") {

@@ -3,7 +3,7 @@ import SwiftUI
 /// What a brand-new player sees instead of a wall of zeros.
 struct ProgressEmptyState: View {
     @Environment(Stats.self) private var stats
-    @Environment(\.progressNavigation) private var navigation
+    @Environment(\.selectTab) private var selectTab
 
     var body: some View {
         Panel(alignment: .center, spacing: Space.md) {
@@ -27,14 +27,10 @@ struct ProgressEmptyState: View {
             }
 
             VStack(spacing: Space.xs) {
-                if let openPlay = navigation.openPlay {
-                    PrimaryButton("Play a few hands", systemImage: "suit.spade.fill", action: openPlay)
-                        .accessibilityIdentifier("emptyStatePlayButton")
-                }
-                if let openQuiz = navigation.openQuiz {
-                    SecondaryButton("Try the strategy quiz", systemImage: "bolt.fill", action: openQuiz)
-                        .accessibilityIdentifier("emptyStateQuizButton")
-                }
+                PrimaryButton("Play a few hands", systemImage: "suit.spade.fill") { selectTab(.play) }
+                    .accessibilityIdentifier("emptyStatePlayButton")
+                SecondaryButton("Try the strategy quiz", systemImage: "bolt.fill") { selectTab(.quiz) }
+                    .accessibilityIdentifier("emptyStateQuizButton")
             }
 
             Text("Daily goal: \(stats.data.dailyGoal) decisions a day keeps your streak going.")
