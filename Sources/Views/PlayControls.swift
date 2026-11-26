@@ -69,7 +69,7 @@ struct BettingControlsView: View {
                 .frame(maxWidth: 120)
                 if engine.numHands > 1 && engine.totalWager > 0 {
                     Spacer()
-                    Text("Total \(engine.money(engine.totalWager))")
+                    Text("Total \(Money.chips(engine.totalWager))")
                         .font(.caption)
                         .foregroundStyle(Theme.accent)
                 }
@@ -108,7 +108,7 @@ struct BettingControlsView: View {
                 }
                 .disabled(!engine.canDeal)
             }
-            Text("Table minimum \(engine.money(engine.tableMinimum))")
+            Text("Table minimum \(Money.chips(engine.tableMinimum))")
                 .font(.caption2)
                 .foregroundStyle(.white.opacity(0.55))
         }
@@ -126,7 +126,7 @@ struct InsuranceControlsView: View {
             Text("Insurance?")
                 .font(.headline)
                 .foregroundStyle(.white)
-            Text("The dealer shows an ace. Insurance costs \(engine.money(engine.insuranceCost)) and pays 2 to 1 if the dealer has blackjack.")
+            Text("The dealer shows an ace. Insurance costs \(Money.chips(engine.insuranceCost)) and pays 2 to 1 if the dealer has blackjack.")
                 .font(.caption)
                 .foregroundStyle(.white.opacity(0.7))
                 .multilineTextAlignment(.center)
@@ -182,8 +182,8 @@ struct CountCheckControlsView: View {
     }
 }
 
-/// Out of chips: the round is over and the stack can't cover another
-/// table-minimum bet, so the only move left is a fresh buy in.
+/// Out of chips: the round is over and the chips left can't cover another
+/// table-minimum bet, so the only move left is a fresh session.
 struct FeltedControlsView: View {
     let engine: PlayEngine
 
@@ -194,7 +194,7 @@ struct FeltedControlsView: View {
                     .font(.system(size: 20, weight: .black, design: .rounded))
                     .tracking(2.4)
                     .foregroundStyle(Theme.bad)
-                Text("The house took the last of your stack.")
+                Text("You're out of practice chips. Start a fresh session.")
                     .font(.footnote)
                     .foregroundStyle(.white.opacity(0.75))
             }
@@ -208,7 +208,7 @@ struct FeltedControlsView: View {
             Button {
                 engine.cashOut()
             } label: {
-                Label("New Buy In", systemImage: "arrow.uturn.left.circle.fill")
+                Label("New session", systemImage: "arrow.uturn.left.circle.fill")
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)

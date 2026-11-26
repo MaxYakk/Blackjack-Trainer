@@ -19,13 +19,13 @@ struct BetSizingToleranceTests {
         expect(.acceptable, for: 8, recommended: 6)
         expect(.tooHigh, for: 9, recommended: 6)
 
-        // Bankroll-aware grading. $1,500 at a $25 table carries up to $100 a spot.
+        // Bankroll-aware grading. 1,500 chips at a 25-chip table carries up to 100 a spot.
         #expect(BetSizingEvaluator.maxBet(bankroll: 1500, tableMinimum: 25, spreadCap: 6) == 100)
         expect(.tooHigh, bet: 100, count: 1, min: 25, bankroll: 1500)      // was acceptable: stack can take it, but 4 units at a low count is too big
         expect(.acceptable, bet: 50, count: 1, min: 25, bankroll: 1500)    // one unit over the minimum is forgiven
         expect(.acceptable, bet: 25, count: 1, min: 25, bankroll: 1500)
         expect(.tooHigh, bet: 125, count: 1, min: 25, bankroll: 1500)      // past 1/15 of the stack
-        expect(.tooHigh, bet: 150, count: 6, min: 25, bankroll: 1500)      // count wants $150, stack caps at $100
+        expect(.tooHigh, bet: 150, count: 6, min: 25, bankroll: 1500)      // count wants 150, chips cap at 100
         expect(.acceptable, bet: 100, count: 6, min: 25, bankroll: 1500)
         expect(.tooLow, bet: 25, count: 6, min: 25, bankroll: 1500)        // ramp trimmed to 4 units; 1 is too few
         expect(.acceptable, bet: 50, count: 6, min: 25, bankroll: 1500)    // within 2 units of the trimmed ramp
@@ -42,7 +42,7 @@ struct BetSizingToleranceTests {
         let result = BetSizingEvaluator.verdict(spotBet: bet, countUnits: count, tableMinimum: min,
                                                 bankroll: bankroll, spreadCap: 6)
         #expect(result == expected,
-                     "Expected \(expected) for a $\(bet) bet (count \(count) units, $\(min) min, $\(bankroll) stack), got \(result).")
+                     "Expected \(expected) for a \(bet) bet (count \(count) units, \(min) min, \(bankroll) chips), got \(result).")
     }
 
     private static func expect(

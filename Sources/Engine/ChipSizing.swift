@@ -1,14 +1,22 @@
 import Foundation
 
 /// Picks which chip denominations sit in the tray. The table minimum sets
-/// the smallest chip and the buy-in sets the largest, so a $25 table never
-/// shows a $5 chip and a $500 stack never shows a $5,000 one.
+/// the smallest chip and the starting chips set the largest, so a 25-chip
+/// table never shows a 5 chip and a 500-chip stack never shows a 5,000 one.
 enum ChipSizing {
-    /// Every minimum a table can be set to, low to high. Kept to whole-dollar
-    /// or whole-thousand values only — `label` renders anything ≥ $1,000 as
-    /// "$XK", and a value like 2500 rounds to a "$3K" label that doesn't
-    /// match the actual amount.
-    static let minimumOptions: [Double] = [0.10, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000, 5000, 10000]
+    /// The most practice chips a session can start with, whether picked from
+    /// the ladder or typed in.
+    static let maxStartingChips = 10_000.0
+
+    /// The preset steps for starting chips, low to high, ending at the cap.
+    static let startingChipOptions: [Double] = [25, 50, 100, 250, 500, 1000, 2000, 5000, 10_000]
+
+    /// Every minimum a table can be set to, low to high. Kept to whole values
+    /// (and whole thousands) only — `label` renders anything ≥ 1,000 as
+    /// "XK", and a value like 2500 rounds to a "3K" label that doesn't
+    /// match the actual amount. The top option is a fifth of the starting
+    /// chips cap, so every minimum leaves room for several bets.
+    static let minimumOptions: [Double] = [0.10, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2000]
 
     /// Every chip value the tray can draw from, low to high. Each one has its
     /// own color in `ChipStyle`.
@@ -17,18 +25,18 @@ enum ChipSizing {
         1000, 2000, 5000, 10000, 25000, 50000, 100000,
     ]
 
-    /// The classic casino progression. When several chips could fill a gap
+    /// The classic chip progression. When several chips could fill a gap
     /// in the tray, these win over the in-between values (10, 50, 250, ...).
     private static let primary: Set<Double> = [1, 5, 25, 100, 500, 1000, 5000, 25000, 100000]
 
-    /// The largest chip has to fit into the buy-in at least this many times.
+    /// The largest chip has to fit into the starting chips at least this many times.
     static let buyInToTopChipRatio = 4.0
 
     /// Up to five chips: the smallest is always the table minimum, the
-    /// largest is the biggest ladder chip that fits into the buy-in four
+    /// largest is the biggest ladder chip that fits into the starting chips four
     /// times, and up to three ladder chips sit in between, spread evenly on
-    /// a log scale. A narrow range just shows fewer chips. A $100 buy-in
-    /// at a $25 minimum gets a single $25 chip, since that's the only bet
+    /// a log scale. A narrow range just shows fewer chips. 100 starting chips
+    /// at a 25 minimum gets a single 25 chip, since that's the only bet
     /// size that table plays in.
     static func denominations(buyIn: Double, tableMinimum: Double) -> [Double] {
         let low = tableMinimum
@@ -54,10 +62,10 @@ enum ChipSizing {
         abs(log(chip) - target) * (primary.contains(chip) ? 1 : 1.35)
     }
 
-    /// A compact "$X" / "$X.XX" / "$XK" label for a minimum or buy-in amount.
+    /// A compact "X" / "0.10" / "XK" label for a minimum or starting amount.
     static func label(_ value: Double) -> String {
-        if value < 1 { return String(format: "$%.2f", value) }
-        if value >= 1000 { return "$\(Int((value / 1000).rounded()))K" }
-        return "$\(Int(value))"
+        if value < 1 { return String(format: "%.2f", value) }
+        if value >= 1000 { return "\(Int((value / 1000).rounded()))K" }
+        return "\(Int(value))"
     }
 }

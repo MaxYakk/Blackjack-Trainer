@@ -22,7 +22,7 @@ struct SessionFlowTests {
         let stats = Stats()
         let engine = PlayEngine(stats: stats)
         #expect(!engine.sessionActive, "No session should exist on first launch")
-        #expect(engine.tableMinimum == 5, "A fresh table should default to a $5 minimum")
+        #expect(engine.tableMinimum == 5, "A fresh table should default to a 5-chip minimum")
 
         // Buying in seeds the stack and applies the chosen table shape.
         engine.startSession(buyIn: 500, minimum: 25, hands: 2)
@@ -40,7 +40,7 @@ struct SessionFlowTests {
         // Cashing out writes the receipt and frees the table.
         engine.cashOut()
         #expect(!engine.sessionActive, "Cash out should end the session")
-        #expect(engine.tableMinimum == 5, "The next table should reset to a $5 minimum")
+        #expect(engine.tableMinimum == 5, "The next table should reset to a 5-chip minimum")
         let receipt = engine.lastSummary
         #expect(receipt?.buyIn == 500 && receipt?.cashedOut == 500, "Receipt should record the money flow")
         #expect(receipt?.net == 0 && receipt?.busted == false, "Breaking even is not a bust")

@@ -2,7 +2,7 @@ import SwiftUI
 
 // Visual language for round results: cards fly in from the shoe, result
 // stamps slam onto each hand, losing bets get swept to the dealer, winning
-// bets get paid next to the original stack, and the table celebrates a
+// bets get matched with winnings next to the original stack, and the table celebrates a
 // winning round with confetti and a gold banner.
 
 // MARK: - Deal transition
@@ -110,10 +110,10 @@ struct ResultStamp: View {
     }
 }
 
-// MARK: - Bet chips: sweep on a loss, payout on a win
+// MARK: - Bet chips: sweep on a loss, winnings on a win
 
 /// The chips riding under one hand. When the round settles, a lost bet is
-/// swept up toward the dealer; a won bet gets the payout dropped beside it.
+/// swept up toward the dealer; a won bet gets its winnings dropped beside it.
 struct BetChipsView: View {
     let hand: PlayerHand
     let settled: Bool
@@ -129,7 +129,7 @@ struct BetChipsView: View {
     private var won: Bool {
         hand.result == .win || hand.result == .blackjack
     }
-    private var payout: Double {
+    private var winnings: Double {
         hand.result == .blackjack ? hand.bet * 1.5 : hand.bet
     }
 
@@ -139,7 +139,7 @@ struct BetChipsView: View {
                 .offset(y: swept ? -300 : 0)
                 .opacity(swept ? 0 : 1)
             if paid {
-                ChipStack(amount: payout, size: size)
+                ChipStack(amount: winnings, size: size)
                     .transition(
                         reduceMotion
                             ? .opacity
@@ -179,7 +179,7 @@ struct BetChipsView: View {
 
 // MARK: - Loss vignette
 
-/// A brief red table-light flash around the edges when the house takes the round.
+/// A brief red table-light flash around the edges when the dealer wins the round.
 struct LossVignetteView: View {
     var body: some View {
         RadialGradient(
@@ -218,7 +218,7 @@ struct WinOverlayView: View {
 
     var body: some View {
         VStack(spacing: 8) {
-            Text(blackjack ? "BLACKJACK" : "YOU WIN")
+            Text(blackjack ? "BLACKJACK" : "HAND WON")
                 .font(.system(size: blackjack ? 38 : 44, weight: .black, design: .rounded))
                 .tracking(3)
                 .lineLimit(1)
@@ -226,7 +226,7 @@ struct WinOverlayView: View {
                 .foregroundStyle(goldGradient)
                 .shadow(color: Theme.accent.opacity(0.55), radius: 16)
                 .shadow(color: .black.opacity(0.65), radius: 3, y: 2)
-            Text("+\(Money.string(amount))")
+            Text(Money.signedChips(amount))
                 .monospacedDigit()
                 .font(.system(size: 30, weight: .heavy, design: .rounded))
                 .foregroundStyle(.white)
@@ -252,7 +252,7 @@ struct WinOverlayView: View {
         .opacity(appeared ? 1 : 0)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(blackjack ? "Blackjack" : "You win"). Profit \(Money.string(amount)). \(detail)")
+        .accessibilityLabel("\(blackjack ? "Blackjack" : "Hand won"). Gained \(Money.chips(amount)). \(detail)")
         .accessibilityIdentifier("winCelebration")
         .onAppear {
             if reduceMotion {
@@ -264,11 +264,11 @@ struct WinOverlayView: View {
     }
 }
 
-// MARK: - Cash out confirmation
+// MARK: - End session confirmation
 
-/// A felt-styled confirmation card for walking away from the table, centered
-/// over the felt in place of the system's generic bottom action sheet.
-struct CashOutConfirmCard: View {
+/// A confirmation card for ending the practice session, centered over the
+/// table in place of the system's generic bottom action sheet.
+struct EndSessionConfirmCard: View {
     let amount: String
     let onConfirm: () -> Void
     let onCancel: () -> Void
@@ -282,22 +282,22 @@ struct CashOutConfirmCard: View {
                 Circle()
                     .fill(Theme.accent.opacity(0.16))
                     .frame(width: 64, height: 64)
-                Image(systemName: "figure.walk.departure")
+                Image(systemName: "flag.checkered")
                     .font(.system(size: 26, weight: .semibold))
                     .foregroundStyle(Theme.accent)
             }
             VStack(spacing: 6) {
-                Text("WALK AWAY?")
+                Text("END SESSION?")
                     .font(.system(size: 19, weight: .black, design: .rounded))
                     .tracking(2.2)
                     .foregroundStyle(.white)
-                Text("Cash out with \(amount)")
+                Text("Finish with \(amount)")
                     .font(.subheadline)
                     .foregroundStyle(.white.opacity(0.7))
             }
             VStack(spacing: 10) {
                 Button(action: onConfirm) {
-                    Text("Cash Out")
+                    Text("End session")
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)

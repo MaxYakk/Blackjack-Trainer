@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// The mid-session "Table Options" sheet. Rules and coaching toggles are
-/// editable; session-shaping numbers (buy-in, table minimum) are read-only
-/// here because they're chosen at buy-in and grading is denominated in them.
+/// editable; session-shaping numbers (starting chips, table minimum) are
+/// read-only here because they're chosen at session start and grading is
+/// measured in them.
 struct SettingsSheet: View {
     @Bindable var engine: PlayEngine
     @Environment(\.dismiss) private var dismiss
@@ -53,30 +54,30 @@ struct SettingsSheet: View {
                 }
                 Section {
                     HStack {
-                        Text("Buy in")
+                        Text("Starting chips")
                         Spacer()
-                        Text(engine.money(engine.sessionBuyIn)).foregroundStyle(.secondary)
+                        Text(Money.chips(engine.sessionBuyIn)).foregroundStyle(.secondary)
                     }
                     HStack {
-                        Text("Balance")
+                        Text("Chips now")
                         Spacer()
-                        Text(engine.money(engine.bankroll)).foregroundStyle(.secondary)
+                        Text(Money.chips(engine.bankroll)).foregroundStyle(.secondary)
                     }
                     // Read-only mid-session: the minimum is the unit every bet
-                    // is graded in, and raising it could instantly "felt" a
-                    // live stack. It's chosen at buy-in (SessionSetupView).
+                    // is graded in, and raising it could instantly leave the player
+                    // out of chips. It's chosen at session start (SessionSetupView).
                     HStack {
                         Text("Table minimum")
                         Spacer()
-                        Text(engine.money(engine.tableMinimum)).foregroundStyle(.secondary)
+                        Text(Money.chips(engine.tableMinimum)).foregroundStyle(.secondary)
                     }
                 } header: {
                     Text("Session")
                 } footer: {
-                    Text("Use Cash Out at the table to end this session and start a new one with a different stack or table minimum.")
+                    Text("Use End session at the table to finish this session and start a new one with different starting chips or a different table minimum.")
                 }
                 Section {
-                    Text("Betting tip: keep bets at the table minimum when the true count is low, and ramp up by about one unit per point once it reaches +2. The app grades each bet against the count.")
+                    Text("Bet-sizing practice: keep bets at the table minimum when the true count is low, and raise them by about one unit per point once it reaches +2. The app grades each bet against the count. Chips here are for practice only.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

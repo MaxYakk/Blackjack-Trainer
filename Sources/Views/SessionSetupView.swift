@@ -1,8 +1,8 @@
 import SwiftUI
 
-/// The buy-in lobby shown when no table session is running: pick a starting
-/// stack, the table stakes, and how many hands to play, then sit down. Also
-/// shows the receipt from the session that just ended.
+/// The lobby shown when no practice session is running: pick the starting
+/// chips, the table minimum, and how many hands to play, then start. Also
+/// shows the summary of the session that just ended.
 struct SessionSetupView: View {
     @Bindable var engine: PlayEngine
 
@@ -13,17 +13,14 @@ struct SessionSetupView: View {
     @State private var hands = 1
     @State private var setupLoaded = false
 
-    private let buyInOptions: [Double] = [
-        25, 50, 100, 250, 500, 1000, 2000, 5000, 10_000,
-        25_000, 50_000, 100_000, 250_000, 500_000,
-    ]
+    private let buyInOptions = ChipSizing.startingChipOptions
 
     private enum AmountField: String, Identifiable {
-        case buyIn = "Buy in", minimum = "Minimum bet"
+        case buyIn = "Starting chips", minimum = "Minimum bet"
         var id: String { rawValue }
     }
 
-    private let maxAmount = 10_000_000.0
+    private let maxAmount = ChipSizing.maxStartingChips
 
     private var canDecreaseBuyIn: Bool { buyInOptions.contains { $0 < buyIn } }
     private var canIncreaseBuyIn: Bool { buyInOptions.contains { $0 > buyIn } }
@@ -44,11 +41,15 @@ struct SessionSetupView: View {
                             }
                             buyInSection
                             tableSection
-                            sitDownButton
-                            Text("Tap the buy in or minimum bet to type your own amount.")
+                            startButton
+                            Text(PracticeNotice.line)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.white.opacity(0.7))
+                                .accessibilityIdentifier("practiceNotice")
+                            Text("Tap the starting chips or minimum bet to type your own amount.")
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.55))
-                            Text("Play until you cash out or run out of chips.")
+                            Text("Play until you end the session or run out of chips.")
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.55))
                         }
@@ -68,7 +69,7 @@ struct SessionSetupView: View {
             Button("Set") { commitDraft() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Type any amount.")
+            Text("Type an amount up to \(Money.string(maxAmount)).")
         }
         .onAppear {
             guard !setupLoaded else { return }
@@ -77,15 +78,15 @@ struct SessionSetupView: View {
         }
     }
 
-    // MARK: - Buy in
+    // MARK: - Starting chips
 
     private var buyInSection: some View {
         VStack(spacing: 14) {
-            sectionLabel("BUY IN")
+            sectionLabel("STARTING CHIPS")
             HStack(spacing: 14) {
                 selectorButton(
                     systemImage: "chevron.left",
-                    accessibilityLabel: "Lower buy in",
+                    accessibilityLabel: "Fewer starting chips",
                     accessibilityIdentifier: "buyInDecrease",
                     disabled: !canDecreaseBuyIn
                 ) {
@@ -103,7 +104,7 @@ struct SessionSetupView: View {
 
                 selectorButton(
                     systemImage: "chevron.right",
-                    accessibilityLabel: "Raise buy in",
+                    accessibilityLabel: "More starting chips",
                     accessibilityIdentifier: "buyInIncrease",
                     disabled: !canIncreaseBuyIn
                 ) {
@@ -246,8 +247,7 @@ struct SessionSetupView: View {
 
     private func commitDraft() {
         defer { editing = nil }
-        let cleaned = draft.replacingOccurrences(of: "$", with: "")
-            .replacingOccurrences(of: ",", with: "")
+        let cleaned = draft.replacingOccurrences(of: ",", with: "")
             .trimmingCharacters(in: .whitespaces)
         guard let raw = Double(cleaned), raw.isFinite, raw > 0 else { return }
         let value = min((raw * 100).rounded() / 100, maxAmount)
@@ -280,11 +280,11 @@ struct SessionSetupView: View {
         .accessibilityIdentifier(accessibilityIdentifier)
     }
 
-    private var sitDownButton: some View {
+    private var startButton: some View {
         Button {
             engine.startSession(buyIn: buyIn, minimum: minimum, hands: hands)
         } label: {
-            Label("Sit Down", systemImage: "suit.club.fill")
+            Label("Start session", systemImage: "suit.club.fill")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
@@ -308,17 +308,17 @@ struct SessionSetupView: View {
 
 }
 
-/// The receipt from the session that just ended.
+/// The summary of the session that just ended.
 private struct SessionReceiptCard: View {
     let summary: SessionSummary
 
-    private var headline: String { summary.busted ? "FELTED" : "CASHED OUT" }
+    private var headline: String { summary.busted ? "OUT OF CHIPS" : "SESSION COMPLETE" }
     private var headlineColor: Color { summary.busted ? Theme.bad : Theme.accent }
 
     private var netLine: String {
-        if summary.net > 0.005 { return "Up \(money(summary.net))" }
-        if summary.net < -0.005 { return "Down \(money(-summary.net))" }
-        return "Broke even"
+        if summary.net > 0.005 { return "Up \(Money.chips(summary.net))" }
+        if summary.net < -0.005 { return "Down \(Money.chips(-summary.net))" }
+        return "Finished even"
     }
     private var netColor: Color {
         if summary.net > 0.005 { return Theme.good }
@@ -335,7 +335,7 @@ private struct SessionReceiptCard: View {
             Text(netLine)
                 .font(.system(size: 30, weight: .black, design: .rounded))
                 .foregroundStyle(netColor)
-            Text("Bought in \(money(summary.buyIn)) and left with \(money(summary.cashedOut))")
+            Text("Started with \(Money.chips(summary.buyIn)), finished with \(Money.chips(summary.cashedOut))")
                 .font(.footnote)
                 .foregroundStyle(.white.opacity(0.75))
             HStack(spacing: 0) {
@@ -343,7 +343,7 @@ private struct SessionReceiptCard: View {
                 receiptDivider
                 receiptStat(money(summary.biggestWin), "best round")
                 receiptDivider
-                receiptStat(money(summary.peak), "peak stack")
+                receiptStat(money(summary.peak), "peak chips")
                 if summary.blackjacks > 0 {
                     receiptDivider
                     receiptStat("\(summary.blackjacks)", summary.blackjacks == 1 ? "blackjack" : "blackjacks")
