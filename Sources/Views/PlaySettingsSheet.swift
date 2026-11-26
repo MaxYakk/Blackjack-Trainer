@@ -13,7 +13,7 @@ struct SettingsSheet: View {
                 Section("Table Rules") {
                     // Each deck count is graded with its own chart (double deck or 4–8 decks).
                     Picker("Decks", selection: $engine.numDecks) {
-                        ForEach([2, 4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
+                        ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .accessibilityIdentifier("tableOptionsDeckPicker")
                     .accessibilityValue("\(engine.numDecks)")

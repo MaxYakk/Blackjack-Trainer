@@ -93,10 +93,12 @@ struct RoundFlowTests {
         #expect(Shoe(numDecks: 0).cards.count == 52)
         #expect(Shoe(numDecks: -3).numDecks == 1)
 
-        // 4 decks: the plain 75% cut card leaves 52 cards; three spots need more.
+        // 2 decks: the plain 75% cut card leaves 26 cards; three spots need more.
         let reserve = Shoe.heavyRoundCards(spots: 3)
-        #expect(reserve > 52)
-        var shoe = Shoe(numDecks: 4)
+        #expect(reserve > 26)
+        // ...but not so many that a 2-deck shoe reshuffles before ~70% is dealt.
+        #expect(Double(reserve) <= 104 * 0.3)
+        var shoe = Shoe(numDecks: 2)
         while shoe.cardsRemaining > reserve { _ = shoe.draw() }
         #expect(!shoe.needsReshuffle(reserving: reserve))
         _ = shoe.draw()
@@ -311,13 +313,14 @@ extension RoundFlowTests {
     @Test func addingSpotsWhileBettingRechecksTheCutCard() {
         let store = TestDefaults()
         let (_, engine) = makeTable(store, hands: 1)
-        engine.numDecks = 4
-        var shoe = Shoe(numDecks: 4)
-        // Enough left for one spot's heavy round, not for three.
-        while shoe.cardsRemaining > 60 { _ = shoe.draw() }
+        engine.numDecks = 2
+        var shoe = Shoe(numDecks: 2)
+        // 28 left: past the 26-card cut and enough for one spot's busy
+        // round (14), but not for three spots (30).
+        while shoe.cardsRemaining > 28 { _ = shoe.draw() }
         engine.installShoe(shoe)
         engine.numHands = 3
         #expect(engine.shuffledForNextRound)
-        #expect(engine.shoe.cardsRemaining == 4 * 52)
+        #expect(engine.shoe.cardsRemaining == 2 * 52)
     }
 }

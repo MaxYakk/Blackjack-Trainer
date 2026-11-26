@@ -741,7 +741,8 @@ final class PlayEngine {
             dealerUp: dealerUpRank(),
             canDouble: canDouble(h),
             canSplit: canSplit(h),
-            dealerHitsSoft17: dealerHitsSoft17
+            dealerHitsSoft17: dealerHitsSoft17,
+            numDecks: numDecks
         )
 
         // Spot identity must come from the hand's SHAPE, not split legality —
@@ -771,9 +772,13 @@ final class PlayEngine {
             let correct = Deviations.correctAction(
                 cards: h.cards, dealerUp: dealerUpRank(), trueCount: trueCount,
                 canDouble: canDouble(h), canSplit: canSplit(h),
-                dealerHitsSoft17: dealerHitsSoft17
+                dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks
             )
-            let dev = Deviations.matching(cards: h.cards, dealerUp: dealerUpRank())
+            // Same inputs as grading, so the note names the play that was graded
+            // (8,8 vs 10 is a split, not "16 vs 10"; H17 and double deck use their indices).
+            let dev = Deviations.matching(cards: h.cards, dealerUp: dealerUpRank(),
+                                          canSplit: canSplit(h), dealerHitsSoft17: dealerHitsSoft17,
+                                          numDecks: numDecks)
             let isIndexPlay = correct != basic
             let ok = action == correct
             // When the count overrides the chart, the result says nothing about

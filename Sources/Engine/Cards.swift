@@ -136,11 +136,14 @@ struct Shoe {
         return cardsRemaining < max(cutCard, roundCards)
     }
 
-    /// Cards a heavy round can use: every spot split to four hands of five
-    /// cards each, plus a long dealer hand. Rounds bigger than this are
-    /// rare enough to be handled by a mid-round reshuffle instead.
+    /// Cards a busy round can use: about eight per spot (room for a split or
+    /// a few hits) plus a long dealer hand. Reserving the true worst case
+    /// (every spot split four times) would reshuffle a 2-deck, 3-spot shoe
+    /// after a third of it, so the count rarely gets high enough to practice
+    /// on. The rare bigger round is covered by `reshuffle(excluding:)`, which
+    /// keeps the table's cards out of the new shoe and flags the shuffle.
     static func heavyRoundCards(spots: Int) -> Int {
-        max(1, spots) * 4 * 5 + 8
+        max(1, spots) * 8 + 6
     }
 
     mutating func draw() -> Card {

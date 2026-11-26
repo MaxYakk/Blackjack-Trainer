@@ -188,7 +188,7 @@ struct SessionSetupView: View {
                         .foregroundStyle(.white.opacity(0.85))
                     Spacer()
                     Picker("Decks", selection: $engine.numDecks) {
-                        ForEach([1, 2, 4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
+                        ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
                     }
                     .pickerStyle(.menu)
                     .accessibilityIdentifier("buyInDeckPicker")
