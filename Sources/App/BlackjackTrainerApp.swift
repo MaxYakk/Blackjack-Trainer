@@ -5,6 +5,10 @@ struct BlackjackTrainerApp: App {
     @State private var stats = Stats()
     @Environment(\.scenePhase) private var scenePhase
 
+    init() {
+        TabBarStyle.configure()
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView()

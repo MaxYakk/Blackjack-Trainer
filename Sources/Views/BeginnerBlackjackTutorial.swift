@@ -1,72 +1,136 @@
 import SwiftUI
 
+/// The five-page "how blackjack works" walkthrough. Presented full screen from
+/// the Play menu and from the welcome screen. Swipe or use Back / Continue.
 struct BeginnerBlackjackTutorial: View {
+    /// Called after the last page's button closes the tutorial. The welcome
+    /// screen uses it to finish onboarding too.
+    var onFinish: (() -> Void)?
+
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var currentPage = 0
 
     private let pages = BeginnerTutorialPage.pages
+    private var isLastPage: Bool { currentPage == pages.count - 1 }
+
+    init(onFinish: (() -> Void)? = nil) {
+        self.onFinish = onFinish
+    }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Color.bg
-                    .ignoresSafeArea()
+        VStack(spacing: 0) {
+            header
 
-                VStack(spacing: 0) {
-                    HStack {
-                        Text("LEARN THE GAME")
-                            .font(.caption.weight(.bold))
-                            .tracking(1.4)
-                            .foregroundStyle(Theme.accent)
-                        Spacer()
-                        Button("Close") { dismiss() }
-                            .foregroundStyle(Color.textSecondary)
-                            .accessibilityIdentifier("tutorialClose")
-                    }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 12)
-
-                    TutorialPageContent(page: pages[currentPage])
-                        .id(currentPage)
-                        .transaction { transaction in
-                            transaction.animation = nil
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                    HStack(spacing: 7) {
-                        ForEach(pages.indices, id: \.self) { index in
-                            Capsule()
-                                .fill(index == currentPage ? Theme.accent : Color.textTertiary)
-                                .frame(width: index == currentPage ? 22 : 7, height: 7)
-                        }
-                    }
-                    .padding(.bottom, 18)
-
-                    Button(action: advance) {
-                        HStack(spacing: 8) {
-                            Text(currentPage == pages.count - 1 ? "Try a hand" : "Continue")
-                            Image(systemName: currentPage == pages.count - 1 ? "suit.spade.fill" : "arrow.right")
-                        }
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(Color.onAccent)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Theme.accent, in: Capsule())
-                    }
-                    .accessibilityIdentifier(currentPage == pages.count - 1 ? "tutorialDone" : "tutorialNext")
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 20)
+            TabView(selection: $currentPage) {
+                ForEach(pages.indices, id: \.self) { index in
+                    TutorialPageContent(page: pages[index])
+                        .tag(index)
+                        // Only the visible page is read by VoiceOver.
+                        .accessibilityHidden(index != currentPage)
                 }
             }
-            .toolbar(.hidden, for: .navigationBar)
+            .tabViewStyle(.page(indexDisplayMode: .never))
+
+            TutorialPageDots(count: pages.count, current: currentPage, onStep: go)
+                .padding(.vertical, Space.md)
+
+            footer
         }
+        .background(Color.bg.ignoresSafeArea())
+        .presentationBackground(Color.bg)
+    }
+
+    private var header: some View {
+        HStack {
+            Text("Learn the game")
+                .font(.overline)
+                .textCase(.uppercase)
+                .tracking(1.4)
+                .foregroundStyle(.accent)
+                .accessibilityAddTraits(.isHeader)
+            Spacer()
+            Button { dismiss() } label: {
+                Image(systemName: "xmark")
+                    .font(.heading)
+                    .foregroundStyle(.textSecondary)
+                    .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Close tutorial")
+            .accessibilityIdentifier("tutorialClose")
+        }
+        .padding(.leading, Space.lg)
+        .padding(.trailing, Space.xs)
+        .padding(.top, Space.xxs)
+    }
+
+    private var footer: some View {
+        HStack(spacing: Space.sm) {
+            if currentPage > 0 {
+                SecondaryButton("Back") { go(to: currentPage - 1) }
+                    .frame(maxWidth: 120)
+                    .accessibilityIdentifier("tutorialBack")
+            }
+
+            Button(action: advance) {
+                if isLastPage {
+                    Label("Try a hand", systemImage: "suit.spade.fill")
+                } else {
+                    HStack(spacing: Space.xs) {
+                        Text("Continue")
+                        Image(systemName: "arrow.right")
+                            .accessibilityHidden(true)
+                    }
+                }
+            }
+            .buttonStyle(.primary)
+            .accessibilityIdentifier(isLastPage ? "tutorialDone" : "tutorialNext")
+        }
+        .padding(.horizontal, Space.lg)
+        .padding(.bottom, Space.md)
     }
 
     private func advance() {
-        if currentPage == pages.count - 1 {
+        if isLastPage {
             dismiss()
+            onFinish?()
         } else {
-            currentPage += 1
+            go(to: currentPage + 1)
+        }
+    }
+
+    private func go(to page: Int) {
+        guard pages.indices.contains(page) else { return }
+        Motion.perform(.standard, reduceMotion: reduceMotion) { currentPage = page }
+    }
+}
+
+/// Page indicator that VoiceOver reads as one adjustable element
+/// ("Tutorial progress, Page 2 of 5").
+private struct TutorialPageDots: View {
+    let count: Int
+    let current: Int
+    let onStep: (Int) -> Void
+
+    var body: some View {
+        HStack(spacing: Space.xs) {
+            ForEach(0..<count, id: \.self) { index in
+                Capsule()
+                    .fill(index == current ? Color.accent : Color.textTertiary)
+                    .frame(width: index == current ? Space.lg : Space.xs, height: Space.xs)
+            }
+        }
+        .motion(.standard, value: current)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Tutorial progress")
+        .accessibilityValue("Page \(current + 1) of \(count)")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: onStep(current + 1)
+            case .decrement: onStep(current - 1)
+            @unknown default: break
+            }
         }
     }
 }
@@ -74,120 +138,56 @@ struct BeginnerBlackjackTutorial: View {
 private struct TutorialPageContent: View {
     let page: BeginnerTutorialPage
 
-    var body: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 22) {
-                ZStack {
-                    Circle()
-                        .fill(Theme.accent.opacity(0.15))
-                        .frame(width: 132, height: 132)
-                    Image(systemName: page.icon)
-                        .font(.system(size: 48, weight: .medium))
-                        .foregroundStyle(Theme.accent)
-                }
+    @ScaledMetric(relativeTo: .largeTitle) private var badgeSize: CGFloat = 112
 
-                VStack(spacing: 10) {
+    var body: some View {
+        ScrollView {
+            VStack(spacing: Space.lg) {
+                Image(systemName: page.icon)
+                    .scaledFont(size: 44, weight: .medium, design: .default,
+                                relativeTo: .largeTitle, maxSize: 64)
+                    .foregroundStyle(.accent)
+                    .frame(width: badgeSize, height: badgeSize)
+                    .background(.positiveBg, in: Circle())
+                    .accessibilityHidden(true)
+
+                VStack(spacing: Space.xs) {
                     Text(page.title)
-                        .font(.system(size: 27, weight: .bold, design: .rounded))
+                        .font(.sectionTitle)
                         .foregroundStyle(.textPrimary)
                         .multilineTextAlignment(.center)
+                        .accessibilityAddTraits(.isHeader)
                     Text(page.summary)
-                        .font(.body)
-                        .foregroundStyle(Color.textSecondary)
+                        .font(.bodyText)
+                        .foregroundStyle(.textSecondary)
                         .multilineTextAlignment(.center)
                 }
 
-                VStack(alignment: .leading, spacing: 14) {
+                Panel(spacing: Space.md) {
                     ForEach(page.points, id: \.title) { point in
-                        HStack(alignment: .top, spacing: 12) {
+                        HStack(alignment: .top, spacing: Space.sm) {
                             Image(systemName: point.icon)
-                                .font(.headline)
-                                .foregroundStyle(Theme.mint)
-                                .frame(width: 24)
-                            VStack(alignment: .leading, spacing: 3) {
+                                .font(.heading)
+                                .foregroundStyle(.accent)
+                                .frame(width: Space.lg)
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: Space.xxs) {
                                 Text(point.title)
-                                    .font(.subheadline.weight(.bold))
+                                    .font(.calloutText.weight(.bold))
                                     .foregroundStyle(.textPrimary)
                                 Text(point.detail)
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color.textSecondary)
+                                    .font(.calloutText)
+                                    .foregroundStyle(.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
+                            .accessibilityElement(children: .combine)
                         }
                     }
                 }
-                .padding(18)
-                .background(Color.surface, in: RoundedRectangle(cornerRadius: 18))
             }
-            .padding(.horizontal, 24)
-            .padding(.vertical, 20)
+            .padding(.horizontal, Space.lg)
+            .padding(.vertical, Space.md)
         }
+        .scrollIndicators(.hidden)
     }
-}
-
-private struct BeginnerTutorialPage {
-    struct Point {
-        let icon: String
-        let title: String
-        let detail: String
-    }
-
-    let icon: String
-    let title: String
-    let summary: String
-    let points: [Point]
-
-    static let pages = [
-        BeginnerTutorialPage(
-            icon: "suit.spade.fill",
-            title: "Blackjack in one minute",
-            summary: "Get closer to 21 than the dealer without going over.",
-            points: [
-                Point(icon: "number", title: "Card values", detail: "Cards 2 through 10 are worth their number. J, Q, and K are worth 10. An Ace is 1 or 11."),
-                Point(icon: "star.fill", title: "Blackjack", detail: "An Ace and a card worth 10 on your first two cards is a blackjack."),
-                Point(icon: "xmark.circle", title: "Bust", detail: "If your total goes over 21, your hand loses right away.")
-            ]
-        ),
-        BeginnerTutorialPage(
-            icon: "circle.circle.fill",
-            title: "Place a bet, then deal",
-            summary: "Use the chips to choose your bet before each hand.",
-            points: [
-                Point(icon: "circle.dashed", title: "Your betting spot", detail: "Tap a chip to add it to the circle. Your bet must meet the table minimum."),
-                Point(icon: "rectangle.3.group.fill", title: "Deal", detail: "You and the dealer each receive two cards. One dealer card is face down."),
-                Point(icon: "eye", title: "Dealer card", detail: "The visible dealer card helps you decide whether to take another card or stop.")
-            ]
-        ),
-        BeginnerTutorialPage(
-            icon: "hand.raised.fill",
-            title: "Choose your move",
-            summary: "After the deal, decide what to do with your hand.",
-            points: [
-                Point(icon: "plus.circle.fill", title: "Hit", detail: "Take one more card. You can hit again until you stand or bust."),
-                Point(icon: "hand.raised.fill", title: "Stand", detail: "Keep your total and end your turn."),
-                Point(icon: "arrow.up.right.circle.fill", title: "Double", detail: "Double your bet and take exactly one final card."),
-                Point(icon: "rectangle.split.2x1.fill", title: "Split", detail: "If your first two cards match, turn them into two separate hands.")
-            ]
-        ),
-        BeginnerTutorialPage(
-            icon: "person.2.fill",
-            title: "The dealer finishes the hand",
-            summary: "Once you stand, the dealer reveals the hidden card and follows set rules.",
-            points: [
-                Point(icon: "arrow.down.circle.fill", title: "Dealer draws", detail: "The dealer keeps taking cards on 16 or less, then stops on 17 or more."),
-                Point(icon: "trophy.fill", title: "You win", detail: "Win by having a higher total than the dealer, or when the dealer busts."),
-                Point(icon: "equal.circle.fill", title: "Push", detail: "If you and the dealer tie, you keep your bet. This is called a push.")
-            ]
-        ),
-        BeginnerTutorialPage(
-            icon: "checkmark.seal.fill",
-            title: "You're ready to play",
-            summary: "Start small, take your time, and use the feedback after each decision.",
-            points: [
-                Point(icon: "1.circle.fill", title: "Set a bet", detail: "Choose a chip at or above the table minimum."),
-                Point(icon: "2.circle.fill", title: "Deal your first hand", detail: "Use the dealer’s visible card and your total to choose an action."),
-                Point(icon: "lightbulb.fill", title: "Learn as you go", detail: "The trainer explains whether a move matched basic strategy. The Quiz tab is great for extra practice.")
-            ]
-        )
-    ]
 }
