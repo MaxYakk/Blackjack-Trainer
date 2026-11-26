@@ -50,12 +50,10 @@ private struct CountDrillContent: View {
                 AccessibilityNotification.Announcement("Cards done. What's the count?").post()
             }
         }
-        .confirmationDialog("Restart this drill?", isPresented: $confirmRestart, titleVisibility: .visible) {
-            Button("Restart drill", role: .destructive) { restart() }
-            Button("Keep going", role: .cancel) {}
-        } message: {
-            Text("You've seen every card. Restarting throws this drill away without a score.")
-        }
+        .themedConfirm("Restart this drill?", isPresented: $confirmRestart,
+                       message: "You've seen every card. Restarting throws this drill away without a score.",
+                       actions: [.destructive("Restart drill") { restart() },
+                                 .cancel("Keep going")])
     }
 
     // MARK: Stage

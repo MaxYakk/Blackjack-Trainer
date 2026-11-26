@@ -49,6 +49,60 @@ enum Achievements {
         var longestDailyStreak = 0
     }
 
+    // MARK: - What the Progress tab shows
+
+    /// The few trophies worth a spot on Progress: the ones closest to
+    /// unlocking, and the ones earned recently. The full list stays one tap away.
+    struct Spotlight {
+        let next: [Achievement]
+        let recent: [Achievement]
+    }
+
+    /// Next up: the locked trophies with the most progress (easier tiers
+    /// first on a tie, then list order), at most `nextCount`. Recently earned:
+    /// trophies first seen unlocked on or after `since` ("yyyy-MM-dd"), newest
+    /// first, at most `recentCount`. A date of "" means "earned before dates
+    /// were tracked" and never counts as recent.
+    static func spotlight(
+        all: [Achievement], dates: [String: String], since: String,
+        nextCount: Int = 2, recentCount: Int = 2
+    ) -> Spotlight {
+        let order = Dictionary(uniqueKeysWithValues: all.enumerated().map { ($1.id, $0) })
+        let next = all.filter { !$0.unlocked }
+            .sorted {
+                if $0.progress != $1.progress { return $0.progress > $1.progress }
+                if $0.tier != $1.tier { return $0.tier < $1.tier }
+                return (order[$0.id] ?? 0) < (order[$1.id] ?? 0)
+            }
+            .prefix(nextCount)
+        let recent = all.filter { item in
+            guard item.unlocked, let day = dates[item.id], !day.isEmpty else { return false }
+            return day >= since
+        }
+        .sorted {
+            let a = dates[$0.id] ?? "", b = dates[$1.id] ?? ""
+            if a != b { return a > b }
+            if $0.tier != $1.tier { return $0.tier > $1.tier }
+            return $0.id < $1.id
+        }
+        .prefix(recentCount)
+        return Spotlight(next: Array(next), recent: Array(recent))
+    }
+
+    /// Records the day each trophy was first seen unlocked. The first time
+    /// this runs (`seeded` false) every trophy already unlocked is stamped ""
+    /// (earned before tracking), so an upgrade doesn't flood "recently earned".
+    /// Dates are never removed.
+    static func updatedDates(
+        existing: [String: String], seeded: Bool, unlocked: [String], today: String
+    ) -> (dates: [String: String], seeded: Bool) {
+        var dates = existing
+        for id in unlocked where dates[id] == nil {
+            dates[id] = seeded ? today : ""
+        }
+        return (dates, true)
+    }
+
     static let categories = ["Strategy", "Table Play", "Card Counting", "Dedication"]
 
     static func all(from i: Inputs) -> [Achievement] {

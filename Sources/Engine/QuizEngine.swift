@@ -6,8 +6,14 @@ enum QuizDifficulty: String, CaseIterable, Identifiable {
     case normal = "Normal"
     case hard = "Hard"
     case smart = "Smart"
+    /// Drills only the hands you have missed. Not in the difficulty picker:
+    /// the quiz offers it as its own "Review missed hands" entry.
+    case review = "Review"
 
     var id: String { rawValue }
+
+    /// The modes shown in the difficulty picker.
+    static let pickerCases: [QuizDifficulty] = [.easy, .normal, .hard, .smart]
 
     /// One line shown under the difficulty picker.
     var summary: String {
@@ -19,7 +25,9 @@ enum QuizDifficulty: String, CaseIterable, Identifiable {
         case .hard:
             return "The tricky spots: hard 9 to 16, soft hands and pairs against every dealer card."
         case .smart:
-            return "Trains your game: deals the spots you miss most, plus ones you haven't tried yet."
+            return "Mixes the hands you miss most with ones you haven't tried yet."
+        case .review:
+            return "Only the hands you've missed, most missed first. Get one right twice in a row and it's cleared."
         }
     }
 }
@@ -40,6 +48,9 @@ final class QuizEngine {
     /// Saved difficulty. Other screens (Progress "Drill these") write it to
     /// switch the quiz's mode; QuizView applies the change.
     static let difficultyKey = "qe_difficulty"
+    /// One-shot flag other screens set (Progress "Drill these") to open the
+    /// quiz in review mode; QuizView clears it once it has acted.
+    static let reviewRequestKey = "qe_reviewRequest"
 
     var difficulty: QuizDifficulty = .normal {
         didSet {
@@ -47,10 +58,21 @@ final class QuizEngine {
             // didSet ALSO fires for the restore assignment inside init —
             // guard it or the first hand gets dealt twice.
             guard restored else { return }
-            UserDefaults.standard.set(difficulty.rawValue, forKey: Self.difficultyKey)
+            // Review is a visit, never the saved mode: relaunching returns to
+            // the mode the player chose, not an empty review.
+            if difficulty != .review {
+                UserDefaults.standard.set(difficulty.rawValue, forKey: Self.difficultyKey)
+                modeBeforeReview = difficulty
+            }
+            reviewServed = []
             next()
         }
     }
+
+    /// The mode to go back to when review ends.
+    private var modeBeforeReview: QuizDifficulty = .normal
+    private var reviewServed: Set<String> = []
+    private var currentSpotKey: String?
 
     private let stats: Stats
     private var restored = false
@@ -58,8 +80,9 @@ final class QuizEngine {
     init(stats: Stats) {
         self.stats = stats
         if let saved = UserDefaults.standard.string(forKey: Self.difficultyKey),
-           let value = QuizDifficulty(rawValue: saved) {
+           let value = QuizDifficulty(rawValue: saved), value != .review {
             difficulty = value
+            modeBeforeReview = value
         }
         restored = true
         next()
@@ -75,6 +98,36 @@ final class QuizEngine {
         return v.soft && v.total != 21 ? "Soft \(v.total)" : "Hard \(v.total)"
     }
 
+    // MARK: - Review missed hands
+
+    var isReviewing: Bool { difficulty == .review }
+
+    /// Missed hands still to clear (the count the review entry shows).
+    var reviewRemaining: Int { stats.reviewQueue.count }
+
+    /// True in review mode when no missed hand is left, so there is nothing to deal.
+    var reviewIsEmpty: Bool { isReviewing && dealerUp == nil }
+
+    func startReview() { difficulty = .review }
+
+    func endReview() { difficulty = modeBeforeReview }
+
+    private func dealReviewSpot() {
+        let queue = stats.reviewQueue.map(\.key)
+        guard let pick = ProgressMetrics.nextReviewKey(queue: queue, served: reviewServed,
+                                                        last: currentSpotKey),
+              let spot = SpotCatalog.spot(forKey: pick.key) else {
+            player = []
+            dealerUp = nil
+            currentSpotKey = nil
+            return
+        }
+        reviewServed = pick.served
+        player = spot.cards
+        dealerUp = Card(rank: spot.dealerRank, suit: .clubs)
+        currentSpotKey = pick.key
+    }
+
     // MARK: - Hand selection (spot pool lives in SpotCatalog)
 
     func next() {
@@ -83,10 +136,15 @@ final class QuizEngine {
             dealHardSpot()
         case .smart:
             dealSmartSpot()
+        case .review:
+            dealReviewSpot()
         case .easy:
             dealRandomHand(excluding: { v, isPair in v.soft || isPair || (12...16).contains(v.total) })
         case .normal:
             dealRandomHand(excluding: { _, _ in false })
+        }
+        if difficulty != .review, let up = dealerUp {
+            currentSpotKey = SpotID.key(cards: player, dealerUp: up.rank, canSplit: canSplit)
         }
         feedback = ""
         reason = ""
@@ -148,6 +206,14 @@ final class QuizEngine {
         }
     }
 
+    /// What review adds to the feedback line after an answer.
+    static func reviewNote(correct: Bool, streak: Int) -> String {
+        guard correct else { return ". It stays on your review list." }
+        return streak >= ProgressMetrics.reviewClearStreak
+            ? ". Cleared from your review list."
+            : ". One more right answer clears it."
+    }
+
     func answer(_ action: Action) {
         guard !answered, let up = dealerUp else { return }
         let correct = BasicStrategy.correctAction(
@@ -166,6 +232,9 @@ final class QuizEngine {
         feedback = ok
             ? "Correct: \(correct.name)"
             : "Best play is \(correct.name), not \(action.name)"
+        if isReviewing {
+            feedback += Self.reviewNote(correct: ok, streak: stats.spotStreak(spotKey))
+        }
         reason = QuizReasons.explain(correct: correct, cards: player,
                                      dealerUp: up.rank, canSplit: canSplit)
         // Haptic only — a buzz on wrong, a light success tap on right. No ringtone.

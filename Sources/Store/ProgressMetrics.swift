@@ -18,6 +18,15 @@ struct RecurringMistake: Identifiable {
     var id: String { key }
 }
 
+/// One missed hand waiting in the quiz's review list.
+struct ReviewCandidate: Identifiable {
+    let key: String
+    let mistakeCount: Int
+    let stat: SpotStat
+
+    var id: String { key }
+}
+
 /// Pure calculations behind the personalization features: leak ranking,
 /// smart-quiz dealing weights, and the daily-goal streak. Kept free of
 /// Observation/UserDefaults so they compile into the standalone test harness.
@@ -58,6 +67,51 @@ enum ProgressMetrics {
         }
         .prefix(limit)
         .map { $0 }
+    }
+
+    /// Right answers in a row that clear a missed hand from review.
+    static let reviewClearStreak = 2
+
+    /// The hands a player has missed and not yet fixed, most missed first. A
+    /// hand is in the list while it has at least one saved mistake and fewer
+    /// than `reviewClearStreak` right answers in a row since the last miss
+    /// (the streak resets on every miss, wherever it happened). Ties go to the
+    /// lower accuracy, then the key, so the order is stable.
+    static func reviewQueue(
+        spots: [String: SpotStat],
+        choices: [String: [String: Int]],
+        streaks: [String: Int]
+    ) -> [ReviewCandidate] {
+        choices.compactMap { key, wrong -> ReviewCandidate? in
+            let missed = wrong.values.reduce(0, +)
+            guard missed > 0,
+                  (streaks[key] ?? 0) < reviewClearStreak,
+                  SpotCatalog.spot(forKey: key) != nil else { return nil }
+            return ReviewCandidate(key: key, mistakeCount: missed, stat: spots[key] ?? SpotStat())
+        }
+        .sorted {
+            if $0.mistakeCount != $1.mistakeCount { return $0.mistakeCount > $1.mistakeCount }
+            if $0.stat.accuracy != $1.stat.accuracy { return $0.stat.accuracy < $1.stat.accuracy }
+            return $0.key < $1.key
+        }
+    }
+
+    /// Picks the next hand for a review pass: the most missed hand not yet
+    /// shown this pass (and not the one just shown). When every hand has had
+    /// its turn the pass starts over. Nil when the queue is empty.
+    static func nextReviewKey(queue: [String], served: Set<String>, last: String?)
+        -> (key: String, served: Set<String>)? {
+        guard !queue.isEmpty else { return nil }
+        var pass = served
+        var pool = queue.filter { !pass.contains($0) && $0 != last }
+        if pool.isEmpty {
+            pass = []
+            pool = queue.filter { $0 != last }
+            if pool.isEmpty { pool = queue }   // a single hand left: it repeats
+        }
+        let pick = pool[0]
+        pass.insert(pick)
+        return (pick, pass)
     }
 
     /// Spots worth drilling: enough attempts to be signal, not yet mastered,

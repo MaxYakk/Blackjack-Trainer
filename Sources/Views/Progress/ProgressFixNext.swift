@@ -50,12 +50,17 @@ struct ProgressFixNext: View {
 
     @ViewBuilder
     private var actions: some View {
-        PrimaryButton("Drill these in Smart mode", systemImage: "bolt.fill") {
-            // QuizView follows this key, so the quiz is on Smart when it opens.
-            UserDefaults.standard.set(QuizDifficulty.smart.rawValue, forKey: QuizEngine.difficultyKey)
+        PrimaryButton("Drill these in the Quiz", systemImage: "bolt.fill") {
+            // QuizView follows this key. Review deals only hands you've missed;
+            // with none saved yet, Smart still leans on the weak spots.
+            if stats.reviewQueue.isEmpty {
+                UserDefaults.standard.set(QuizDifficulty.smart.rawValue, forKey: QuizEngine.difficultyKey)
+            } else {
+                UserDefaults.standard.set(true, forKey: QuizEngine.reviewRequestKey)
+            }
             selectTab(.quiz)
         }
-            .accessibilityHint("Opens the Quiz tab. Smart mode deals your weak spots first.")
+            .accessibilityHint("Opens the Quiz tab and deals the hands you miss most.")
             .accessibilityIdentifier("drillLeaksButton")
         let recurring = stats.recurringMistakes
         if !recurring.isEmpty {

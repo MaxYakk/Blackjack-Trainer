@@ -30,6 +30,11 @@ struct DailyChallengeView: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.bg.ignoresSafeArea())
+        // Attached to the sheet's outermost view so the scrim covers it all.
+        .themedConfirm("Leave today's challenge?", isPresented: $confirmLeave,
+                       message: "Your counted run for today is already started. If you leave now, the next time is practice and your score won't be saved.",
+                       actions: [.destructive("Leave challenge") { dismiss() },
+                                 .cancel("Keep playing")])
         // A started counted run is used up by leaving, so swiping down can't
         // skip the "Leave today's challenge?" question the X button asks.
         .interactiveDismissDisabled(engine.map { !$0.isReplay && !$0.finished && ($0.index > 0 || $0.answered) } ?? false)
@@ -95,12 +100,6 @@ struct DailyChallengeView: View {
             .padding(.horizontal, Space.md)
             .padding(.top, Space.sm)
             .padding(.bottom, Space.md)
-        }
-        .confirmationDialog("Leave today's challenge?", isPresented: $confirmLeave, titleVisibility: .visible) {
-            Button("Leave challenge", role: .destructive) { dismiss() }
-            Button("Keep playing", role: .cancel) {}
-        } message: {
-            Text("Your counted run for today is already started. If you leave now, the next time is practice and your score won't be saved.")
         }
     }
 
@@ -204,7 +203,7 @@ struct DailyChallengeView: View {
         case total: return "Perfect. That's how the chart is supposed to be played."
         case (total - 2)...: return "Strong. The misses are already in your leaks list."
         case (total / 2)...: return "Decent. Check Progress to see which spots got you."
-        default: return "Rough deal. Smart quiz mode will drill exactly these."
+        default: return "Rough deal. Review missed hands in the Quiz will drill exactly these."
         }
     }
 }

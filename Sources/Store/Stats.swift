@@ -99,6 +99,15 @@ struct StatsData: Codable {
     // transient session recap, this persists across play and quiz sessions.
     var mistakeChoices: [String: [String: Int]] = [:]
 
+    // Right answers in a row per spot since its last miss (capped), keyed by
+    // SpotID. Two in a row clears a missed hand from the quiz's review list.
+    var spotStreaks: [String: Int] = [:]
+
+    // The day each trophy was first seen unlocked ("yyyy-MM-dd"; "" for
+    // trophies earned before dates were tracked). Feeds "recently earned".
+    var achievementDates: [String: String] = [:]
+    var achievementsSeeded = false
+
     // Graded decisions per day needed to keep the daily streak alive.
     var dailyGoal = 20
 
@@ -128,6 +137,8 @@ extension StatsData {
         case days
         case spots
         case mistakeChoices
+        case spotStreaks
+        case achievementDates, achievementsSeeded
         case dailyGoal
         case challenges
         case challengesStarted
@@ -170,6 +181,10 @@ extension StatsData {
         spots = c.lossyDictionary(TolerantSpotStat.self, forKey: .spots)?.mapValues(\.value) ?? spots
         mistakeChoices = c.lossyDictionary(TolerantIntMap.self, forKey: .mistakeChoices)?
             .mapValues(\.value) ?? mistakeChoices
+        spotStreaks = (c.lossyDictionary(Int.self, forKey: .spotStreaks) ?? [:])
+            .mapValues { max(0, $0) }
+        achievementDates = c.lossyDictionary(String.self, forKey: .achievementDates) ?? [:]
+        achievementsSeeded = c.tolerant(Bool.self, forKey: .achievementsSeeded) ?? false
         let goal = c.tolerant(Int.self, forKey: .dailyGoal) ?? dailyGoal
         dailyGoal       = goal > 0 ? goal : StatsData().dailyGoal
         challenges      = c.lossyDictionary(ChallengeResult.self, forKey: .challenges) ?? challenges
@@ -275,6 +290,8 @@ final class Stats {
         }
         loaded.schemaVersion = StatsData.currentSchemaVersion
         data = loaded
+        // First launch with trophy dates: stamp what is already earned as old.
+        if !data.achievementsSeeded { syncAchievementDates() }
     }
 
     private func scheduleSave() {
@@ -424,6 +441,15 @@ final class Stats {
         spot.total += 1
         if correct { spot.correct += 1 }
         data.spots[key] = spot
+        // Only spots that were ever missed need a streak (it clears them from
+        // the review list), which keeps this table small.
+        if correct {
+            if data.mistakeChoices[key] != nil || data.spotStreaks[key] != nil {
+                data.spotStreaks[key] = min((data.spotStreaks[key] ?? 0) + 1, ProgressMetrics.reviewClearStreak)
+            }
+        } else {
+            data.spotStreaks[key] = 0
+        }
     }
 
     // MARK: - Personalization
@@ -437,6 +463,15 @@ final class Stats {
     var recurringMistakes: [RecurringMistake] {
         ProgressMetrics.recurringMistakes(in: data.spots, choices: data.mistakeChoices)
     }
+
+    /// Missed hands still to review, most missed first (see ProgressMetrics).
+    var reviewQueue: [ReviewCandidate] {
+        ProgressMetrics.reviewQueue(spots: data.spots, choices: data.mistakeChoices,
+                                    streaks: data.spotStreaks)
+    }
+
+    /// Right answers in a row on this spot since it was last missed.
+    func spotStreak(_ key: String) -> Int { data.spotStreaks[key] ?? 0 }
 
     /// Graded decisions (Play + quiz) made today, toward the daily goal.
     var todayDecisions: Int {
@@ -489,6 +524,23 @@ final class Stats {
             longestDailyStreak: ProgressMetrics.longestStreak(
                 dayTotals: data.days.mapValues(\.strategyTotal), goal: data.dailyGoal)
         ))
+    }
+
+    /// Notes any newly unlocked trophy with today's date. Safe to call often;
+    /// it only writes when something changed.
+    func syncAchievementDates() {
+        let result = Achievements.updatedDates(
+            existing: data.achievementDates, seeded: data.achievementsSeeded,
+            unlocked: achievements.filter(\.unlocked).map(\.id), today: todayKey())
+        guard result.dates != data.achievementDates || result.seeded != data.achievementsSeeded else { return }
+        data.achievementDates = result.dates
+        data.achievementsSeeded = result.seeded
+    }
+
+    /// The day key `days` days before today, for "recent" cutoffs.
+    func dayKey(daysAgo days: Int) -> String {
+        let date = Calendar(identifier: .gregorian).date(byAdding: .day, value: -days, to: Date()) ?? Date()
+        return Self.dayFormatter.string(from: date)
     }
 
     // MARK: - Daily challenge
