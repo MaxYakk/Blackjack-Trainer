@@ -1,10 +1,12 @@
 import SwiftUI
 
 /// The lobby shown when no practice session is running: pick the starting
-/// chips, the table minimum, and how many hands to play, then start. Also
-/// shows the summary of the session that just ended.
+/// chips, the table minimum, how many hands to play and the table rules,
+/// then start. Also shows the summary of the session that just ended, and a
+/// "learn the basics" shortcut for players who have never played a hand.
 struct SessionSetupView: View {
     @Bindable var engine: PlayEngine
+    @Environment(Stats.self) private var stats
 
     @State private var buyIn: Double = 100
     @State private var minimum: Double = 5
@@ -12,49 +14,43 @@ struct SessionSetupView: View {
     @State private var draft = ""
     @State private var hands = 1
     @State private var setupLoaded = false
+    @State private var showTutorial = false
 
     private let buyInOptions = ChipSizing.startingChipOptions
+    private let maxAmount = ChipSizing.maxStartingChips
 
     private enum AmountField: String, Identifiable {
         case buyIn = "Starting chips", minimum = "Minimum bet"
         var id: String { rawValue }
     }
 
-    private let maxAmount = ChipSizing.maxStartingChips
-
-    private var canDecreaseBuyIn: Bool { buyInOptions.contains { $0 < buyIn } }
-    private var canIncreaseBuyIn: Bool { buyInOptions.contains { $0 > buyIn } }
-    private var canDecreaseMinimum: Bool { ChipSizing.minimumOptions.contains { $0 < minimum } }
-    private var canIncreaseMinimum: Bool { ChipSizing.minimumOptions.contains { $0 > minimum } }
+    private var canStart: Bool { buyIn >= minimum }
+    private var isFirstRun: Bool { stats.data.handsPlayed == 0 && engine.lastSummary == nil }
 
     var body: some View {
         ZStack {
-            Color.bg
-                .ignoresSafeArea()
+            Color.bg.ignoresSafeArea()
             VStack(spacing: 0) {
-                PageHeader("Hit Me", titleFont: .title3.weight(.bold))
+                PageHeader("Hit Me", titleFont: .sectionTitle)
                 GeometryReader { geometry in
                     ScrollView {
-                        VStack(spacing: 18) {
+                        VStack(spacing: Space.md) {
                             if let summary = engine.lastSummary {
                                 SessionReceiptCard(summary: summary)
                             }
+                            if isFirstRun {
+                                learnBasicsCard
+                            }
                             buyInSection
                             tableSection
-                            startButton
-                            Text(PracticeNotice.line)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color.textSecondary)
-                                .accessibilityIdentifier("practiceNotice")
-                            Text("Tap the starting chips or minimum bet to type your own amount.")
-                                .font(.caption)
-                                .foregroundStyle(Color.textTertiary)
+                            startSection
                             Text("Play until you end the session or run out of chips.")
-                                .font(.caption)
-                                .foregroundStyle(Color.textTertiary)
+                                .font(.captionText)
+                                .foregroundStyle(.textTertiary)
+                                .multilineTextAlignment(.center)
                         }
-                        .padding(.horizontal)
-                        .padding(.vertical, 24)
+                        .padding(.horizontal, Space.md)
+                        .padding(.vertical, Space.lg)
                         .frame(minHeight: geometry.size.height)
                     }
                 }
@@ -71,6 +67,9 @@ struct SessionSetupView: View {
         } message: {
             Text("Type an amount up to \(Money.string(maxAmount)).")
         }
+        .fullScreenCover(isPresented: $showTutorial) {
+            BeginnerBlackjackTutorial()
+        }
         .onAppear {
             guard !setupLoaded else { return }
             setupLoaded = true
@@ -78,144 +77,221 @@ struct SessionSetupView: View {
         }
     }
 
+    // MARK: - First run
+
+    private var learnBasicsCard: some View {
+        Button {
+            showTutorial = true
+        } label: {
+            HStack(spacing: Space.sm) {
+                Image(systemName: "graduationcap.fill")
+                    .font(.heading)
+                    .foregroundStyle(.accent)
+                    .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                    .background(.positiveBg, in: Circle())
+                VStack(alignment: .leading, spacing: Space.xxs / 2) {
+                    Text("New to blackjack?")
+                        .font(.heading)
+                        .foregroundStyle(.textPrimary)
+                    Text("Learn the basics in about a minute.")
+                        .font(.detail)
+                        .foregroundStyle(.textSecondary)
+                }
+                .multilineTextAlignment(.leading)
+                Spacer(minLength: Space.xs)
+                Image(systemName: "chevron.right")
+                    .font(.detail.weight(.semibold))
+                    .foregroundStyle(.textTertiary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .panel(.surface, padding: Space.sm)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("New to blackjack? Learn the basics")
+        .accessibilityHint("Opens a short tutorial")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("learnBasicsCard")
+    }
+
     // MARK: - Starting chips
 
     private var buyInSection: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: Space.sm) {
             sectionLabel("STARTING CHIPS")
-            HStack(spacing: 14) {
-                selectorButton(
-                    systemImage: "chevron.left",
-                    accessibilityLabel: "Fewer starting chips",
-                    accessibilityIdentifier: "buyInDecrease",
-                    disabled: !canDecreaseBuyIn
-                ) {
-                    adjustBuyIn(by: -1)
-                }
-
-                Text(Money.string(buyIn))
-                    .font(.system(size: 28, weight: .black, design: .rounded))
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                    .onTapGesture { beginEditing(.buyIn) }
-                    .accessibilityIdentifier("buyInAmount")
-                    .accessibilityHint("Double tap to type an amount")
-
-                selectorButton(
-                    systemImage: "chevron.right",
-                    accessibilityLabel: "More starting chips",
-                    accessibilityIdentifier: "buyInIncrease",
-                    disabled: !canIncreaseBuyIn
-                ) {
-                    adjustBuyIn(by: 1)
-                }
-            }
-            .padding(6)
-            .background(Color.surfaceSubtle, in: RoundedRectangle(cornerRadius: 10))
-            .overlay {
-                RoundedRectangle(cornerRadius: 10).strokeBorder(Color.divider)
-            }
+            amountSelector(
+                value: buyIn,
+                field: .buyIn,
+                ids: ("buyInDecrease", "buyInAmount", "buyInIncrease", "buyInEdit"),
+                labels: ("Fewer starting chips", "More starting chips", "Type starting chips"),
+                canDecrease: buyInOptions.contains { $0 < buyIn },
+                canIncrease: buyInOptions.contains { $0 > buyIn },
+                step: adjustBuyIn
+            )
         }
-        .padding(16)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16).strokeBorder(Color.divider)
-        }
+        .panel()
     }
 
     // MARK: - Table
 
     private var tableSection: some View {
-        VStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: Space.md) {
             sectionLabel("TABLE")
-            VStack(spacing: 10) {
-                HStack {
-                    Text("Minimum bet")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.textPrimary)
-                    Spacer()
-                }
-                HStack(spacing: 14) {
-                    selectorButton(
-                        systemImage: "chevron.left",
-                        accessibilityLabel: "Lower minimum bet",
-                        accessibilityIdentifier: "minimumBetDecrease",
-                        disabled: !canDecreaseMinimum
-                    ) {
-                        adjustMinimum(by: -1)
-                    }
-
-                    Text(Money.string(minimum))
-                        .font(.system(size: 28, weight: .black, design: .rounded))
-                        .foregroundStyle(Theme.accent)
-                        .frame(maxWidth: .infinity)
-                        .contentShape(Rectangle())
-                        .onTapGesture { beginEditing(.minimum) }
-                        .accessibilityIdentifier("minimumBetAmount")
-                        .accessibilityHint("Double tap to type an amount")
-
-                    selectorButton(
-                        systemImage: "chevron.right",
-                        accessibilityLabel: "Raise minimum bet",
-                        accessibilityIdentifier: "minimumBetIncrease",
-                        disabled: !canIncreaseMinimum
-                    ) {
-                        adjustMinimum(by: 1)
-                    }
-                }
-                .padding(6)
-                .background(Color.surfaceSubtle, in: RoundedRectangle(cornerRadius: 10))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10).strokeBorder(Color.divider)
-                }
+            VStack(alignment: .leading, spacing: Space.xs) {
+                rowTitle("Minimum bet")
+                amountSelector(
+                    value: minimum,
+                    field: .minimum,
+                    ids: ("minimumBetDecrease", "minimumBetAmount", "minimumBetIncrease", "minimumBetEdit"),
+                    labels: ("Lower minimum bet", "Raise minimum bet", "Type minimum bet"),
+                    canDecrease: ChipSizing.minimumOptions.contains { $0 < minimum },
+                    canIncrease: ChipSizing.minimumOptions.contains { $0 > minimum },
+                    step: adjustMinimum
+                )
             }
-            VStack(spacing: 10) {
-                HStack {
-                    Text("Hands per round")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.textPrimary)
-                    Spacer()
-                }
+            VStack(alignment: .leading, spacing: Space.xs) {
+                rowTitle("Hands per round")
                 Picker("Hands per round", selection: $hands) {
-                    ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
+                    ForEach(PlayEngine.spotRange, id: \.self) { Text("\($0)").tag($0) }
                 }
                 .pickerStyle(.segmented)
             }
-            VStack(spacing: 10) {
-                HStack {
-                    Text("Decks")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.textPrimary)
-                    Spacer()
-                    Picker("Decks", selection: $engine.numDecks) {
-                        ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("buyInDeckPicker")
-                    .accessibilityValue("\(engine.numDecks)")
+            HStack {
+                rowTitle("Decks")
+                Spacer()
+                Picker("Decks", selection: $engine.numDecks) {
+                    ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
                 }
-                HStack {
-                    Text("Dealer")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.textPrimary)
-                    Spacer()
-                    Picker("Dealer", selection: $engine.dealerHitsSoft17) {
-                        Text("Stands soft 17").tag(false)
-                        Text("Hits soft 17").tag(true)
-                    }
-                    .pickerStyle(.menu)
-                    .accessibilityIdentifier("buyInDealerPicker")
-                    .accessibilityValue(engine.dealerHitsSoft17 ? "Hits soft 17" : "Stands soft 17")
+                .pickerStyle(.menu)
+                .tint(.accent)
+                .accessibilityIdentifier("buyInDeckPicker")
+                .accessibilityValue("\(engine.numDecks)")
+            }
+            HStack {
+                rowTitle("Dealer")
+                Spacer()
+                Picker("Dealer", selection: $engine.dealerHitsSoft17) {
+                    Text("Stands soft 17").tag(false)
+                    Text("Hits soft 17").tag(true)
                 }
+                .pickerStyle(.menu)
+                .tint(.accent)
+                .accessibilityIdentifier("buyInDealerPicker")
+                .accessibilityValue(engine.dealerHitsSoft17 ? "Hits soft 17" : "Stands soft 17")
             }
         }
-        .padding(16)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16).strokeBorder(Color.divider)
+        .panel()
+    }
+
+    // MARK: - Start
+
+    private var startSection: some View {
+        VStack(spacing: Space.xs) {
+            PrimaryButton("Start session", systemImage: "suit.club.fill") {
+                engine.startSession(buyIn: buyIn, minimum: minimum, hands: hands)
+            }
+            .disabled(!canStart)
+            .accessibilityHint(canStart ? "" : startBlockedReason)
+            .accessibilityIdentifier("startSessionButton")
+
+            if !canStart {
+                Label(startBlockedReason, systemImage: "exclamationmark.circle.fill")
+                    .font(.detail)
+                    .foregroundStyle(.warning)
+                    .multilineTextAlignment(.center)
+                    .accessibilityIdentifier("startDisabledReason")
+            }
+            Text(PracticeNotice.line)
+                .font(.captionText.weight(.semibold))
+                .foregroundStyle(.textSecondary)
+                .multilineTextAlignment(.center)
+                .accessibilityIdentifier("practiceNotice")
         }
     }
+
+    private var startBlockedReason: String {
+        "Starting chips must cover at least one minimum bet of \(Money.string(minimum))."
+    }
+
+    // MARK: - Amount selector
+
+    /// `< amount ✎ >`: arrows step through presets; the amount or the pencil
+    /// opens a field to type any amount.
+    private func amountSelector(
+        value: Double,
+        field: AmountField,
+        ids: (decrease: String, amount: String, increase: String, edit: String),
+        labels: (decrease: String, increase: String, edit: String),
+        canDecrease: Bool,
+        canIncrease: Bool,
+        step: @escaping (Int) -> Void
+    ) -> some View {
+        HStack(spacing: Space.sm) {
+            arrowButton("chevron.left", label: labels.decrease, id: ids.decrease,
+                        disabled: !canDecrease) { step(-1) }
+            HStack(spacing: Space.xs) {
+                Text(Money.string(value))
+                    .font(.numberHero)
+                    .foregroundStyle(.accent)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.5)
+                    .onTapGesture { beginEditing(field) }
+                    .accessibilityIdentifier(ids.amount)
+                    .accessibilityHint("Double tap to type an amount")
+                Button {
+                    beginEditing(field)
+                } label: {
+                    Image(systemName: "pencil")
+                        .font(.heading)
+                        .foregroundStyle(.textSecondary)
+                        .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                        .background(.surfaceRaised, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(labels.edit)
+                .accessibilityIdentifier(ids.edit)
+            }
+            .frame(maxWidth: .infinity)
+            arrowButton("chevron.right", label: labels.increase, id: ids.increase,
+                        disabled: !canIncrease) { step(1) }
+        }
+        .padding(Space.xs)
+        .background(.surfaceSubtle, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+    }
+
+    private func arrowButton(_ systemImage: String, label: String, id: String,
+                             disabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: systemImage)
+                .font(.heading)
+                .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                .foregroundStyle(disabled ? Color.disabledText : Color.accent)
+                .background(disabled ? Color.disabledFill : Color.surfaceRaised,
+                            in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier(id)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.overline)
+            .tracking(1.6)
+            .foregroundStyle(.textTertiary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .accessibilityAddTraits(.isHeader)
+    }
+
+    private func rowTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.calloutText.weight(.semibold))
+            .foregroundStyle(.textPrimary)
+    }
+
+    // MARK: - Actions
 
     private func adjustBuyIn(by offset: Int) {
         let next = stepped(buyIn, by: offset, in: buyInOptions)
@@ -232,7 +308,7 @@ struct SessionSetupView: View {
         Haptics.tap()
     }
 
-    /// Next preset above/below `value`, so chevrons still work after a typed amount.
+    /// Next preset above/below `value`, so arrows still work after a typed amount.
     private func stepped(_ value: Double, by offset: Int, in options: [Double]) -> Double {
         let sorted = options.sorted()
         if offset > 0 { return sorted.first { $0 > value } ?? value }
@@ -259,53 +335,6 @@ struct SessionSetupView: View {
         }
         Haptics.tap()
     }
-
-    private func selectorButton(
-        systemImage: String,
-        accessibilityLabel: String,
-        accessibilityIdentifier: String,
-        disabled: Bool,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            Image(systemName: systemImage)
-                .font(.headline.weight(.bold))
-                .frame(width: 44, height: 44)
-                .foregroundStyle(disabled ? Color.disabledText : Theme.accent)
-                .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .disabled(disabled)
-        .accessibilityLabel(accessibilityLabel)
-        .accessibilityIdentifier(accessibilityIdentifier)
-    }
-
-    private var startButton: some View {
-        Button {
-            engine.startSession(buyIn: buyIn, minimum: minimum, hands: hands)
-        } label: {
-            Label("Start session", systemImage: "suit.club.fill")
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(
-                    buyIn >= minimum ? Theme.accent : Color.disabledFill,
-                    in: RoundedRectangle(cornerRadius: 12)
-                )
-                .foregroundStyle(buyIn >= minimum ? Color.onAccent : Color.disabledText)
-        }
-        .disabled(buyIn < minimum)
-        .accessibilityIdentifier("startSessionButton")
-    }
-
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.caption.weight(.heavy))
-            .tracking(2.2)
-            .foregroundStyle(Color.textTertiary)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
 }
 
 /// The summary of the session that just ended.
@@ -313,7 +342,7 @@ private struct SessionReceiptCard: View {
     let summary: SessionSummary
 
     private var headline: String { summary.busted ? "OUT OF CHIPS" : "SESSION COMPLETE" }
-    private var headlineColor: Color { summary.busted ? Theme.bad : Theme.accent }
+    private var headlineColor: Color { summary.busted ? .negative : .accent }
 
     private var netLine: String {
         if summary.net > 0.005 { return "Up \(Money.chips(summary.net))" }
@@ -321,68 +350,42 @@ private struct SessionReceiptCard: View {
         return "Finished even"
     }
     private var netColor: Color {
-        if summary.net > 0.005 { return Theme.good }
-        if summary.net < -0.005 { return Theme.bad }
+        if summary.net > 0.005 { return .positive }
+        if summary.net < -0.005 { return .negative }
         return .textPrimary
     }
 
+    private let columns = [GridItem(.flexible(), spacing: Space.xs), GridItem(.flexible(), spacing: Space.xs)]
+
     var body: some View {
-        VStack(spacing: 10) {
-            Text(headline)
-                .font(.caption.weight(.heavy))
-                .tracking(2.4)
-                .foregroundStyle(headlineColor)
-            Text(netLine)
-                .font(.system(size: 30, weight: .black, design: .rounded))
-                .foregroundStyle(netColor)
-            Text("Started with \(Money.chips(summary.buyIn)), finished with \(Money.chips(summary.cashedOut))")
-                .font(.footnote)
-                .foregroundStyle(Color.textSecondary)
-            HStack(spacing: 0) {
-                receiptStat("\(summary.rounds)", summary.rounds == 1 ? "round" : "rounds")
-                receiptDivider
-                receiptStat(money(summary.biggestWin), "best round")
-                receiptDivider
-                receiptStat(money(summary.peak), "peak chips")
-                if summary.blackjacks > 0 {
-                    receiptDivider
-                    receiptStat("\(summary.blackjacks)", summary.blackjacks == 1 ? "blackjack" : "blackjacks")
-                }
+        VStack(spacing: Space.sm) {
+            VStack(spacing: Space.xxs) {
+                Text(headline)
+                    .font(.overline)
+                    .tracking(1.6)
+                    .foregroundStyle(headlineColor)
+                Text(netLine)
+                    .font(.numberHero)
+                    .foregroundStyle(netColor)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+                Text("Started with \(Money.chips(summary.buyIn)), finished with \(Money.chips(summary.cashedOut))")
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
+                    .multilineTextAlignment(.center)
             }
-            .padding(.top, 2)
+            LazyVGrid(columns: columns, spacing: Space.xs) {
+                StatTile(label: summary.rounds == 1 ? "Round" : "Rounds",
+                         value: "\(summary.rounds)", tint: .textPrimary)
+                StatTile(label: "Best round", value: Money.string(summary.biggestWin), tint: .textPrimary)
+                StatTile(label: "Peak chips", value: Money.string(summary.peak), tint: .textPrimary)
+                StatTile(label: summary.blackjacks == 1 ? "Blackjack" : "Blackjacks",
+                         value: "\(summary.blackjacks)", tint: .warm)
+            }
         }
         .frame(maxWidth: .infinity)
-        .padding(16)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
-        .overlay {
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(headlineColor.opacity(0.45), lineWidth: 1.2)
-        }
+        .panel()
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("sessionReceipt")
     }
-
-    private var receiptDivider: some View {
-        Rectangle()
-            .fill(Color.divider)
-            .frame(width: 1, height: 26)
-    }
-
-    private func receiptStat(_ value: String, _ label: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value)
-                .font(.footnote.weight(.bold))
-                .foregroundStyle(.textPrimary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            Text(label)
-                .font(.fine)
-                .foregroundStyle(Color.textTertiary)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-        }
-        .frame(maxWidth: .infinity)
-    }
-
-    private func money(_ value: Double) -> String { Money.string(value) }
 }

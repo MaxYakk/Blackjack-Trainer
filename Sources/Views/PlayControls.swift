@@ -1,8 +1,63 @@
 import SwiftUI
 
-// The control strip under the table for each non-playing phase — betting,
-// insurance, count checks, and going broke — plus the shared button styles.
-// Split out of PlayView so the table-layout file stays readable.
+// The control dock under the table. It keeps one height in every phase
+// (two decision-button rows), so the table never jumps between betting,
+// dealing, playing and the round result.
+
+/// The fixed-height dock that swaps its contents by phase.
+struct ControlDock: View {
+    @Bindable var engine: PlayEngine
+
+    /// Two 52pt button rows and the gap between them, growing with text size.
+    @ScaledMetric(relativeTo: .headline) private var height: CGFloat =
+        Metrics.buttonHeight * 2 + Space.sm
+
+    var body: some View {
+        content
+            .frame(maxWidth: .infinity)
+            .frame(height: height, alignment: .bottom)
+    }
+
+    @ViewBuilder
+    private var content: some View {
+        switch engine.phase {
+        case .betting:
+            if engine.isFelted {
+                FeltedControlsView(engine: engine)
+            } else {
+                BettingControlsView(engine: engine)
+            }
+        case .dealing:
+            WaitingControlsView(status: "Dealing…")
+        case .insurance:
+            InsuranceControlsView(engine: engine)
+        case .countCheck:
+            CountCheckControlsView(engine: engine)
+        case .playing:
+            DecisionPad(
+                canHit: engine.canHitOrStand,
+                canStand: engine.canHitOrStand,
+                canDouble: engine.currentHand.map { engine.canDouble($0) } ?? false,
+                canSplit: engine.currentHand.map { engine.canSplit($0) } ?? false
+            ) { action in
+                switch action {
+                case .hit: engine.hit()
+                case .stand: engine.stand()
+                case .double: engine.double()
+                case .split: engine.split()
+                }
+            }
+        case .dealer:
+            WaitingControlsView(status: "Dealer plays…")
+        case .done:
+            if engine.isFelted {
+                FeltedControlsView(engine: engine)
+            } else {
+                RoundDoneControlsView(engine: engine)
+            }
+        }
+    }
+}
 
 /// A table choice tile (insurance Yes/No). Same look as the `DecisionPad` keys.
 struct TableActionButton: View {
@@ -28,173 +83,180 @@ struct TableSecondaryButton: View {
     }
 }
 
-/// The betting-phase strip: spot count, chip tray, Clear/Repeat/Deal.
+/// Betting: the chip tray, then Clear / Repeat / Deal.
 struct BettingControlsView: View {
-    @Bindable var engine: PlayEngine
+    let engine: PlayEngine
 
     var body: some View {
-        VStack(spacing: 12) {
-            // Number of spots to play this round
-            HStack(spacing: 10) {
-                Text("Hands")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.textPrimary)
-                Picker("Hands", selection: $engine.numHands) {
-                    ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 120)
-                if engine.numHands > 1 && engine.totalWager > 0 {
-                    Spacer()
-                    Text("Total \(Money.chips(engine.totalWager))")
-                        .font(.caption)
-                        .foregroundStyle(Theme.accent)
-                }
-            }
-            if engine.numHands > 1 {
-                Text("Tap a spot above, then tap chips to set its bet")
-                    .font(.caption2)
-                    .foregroundStyle(Color.textTertiary)
-            }
-            // Chip tray
-            HStack(spacing: 10) {
+        VStack(spacing: Space.sm) {
+            HStack(spacing: Space.xs) {
                 ForEach(Array(engine.chipDenominations.enumerated()), id: \.element) { idx, denom in
+                    let enabled = engine.canAddChip(denom)
                     Button {
                         engine.addChip(denom)
                     } label: {
-                        ChipView(value: denom, size: 54)
-                            .opacity(engine.canAddChip(denom) ? 1 : 0.35)
+                        ChipView(value: denom, size: 52)
+                            .opacity(enabled ? 1 : 0.35)
                     }
-                    .disabled(!engine.canAddChip(denom))
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: Metrics.minTapTarget)
+                    .disabled(!enabled)
+                    .accessibilityLabel("Add a \(Money.string(denom)) chip")
                     .accessibilityIdentifier("chip\(idx)")
                 }
             }
-            HStack(spacing: 10) {
+            HStack(spacing: Space.xs) {
                 TableSecondaryButton(title: "Clear", enabled: engine.currentBet > 0) { engine.clearBet() }
                 TableSecondaryButton(title: "Repeat", enabled: engine.canReplay) { engine.repeatBet() }
-                Button {
-                    engine.deal()
-                } label: {
-                    Text("Deal")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(engine.canDeal ? Theme.accent : Color.disabledFill,
-                                    in: RoundedRectangle(cornerRadius: 10))
-                        .foregroundStyle(engine.canDeal ? Color.onAccent : Color.disabledText)
-                }
-                .disabled(!engine.canDeal)
+                Button("Deal") { engine.deal() }
+                    .buttonStyle(.primaryCompact)
+                    .disabled(!engine.canDeal)
             }
-            Text("Table minimum \(Money.chips(engine.tableMinimum))")
-                .font(.caption2)
-                .foregroundStyle(Color.textTertiary)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 6)
     }
 }
 
-/// The insurance offer shown when the dealer's up-card is an ace.
+/// Dealing and the dealer's turn: the decision pad stays in place, dimmed,
+/// under a small status label, so nothing moves when it's the player's turn.
+struct WaitingControlsView: View {
+    let status: String
+
+    var body: some View {
+        ZStack {
+            DecisionPad(canHit: false, canStand: false, canDouble: false, canSplit: false) { _ in }
+                // VoiceOver (and UI tests) see only the status while waiting.
+                .accessibilityHidden(true)
+            Text(status)
+                .font(.buttonLabelSmall)
+                .foregroundStyle(.textSecondary)
+                .padding(.horizontal, Space.md)
+                .padding(.vertical, Space.xs)
+                .background(.surface, in: Capsule())
+                .overlay { Capsule().strokeBorder(Color.divider, lineWidth: Metrics.hairline) }
+                .accessibilityIdentifier("dockStatus")
+        }
+    }
+}
+
+/// The insurance offer when the dealer's up-card is an ace. The question
+/// itself sits in the table's message slot.
 struct InsuranceControlsView: View {
     let engine: PlayEngine
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("Insurance?")
-                .font(.headline)
-                .foregroundStyle(.textPrimary)
-            Text("The dealer shows an ace. Insurance costs \(Money.chips(engine.insuranceCost)) and pays 2 to 1 if the dealer has blackjack.")
-                .font(.caption)
-                .foregroundStyle(Color.textSecondary)
+        VStack(spacing: Space.sm) {
+            Text("Costs \(Money.chips(engine.insuranceCost)). Pays 2 to 1 if the dealer has blackjack.")
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
                 .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+                .frame(maxHeight: .infinity)
+            HStack(spacing: Space.sm) {
                 TableActionButton(title: "No Insurance") { engine.answerInsurance(take: false) }
                     .accessibilityIdentifier("insuranceNo")
                 TableActionButton(title: "Take Insurance") { engine.answerInsurance(take: true) }
                     .accessibilityIdentifier("insuranceYes")
             }
         }
-        .padding()
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .padding(.bottom, 6)
     }
 }
 
-/// The mid-hand "what's the running count?" quiz.
+/// The mid-hand "what's the running count?" check. The question sits in the
+/// table's message slot; the dock holds the fast count input and Submit.
 struct CountCheckControlsView: View {
     @Bindable var engine: PlayEngine
 
     var body: some View {
-        VStack(spacing: 12) {
-            Text("What's the running count?")
-                .font(.headline)
-                .foregroundStyle(.textPrimary)
-            Stepper(value: $engine.countGuess, in: -60...60) {
-                HStack {
-                    Text("Your count")
-                    Spacer()
-                    Text(engine.countGuess > 0 ? "+\(engine.countGuess)" : "\(engine.countGuess)")
-                        .fontWeight(.bold)
-                        .foregroundStyle(Theme.accent)
-                }
-            }
-            .padding(.horizontal, 4)
-            Button {
-                engine.submitCountCheck()
-            } label: {
-                Text("Submit")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.onAccent)
-            }
+        VStack(spacing: Space.sm) {
+            CountStepper(value: $engine.countGuess, label: "Your running count")
+            PrimaryButton("Submit") { engine.submitCountCheck() }
         }
-        .padding()
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .padding(.bottom, 6)
     }
 }
 
-/// Out of chips: the round is over and the chips left can't cover another
-/// table-minimum bet, so the only move left is a fresh session.
+/// Round settled: a compact result card, then New Bet / Replay / Replay ×2.
+struct RoundDoneControlsView: View {
+    let engine: PlayEngine
+
+    var body: some View {
+        VStack(spacing: Space.sm) {
+            RoundResultCard(outcome: RoundOutcome(engine: engine))
+            HStack(spacing: Space.xs) {
+                Button("New Bet") { engine.newRound() }
+                    .buttonStyle(.secondaryCompact)
+                    .accessibilityHint("Clears the table so you can choose a new bet")
+                Button("Replay") { engine.replay() }
+                    .buttonStyle(.primaryCompact)
+                    .disabled(!engine.canReplay)
+                    .accessibilityHint("Deals again with the same bet")
+                Button("Replay ×2") { engine.replayDouble() }
+                    .buttonStyle(.secondaryCompact)
+                    .disabled(!engine.canReplayDouble)
+                    .accessibilityLabel("Double bet and replay")
+            }
+        }
+    }
+}
+
+/// The settled-round card: outcome and detail on the left, chips won or lost
+/// on the right. Coral for a natural, mint for a win, red for a loss.
+struct RoundResultCard: View {
+    let outcome: RoundOutcome
+
+    var body: some View {
+        HStack(spacing: Space.sm) {
+            Image(systemName: outcome.symbol)
+                .font(.heading)
+                .foregroundStyle(outcome.tint)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 0) {
+                Text(outcome.title)
+                    .font(.heading)
+                    .foregroundStyle(outcome.tint)
+                Text(outcome.detail)
+                    .font(.captionText)
+                    .foregroundStyle(.textSecondary)
+            }
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+            Spacer(minLength: Space.xs)
+            Text(outcome.amountText)
+                .font(.numberInline)
+                .foregroundStyle(outcome.kind == .loss ? Color.negative : Color.textPrimary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+        }
+        .padding(.horizontal, Space.sm)
+        .frame(maxHeight: .infinity)
+        .background(outcome.tintBackground, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(outcome.announcement)
+        .accessibilityIdentifier("roundResultCard")
+    }
+}
+
+/// Out of chips: the chips left can't cover another table-minimum bet, so
+/// the only move is a fresh session.
 struct FeltedControlsView: View {
     let engine: PlayEngine
 
     var body: some View {
-        VStack(spacing: 12) {
-            VStack(spacing: 6) {
-                Text("OUT OF CHIPS")
-                    .font(.system(size: 20, weight: .black, design: .rounded))
-                    .tracking(2.4)
-                    .foregroundStyle(Theme.bad)
-                Text("You're out of practice chips. Start a fresh session.")
-                    .font(.footnote)
-                    .foregroundStyle(Color.textSecondary)
+        VStack(spacing: Space.sm) {
+            VStack(spacing: Space.xxs) {
+                Text("Out of chips")
+                    .font(.heading)
+                    .foregroundStyle(.negative)
+                Text("Start a fresh session to keep practicing.")
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
             }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 14)
-            .background(Color.surface, in: RoundedRectangle(cornerRadius: 14))
-            .overlay {
-                RoundedRectangle(cornerRadius: 14)
-                    .strokeBorder(Theme.bad.opacity(0.5), lineWidth: 1.2)
-            }
-            Button {
-                engine.cashOut()
-            } label: {
-                Label("New session", systemImage: "arrow.uturn.left.circle.fill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 13)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 11))
-                    .foregroundStyle(.onAccent)
-            }
-            .accessibilityIdentifier("newBuyInButton")
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(.negativeBg, in: RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
+            .accessibilityElement(children: .combine)
+            PrimaryButton("New session", systemImage: "arrow.uturn.left.circle.fill") { engine.cashOut() }
+                .accessibilityIdentifier("newBuyInButton")
         }
-        .padding(.horizontal)
-        .padding(.bottom, 6)
     }
 }
