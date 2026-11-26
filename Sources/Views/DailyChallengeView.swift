@@ -38,7 +38,7 @@ struct DailyChallengeView: View {
                                  .cancel("Keep playing")])
         // A started counted run is used up by leaving, so swiping down can't
         // skip the "Leave today's challenge?" question the X button asks.
-        .interactiveDismissDisabled(engine.map { !$0.isReplay && !$0.finished && ($0.index > 0 || $0.answered) } ?? false)
+        .interactiveDismissDisabled(engine.map(Self.leavingUsesUpRun) ?? false)
         .onAppear(perform: refreshForToday)
         // The sheet can stay open overnight (app in the background), and
         // onAppear doesn't run again then.
@@ -67,11 +67,19 @@ struct DailyChallengeView: View {
 
     /// Leaving a counted run partway uses it up, so ask first.
     private func requestClose(_ engine: DailyChallengeEngine) {
-        if !engine.isReplay && (engine.index > 0 || engine.answered) {
+        if Self.leavingUsesUpRun(engine) {
             confirmLeave = true
         } else {
             dismiss()
         }
+    }
+
+    /// True while leaving would throw away a started counted run. Once the
+    /// last hand is answered the score is already saved, so leaving is free.
+    private static func leavingUsesUpRun(_ engine: DailyChallengeEngine) -> Bool {
+        let lastAnswered = engine.answered && engine.index + 1 >= engine.spots.count
+        return !engine.isReplay && !engine.finished && !lastAnswered
+            && (engine.index > 0 || engine.answered)
     }
 
     // MARK: Run
