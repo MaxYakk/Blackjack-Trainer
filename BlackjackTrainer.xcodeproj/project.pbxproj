@@ -74,6 +74,7 @@
 		86CB3B879484B183F1E9B782 /* GradingFixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2184B11A696C4332A503FB2F /* GradingFixTests.swift */; };
 		8B2686A9CD6463BF230BED9C /* MistakeReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2720F2DE40E15D59A3FB1044 /* MistakeReviewView.swift */; };
 		8CE9FF015AFB93DCB246B7B6 /* AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2AA345EE71737AB0F89812A /* AppInfo.swift */; };
+		8D042734341D14AF6FA68FA7 /* ReviewFixesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 585C8EC4363D4771DE19AD37 /* ReviewFixesTests.swift */; };
 		8F22DB43120228D58C09E948 /* ProgressAllStats.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94A200AE87AF5810CA8E14E0 /* ProgressAllStats.swift */; };
 		953EAF4459C04D122671D6F6 /* RoundFlowTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92C306EE01A7B8733391C1FB /* RoundFlowTests.swift */; };
 		99BA97D5F5377E94F54DE371 /* BlackjackTrainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAD3BD7FCACBCF235F57879 /* BlackjackTrainerApp.swift */; };
@@ -189,6 +190,7 @@
 		526788530DAD1A4C8069EF46 /* AppTourDemos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTourDemos.swift; sourceTree = "<group>"; };
 		54526263481AED3FFFA8303A /* ChipWordingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipWordingTests.swift; sourceTree = "<group>"; };
 		5619352EACA12BF2D0B41E64 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		585C8EC4363D4771DE19AD37 /* ReviewFixesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReviewFixesTests.swift; sourceTree = "<group>"; };
 		591F256417E08BE97824EEE7 /* TermsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermsView.swift; sourceTree = "<group>"; };
 		59ADF2817106E94565421A1F /* PlayTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayTypes.swift; sourceTree = "<group>"; };
 		5A74F8324193BA0A96DB8B29 /* BlackjackTrainerTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = BlackjackTrainerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -343,6 +345,7 @@
 				EEC72E6D52F22F21C9A3BAA2 /* QuizReasonTests.swift */,
 				0B6F28660D83518C6714D377 /* QuizReviewTests.swift */,
 				A0D7D6737699F4C3A93CFD54 /* ReminderSchedulerTests.swift */,
+				585C8EC4363D4771DE19AD37 /* ReviewFixesTests.swift */,
 				92C306EE01A7B8733391C1FB /* RoundFlowTests.swift */,
 				11F224419932F3A9412F129A /* SavedDataTests.swift */,
 				EB8636CFA1811073656E6953 /* SessionFlowTests.swift */,
@@ -778,6 +781,7 @@
 				E4E618BF87581D4DA6EE3BCF /* QuizReasonTests.swift in Sources */,
 				DED4C5A9152865015E374C86 /* QuizReviewTests.swift in Sources */,
 				4FB312C8CDBAAD9223BBFECC /* ReminderSchedulerTests.swift in Sources */,
+				8D042734341D14AF6FA68FA7 /* ReviewFixesTests.swift in Sources */,
 				953EAF4459C04D122671D6F6 /* RoundFlowTests.swift in Sources */,
 				6CAACC77CFF6349887162FD5 /* SavedDataTests.swift in Sources */,
 				61B90D5F75B427600DB98BAE /* SessionFlowTests.swift in Sources */,

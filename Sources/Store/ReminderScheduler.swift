@@ -97,7 +97,7 @@ enum ReminderScheduler {
             return "Your \(streak)-day streak is on the line — \(goal) quick decisions keeps it alive."
         }
         if let worst = stats.weakestSpots.first {
-            let pct = Int(worst.stat.accuracy * 100)
+            let pct = Achievements.roundedPercent(worst.stat.accuracy)
             return "\(SpotID.displayName(worst.key)) is at \(pct)% — a 2-minute Smart quiz can fix it."
         }
         return "A few hands a day is how basic strategy sticks. Deal yourself in."

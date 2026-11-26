@@ -45,6 +45,10 @@ private struct CountDrillContent: View {
             }
         }
         .background(Color.bg.ignoresSafeArea())
+        // Tab views stay alive: don't keep dealing (or announcing) off-screen.
+        .onDisappear {
+            if engine.isActive { engine.reset() }
+        }
         .onChange(of: engine.phase) { _, phase in
             if phase == .guessing {
                 AccessibilityNotification.Announcement("Cards done. What's the count?").post()
