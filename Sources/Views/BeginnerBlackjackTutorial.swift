@@ -1,10 +1,11 @@
 import SwiftUI
 
 /// The five-page "how blackjack works" walkthrough. Presented full screen from
-/// the Play menu and from the welcome screen. Swipe or use Back / Continue.
+/// the Play menu and from the last onboarding step (after the app tour).
+/// Swipe or use Back / Continue.
 struct BeginnerBlackjackTutorial: View {
-    /// Called after the last page's button closes the tutorial. The welcome
-    /// screen uses it to finish onboarding too.
+    /// Called after the last page's button closes the tutorial. Onboarding
+    /// flow uses it to finish onboarding too.
     var onFinish: (() -> Void)?
 
     @Environment(\.dismiss) private var dismiss

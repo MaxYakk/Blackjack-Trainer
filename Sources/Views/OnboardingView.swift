@@ -1,11 +1,60 @@
 import SwiftUI
 
-/// The welcome screen, shown as a full-screen cover on first launch. One
-/// primary action (start training) and one optional detour (learn the basics).
+/// First launch, shown as a full-screen cover until it is completed:
+/// the welcome screen, then the required app tour (`AppTourView`), then an
+/// optional offer of the blackjack basics tutorial, then the app.
+/// `onComplete` marks onboarding done; `RootView` never shows it again.
 struct OnboardingView: View {
     let onComplete: () -> Void
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var step: OnboardingStep = .welcome
     @State private var showTutorial = false
+
+    var body: some View {
+        ZStack {
+            switch step {
+            case .welcome:
+                WelcomeScreen(onGetStarted: advance)
+                    .transition(stepTransition)
+            case .tour:
+                AppTourView(onFinish: advance)
+                    .transition(stepTransition)
+            case .basicsOffer:
+                BasicsOfferView(onStartTraining: onComplete,
+                                onLearnBasics: { showTutorial = true })
+                    .transition(stepTransition)
+            }
+        }
+        .background(Color.bg.ignoresSafeArea())
+        .presentationBackground(Color.bg)
+        .fullScreenCover(isPresented: $showTutorial) {
+            // Finishing the tutorial also finishes onboarding. Closing it
+            // early returns to the offer, where Start training is waiting.
+            BeginnerBlackjackTutorial(onFinish: onComplete)
+        }
+    }
+
+    private var stepTransition: AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .asymmetric(insertion: .move(edge: .trailing).combined(with: .opacity),
+                          removal: .move(edge: .leading).combined(with: .opacity))
+    }
+
+    private func advance() {
+        guard let next = step.next else {
+            onComplete()
+            return
+        }
+        Motion.perform(.standard, reduceMotion: reduceMotion) { step = next }
+    }
+}
+
+/// The welcome screen: brand, a short promise, and one action that starts
+/// the app tour.
+private struct WelcomeScreen: View {
+    let onGetStarted: () -> Void
 
     var body: some View {
         GeometryReader { proxy in
@@ -48,29 +97,20 @@ struct OnboardingView: View {
             .scrollBounceBehavior(.basedOnSize)
         }
         .background { OnboardingBackdrop() }
-        .presentationBackground(Color.bg)
-        .fullScreenCover(isPresented: $showTutorial) {
-            // Finishing the tutorial also finishes the welcome screen.
-            BeginnerBlackjackTutorial(onFinish: onComplete)
-        }
     }
 
     private var actions: some View {
         VStack(spacing: Space.sm) {
-            Button(action: onComplete) {
+            Button(action: onGetStarted) {
                 HStack(spacing: Space.xs) {
-                    Text("Start training")
+                    Text("Get started")
                     Image(systemName: "arrow.right")
                         .accessibilityHidden(true)
                 }
             }
             .buttonStyle(.primary)
+            .accessibilityHint("Shows a quick tour of the app")
             .accessibilityIdentifier("onboardingGetStarted")
-
-            SecondaryButton("New to blackjack? Learn the basics") {
-                showTutorial = true
-            }
-            .accessibilityIdentifier("onboardingLearnBasics")
 
             Text(PracticeNotice.line)
                 .font(.captionText.weight(.semibold))
