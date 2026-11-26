@@ -141,6 +141,10 @@ struct TableMessageSlot: View {
             .padding(.vertical, showAll ? Space.xs : 0)
             .frame(minHeight: slotHeight)
             .frame(maxWidth: showAll ? .infinity : nil)
+            // Expanded, the bubble takes the height its text needs. Without
+            // this it is squeezed to the 36pt slot, so the text spills out
+            // above and below the colored background (over the dealer's cards).
+            .fixedSize(horizontal: false, vertical: showAll)
             .background(message.kind.fill,
                         in: RoundedRectangle(cornerRadius: showAll ? Radius.medium : slotHeight / 2,
                                              style: .continuous))
