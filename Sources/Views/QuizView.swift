@@ -35,7 +35,7 @@ private struct QuizContent: View {
 
                     // Dealer up card
                     VStack(spacing: 6) {
-                        Text("Dealer shows").font(.caption).foregroundStyle(.secondary)
+                        Text("Dealer shows").font(.caption).foregroundStyle(.textSecondary)
                         if let up = engine.dealerUp { CardView(card: up, size: 1.4) }
                     }
 
@@ -62,7 +62,7 @@ private struct QuizContent: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.onAccent)
                         }
                         .padding(.horizontal)
                     } else {
@@ -86,7 +86,7 @@ private struct QuizContent: View {
                     .foregroundStyle(Theme.accent)
                 Text("Daily Challenge")
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.textPrimary)
                 Spacer()
                 if let result = stats.todayChallenge {
                     Text("\(result.score)/\(result.total)")
@@ -95,11 +95,11 @@ private struct QuizContent: View {
                 } else {
                     Image(systemName: "chevron.right")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             .padding(12)
-            .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
             .overlay(RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(Theme.accent.opacity(stats.todayChallenge == nil ? 0.4 : 0), lineWidth: 1))
         }
@@ -127,14 +127,14 @@ private struct QuizContent: View {
             if engine.difficulty == .hard {
                 Text("Practice the tricky hands: hard totals, soft doubles, and pairs that often cause mistakes.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
             if engine.difficulty == .smart {
                 Text("Trains YOUR game: deals the spots you miss most, plus ones you haven't practiced yet.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                     .multilineTextAlignment(.center)
                     .fixedSize(horizontal: false, vertical: true)
             }
@@ -144,39 +144,15 @@ private struct QuizContent: View {
     private func pill(_ label: String, _ value: String) -> some View {
         VStack(spacing: 2) {
             Text(value).font(.headline).foregroundStyle(Theme.accent)
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Text(label).font(.caption2).foregroundStyle(.textSecondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 10))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 10))
     }
 
     private var actionGrid: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                quizButton("Hit") { engine.answer(.hit) }
-                quizButton("Stand") { engine.answer(.stand) }
-            }
-            HStack(spacing: 10) {
-                quizButton("Double") { engine.answer(.double) }
-                quizButton("Split", enabled: engine.canSplit) { engine.answer(.split) }
-            }
-        }
-        .padding(.horizontal)
-    }
-
-    private func quizButton(_ title: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(enabled ? Theme.felt : Color.gray.opacity(0.25),
-                            in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .gray)
-                .overlay(RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.white.opacity(enabled ? 0.15 : 0), lineWidth: 1))
-        }
-        .disabled(!enabled)
+        DecisionPad(canSplit: engine.canSplit) { engine.answer($0) }
+            .padding(.horizontal)
     }
 }

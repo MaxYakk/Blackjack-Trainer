@@ -73,7 +73,7 @@ private struct PlayContent: View {
     @ViewBuilder
     private var endSessionOverlay: some View {
         if showEndSession {
-            Color.black.opacity(0.55)
+            Color.scrim
                 .ignoresSafeArea()
                 .transition(.opacity)
                 .onTapGesture { showEndSession = false }
@@ -175,11 +175,11 @@ private struct PlayContent: View {
         } label: {
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 20, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.92))
+                .foregroundStyle(Color.textPrimary)
                 .frame(width: 46, height: 46)
-                .background(Color.black.opacity(0.24), in: Circle())
+                .background(Color.surface, in: Circle())
                 .overlay {
-                    Circle().strokeBorder(Color.white.opacity(0.16))
+                    Circle().strokeBorder(Color.divider)
                 }
         }
         .accessibilityLabel("Settings")
@@ -189,11 +189,8 @@ private struct PlayContent: View {
     // MARK: - Background
 
     private var feltBackground: some View {
-        LinearGradient(
-            colors: [Theme.felt, Theme.feltDark],
-            startPoint: .top, endPoint: .bottom
-        )
-        .ignoresSafeArea()
+        Color.bg
+            .ignoresSafeArea()
     }
 
     // MARK: - Table
@@ -205,7 +202,7 @@ private struct PlayContent: View {
             VStack(spacing: 8) {
                 Text(engine.showHandTotals ? "Dealer \(dealerTotalText)" : "Dealer")
                     .font(.title3.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.95))
+                    .foregroundStyle(Color.textPrimary)
                 HStack(spacing: 8) {
                     ForEach(Array(engine.dealer.enumerated()), id: \.offset) { idx, card in
                         Group {
@@ -216,7 +213,7 @@ private struct PlayContent: View {
                                 CardView(card: card, size: 1.35)
                             }
                         }
-                        .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
+                        .shadow(color: .shadowColor, radius: 4, y: 3)
                         .transition(.dealtCard)
                         .accessibilityIdentifier("dealerCard\(idx)")
                     }
@@ -308,9 +305,9 @@ private struct PlayContent: View {
     private var countStrip: some View {
         Text("Running \(signed(engine.runningCount))   •   \(engine.decksRemaining, specifier: "%.1f") decks   •   True \(engine.trueCount, specifier: "%+.1f")")
             .font(.caption)
-            .foregroundStyle(.white.opacity(0.85))
+            .foregroundStyle(Color.textPrimary)
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Color.black.opacity(0.28), in: Capsule())
+            .background(Color.surface, in: Capsule())
     }
 
     private var bannerArea: some View {
@@ -345,9 +342,9 @@ private struct PlayContent: View {
     private func tableNote(_ text: String, identifier: String) -> some View {
         Text(text)
             .font(.caption)
-            .foregroundStyle(.white.opacity(0.85))
+            .foregroundStyle(Color.textPrimary)
             .padding(.horizontal, 10).padding(.vertical, 5)
-            .background(Color.black.opacity(0.28), in: Capsule())
+            .background(Color.surface, in: Capsule())
             .accessibilityIdentifier(identifier)
     }
 
@@ -396,12 +393,12 @@ private struct PlayContent: View {
                 if engine.numHands > 1 {
                     Text("Spot \(index + 1)")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(isActive ? Theme.accent : .white.opacity(0.6))
+                        .foregroundStyle(isActive ? Theme.accent : Color.textTertiary)
                 }
                 ZStack {
                     Circle()
                         .strokeBorder(style: StrokeStyle(lineWidth: isActive ? 2.5 : 2, dash: bet > 0 ? [] : [7, 6]))
-                        .foregroundStyle(isActive ? Theme.accent : .white.opacity(0.5))
+                        .foregroundStyle(isActive ? Theme.accent : Color.textTertiary)
                         .frame(width: size, height: size)
                     if bet > 0 {
                         ChipStack(amount: bet)
@@ -413,7 +410,7 @@ private struct PlayContent: View {
                             .minimumScaleFactor(0.7)
                             .allowsTightening(true)
                             .multilineTextAlignment(.center)
-                            .foregroundStyle(.white.opacity(0.6))
+                            .foregroundStyle(Color.textTertiary)
                             .frame(width: max(36, size - 24), height: max(32, size - 24))
                             .accessibilityIdentifier("bettingInstruction\(index)")
                     }
@@ -460,7 +457,7 @@ private struct PlayContent: View {
             HStack(spacing: cardSpacing) {
                 ForEach(hand.cards) { card in
                     CardView(card: card, size: cardSize)
-                        .shadow(color: .black.opacity(0.25), radius: 2, y: 2)
+                        .shadow(color: .shadowColor, radius: 2, y: 2)
                         .transition(.dealtCard)
                 }
             }
@@ -503,7 +500,7 @@ private struct PlayContent: View {
             }
         case .dealing:
             Text("Dealing…")
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Color.textSecondary)
                 .padding(.vertical, 20)
         case .insurance:
             InsuranceControlsView(engine: engine)
@@ -513,7 +510,7 @@ private struct PlayContent: View {
             actionControls
         case .dealer:
             Text("Dealer plays…")
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Color.textSecondary)
                 .padding(.vertical, 20)
         case .done:
             doneControls
@@ -521,14 +518,17 @@ private struct PlayContent: View {
     }
 
     private var actionControls: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                TableActionButton(title: "Hit", enabled: engine.canHitOrStand) { engine.hit() }
-                TableActionButton(title: "Stand", enabled: engine.canHitOrStand) { engine.stand() }
-            }
-            HStack(spacing: 10) {
-                TableActionButton(title: "Double", enabled: doubleEnabled) { engine.double() }
-                TableActionButton(title: "Split", enabled: splitEnabled) { engine.split() }
+        DecisionPad(
+            canHit: engine.canHitOrStand,
+            canStand: engine.canHitOrStand,
+            canDouble: doubleEnabled,
+            canSplit: splitEnabled
+        ) { action in
+            switch action {
+            case .hit: engine.hit()
+            case .stand: engine.stand()
+            case .double: engine.double()
+            case .split: engine.split()
             }
         }
         .padding(.horizontal)
@@ -565,11 +565,11 @@ private struct PlayContent: View {
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .foregroundStyle(.white.opacity(0.9))
-                        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 11))
+                        .foregroundStyle(Color.textPrimary)
+                        .background(Color.surface, in: RoundedRectangle(cornerRadius: 11))
                         .overlay {
                             RoundedRectangle(cornerRadius: 11)
-                                .strokeBorder(Color.white.opacity(0.14))
+                                .strokeBorder(Color.divider)
                         }
                 }
             }
@@ -589,11 +589,11 @@ private struct PlayContent: View {
         let title = net > 0
             ? (engine.hands.contains { $0.result == .blackjack } ? "BLACKJACK" : "WIN")
             : (net < 0 ? (anyHandWon ? "DEALER AHEAD" : "DEALER WINS") : "PUSH")
-        let titleColor: Color = net > 0 ? Theme.accent : (net < 0 ? Theme.bad : .white.opacity(0.8))
+        let titleColor: Color = net > 0 ? Theme.accent : (net < 0 ? Theme.bad : Color.textSecondary)
         let amountText = net > 0
             ? Money.signedChips(net)
             : (net < 0 ? "Lost \(Money.chips(-net))" : "Bet returned")
-        let amountColor: Color = net > 0 ? .white : (net < 0 ? Theme.bad : .white)
+        let amountColor: Color = net > 0 ? .textPrimary : (net < 0 ? Theme.bad : .textPrimary)
         return VStack(spacing: 6) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title)
@@ -609,13 +609,13 @@ private struct PlayContent: View {
             HStack {
                 Text(net >= 0 && engine.lastRoundNet > 0 ? winDetail : settleDetail)
                     .font(.caption)
-                    .foregroundStyle(.white.opacity(0.65))
+                    .foregroundStyle(Color.textSecondary)
                 Spacer()
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 14))
         .overlay {
             RoundedRectangle(cornerRadius: 14)
                 .strokeBorder(titleColor.opacity(net == 0 ? 0.2 : 0.5), lineWidth: 1.2)
@@ -661,14 +661,14 @@ private struct PlayContent: View {
                 .minimumScaleFactor(0.72)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 12)
-                .foregroundStyle(primary ? Color.black.opacity(0.85) : .white)
+                .foregroundStyle(primary ? Color.onAccent : Color.textPrimary)
                 .background(
-                    primary ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.black.opacity(0.28)),
+                    primary ? Color.accent : Color.surfaceRaised,
                     in: RoundedRectangle(cornerRadius: 11)
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 11)
-                        .strokeBorder(primary ? Color.white.opacity(0.25) : Color.white.opacity(0.14))
+                        .strokeBorder(primary ? Color.clear : Color.divider)
                 }
                 .opacity(enabled ? 1 : 0.35)
         }
@@ -680,15 +680,15 @@ private struct PlayContent: View {
     private var footer: some View {
         HStack {
             footerItem("CHIPS", engine.money(engine.bankroll), Theme.accent)
-            Divider().frame(height: 30).overlay(.white.opacity(0.2))
+            Divider().frame(height: 30).overlay(Color.divider)
             footerItem("SESSION", sessionNetText,
-                       engine.sessionNet > 0.005 ? Theme.good : (engine.sessionNet < -0.005 ? Theme.bad : .white))
-            Divider().frame(height: 30).overlay(.white.opacity(0.2))
-            footerItem("TRUE COUNT", engine.showCount ? String(format: "%+.1f", engine.trueCount) : "Off", .white)
+                       engine.sessionNet > 0.005 ? Theme.good : (engine.sessionNet < -0.005 ? Theme.bad : .textPrimary))
+            Divider().frame(height: 30).overlay(Color.divider)
+            footerItem("TRUE COUNT", engine.showCount ? String(format: "%+.1f", engine.trueCount) : "Off", .textPrimary)
         }
         .padding(.vertical, 8)
         .padding(.horizontal)
-        .background(.ultraThinMaterial)
+        .background(.surface)
     }
 
     /// Session result shown with arrows instead of signs, so it reads like a
@@ -702,7 +702,7 @@ private struct PlayContent: View {
 
     private func footerItem(_ label: String, _ value: String, _ tint: Color) -> some View {
         VStack(spacing: 2) {
-            Text(label).font(.caption2).foregroundStyle(.white.opacity(0.6))
+            Text(label).font(.caption2).foregroundStyle(Color.textTertiary)
             Text(value).font(.subheadline.weight(.bold)).foregroundStyle(tint)
         }
         .frame(maxWidth: .infinity)
@@ -744,7 +744,7 @@ private struct PlayContent: View {
         switch hand.result {
         case .win, .blackjack: return Theme.good
         case .lose, .bust, .dealerBlackjack: return Theme.bad
-        default: return .white.opacity(0.9)
+        default: return Color.textPrimary
         }
     }
 

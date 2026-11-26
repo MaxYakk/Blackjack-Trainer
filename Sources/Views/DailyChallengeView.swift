@@ -35,7 +35,7 @@ struct DailyChallengeView: View {
             HStack {
                 Text(engine.isReplay ? "Daily Challenge · Practice" : "Daily Challenge")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.textPrimary)
                 Spacer()
                 Text("\(engine.index + 1) / \(engine.spots.count)")
                     .font(.subheadline.weight(.bold))
@@ -55,7 +55,7 @@ struct DailyChallengeView: View {
                 VStack(spacing: 18) {
                     if let spot = engine.current {
                         VStack(spacing: 6) {
-                            Text("Dealer shows").font(.caption).foregroundStyle(.secondary)
+                            Text("Dealer shows").font(.caption).foregroundStyle(.textSecondary)
                             CardView(card: Card(rank: spot.dealerRank, suit: .clubs), size: 1.4)
                         }
                         VStack(spacing: 6) {
@@ -80,7 +80,7 @@ struct DailyChallengeView: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 14)
                                 .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                                .foregroundStyle(.black)
+                                .foregroundStyle(.onAccent)
                         }
                         .padding(.horizontal)
                     } else if let spot = engine.current {
@@ -100,17 +100,17 @@ struct DailyChallengeView: View {
                 .foregroundStyle(Theme.accent)
             Text("\(engine.score) / \(engine.spots.count)")
                 .font(.system(size: 44, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
+                .foregroundStyle(.textPrimary)
             Text(resultCopy(score: engine.score, total: engine.spots.count))
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Text(engine.isReplay
                  ? "Practice run — today's recorded score and stats are unchanged."
                  : "Same ten hands for everyone today — come back tomorrow for a new deal.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.textSecondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 32)
             Spacer()
@@ -122,7 +122,7 @@ struct DailyChallengeView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.onAccent)
             }
             .padding(.horizontal)
             .padding(.bottom, 18)
@@ -139,31 +139,7 @@ struct DailyChallengeView: View {
     }
 
     private func actionGrid(_ engine: DailyChallengeEngine, canSplit: Bool) -> some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                challengeButton("Hit") { engine.answer(.hit) }
-                challengeButton("Stand") { engine.answer(.stand) }
-            }
-            HStack(spacing: 10) {
-                challengeButton("Double") { engine.answer(.double) }
-                challengeButton("Split", enabled: canSplit) { engine.answer(.split) }
-            }
-        }
-        .padding(.horizontal)
-    }
-
-    private func challengeButton(_ title: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(enabled ? Theme.felt : Color.gray.opacity(0.25),
-                            in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .gray)
-                .overlay(RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.white.opacity(enabled ? 0.15 : 0), lineWidth: 1))
-        }
-        .disabled(!enabled)
+        DecisionPad(canSplit: canSplit) { engine.answer($0) }
+            .padding(.horizontal)
     }
 }

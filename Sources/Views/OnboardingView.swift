@@ -21,13 +21,13 @@ struct OnboardingView: View {
                             Text("Know the right move.")
                                 .font(.system(size: 38, weight: .bold, design: .rounded))
                                 .tracking(-0.8)
-                                .foregroundStyle(.white)
+                                .foregroundStyle(.textPrimary)
                                 .multilineTextAlignment(.center)
                                 .minimumScaleFactor(0.8)
 
                             Text("Practice blackjack decisions with clear feedback after every move.")
                                 .font(.system(.body, design: .rounded, weight: .medium))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(Color.textSecondary)
                                 .multilineTextAlignment(.center)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
@@ -44,7 +44,7 @@ struct OnboardingView: View {
                                 Image(systemName: "arrow.right")
                             }
                             .font(.headline.weight(.bold))
-                            .foregroundStyle(Theme.cardBlack)
+                            .foregroundStyle(Color.onAccent)
                             .frame(maxWidth: .infinity)
                             .frame(height: 56)
                             .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
@@ -55,7 +55,7 @@ struct OnboardingView: View {
 
                         Text(PracticeNotice.line)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(.white.opacity(0.7))
+                            .foregroundStyle(Color.textSecondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 24)
                             .padding(.top, 12)
@@ -63,7 +63,7 @@ struct OnboardingView: View {
 
                         Label("Progress is saved on this device", systemImage: "lock.fill")
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(.white.opacity(0.5))
+                            .foregroundStyle(Color.textTertiary)
                             .padding(.top, 8)
                     }
                     .padding(.top, 12)
@@ -78,21 +78,11 @@ struct OnboardingView: View {
 
     private var onboardingBackground: some View {
         ZStack {
-            LinearGradient(
-                colors: [Theme.felt, Theme.feltDark, Color(red: 0.018, green: 0.075, blue: 0.05)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-
-            Circle()
-                .fill(Theme.accent.opacity(0.06))
-                .frame(width: 420, height: 420)
-                .blur(radius: 10)
-                .offset(x: 170, y: -290)
+            Color.bg
 
             Text("\u{2660}")
                 .font(.system(size: 310, weight: .black))
-                .foregroundStyle(.black.opacity(0.08))
+                .foregroundStyle(Color.surfaceSubtle)
                 .rotationEffect(.degrees(-14))
                 .offset(x: -150, y: 285)
         }
@@ -107,14 +97,14 @@ struct OnboardingView: View {
                     .fill(Theme.accent)
                 Image(systemName: "suit.spade.fill")
                     .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(Theme.cardBlack)
+                    .foregroundStyle(Color.onAccent)
             }
             .frame(width: 30, height: 30)
 
             Text("HIT ME")
                 .font(.caption.weight(.bold))
                 .tracking(1.6)
-                .foregroundStyle(.white.opacity(0.88))
+                .foregroundStyle(Color.textPrimary)
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Hit Me")
@@ -129,7 +119,7 @@ private struct WelcomeTableau: View {
                 .frame(width: 310, height: 166)
 
             RoundedRectangle(cornerRadius: 76)
-                .stroke(Color.white.opacity(0.07), lineWidth: 1)
+                .stroke(Color.divider, lineWidth: 1)
                 .frame(width: 274, height: 132)
 
             CardView(card: Card(rank: .ace, suit: .spades), size: 1.55)
@@ -150,11 +140,11 @@ private struct WelcomeTableau: View {
 
             Text("21")
                 .font(.system(size: 16, weight: .black, design: .rounded))
-                .foregroundStyle(Theme.cardBlack)
+                .foregroundStyle(Color.onAccent)
                 .padding(.horizontal, 13)
                 .padding(.vertical, 7)
                 .background(Theme.accent, in: Capsule())
-                .shadow(color: .black.opacity(0.3), radius: 6, y: 3)
+                .shadow(color: .shadowColor, radius: 6, y: 3)
                 .offset(y: 72)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -180,7 +170,7 @@ private struct TrainingModes: View {
 
                     Text(mode.1)
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.82))
+                        .foregroundStyle(Color.textSecondary)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                 }
@@ -188,7 +178,7 @@ private struct TrainingModes: View {
 
                 if index < modes.count - 1 {
                     Rectangle()
-                        .fill(Color.white.opacity(0.13))
+                        .fill(Color.divider)
                         .frame(width: 1, height: 34)
                 }
             }

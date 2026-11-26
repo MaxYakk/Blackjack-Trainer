@@ -50,7 +50,7 @@ struct SettingsView: View {
                     Text("Daily reminder")
                     Text("One evening nudge, personalized to your streak and weakest spot.")
                         .font(.footnote)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             .tint(Theme.accent)
@@ -178,7 +178,7 @@ struct SettingsView: View {
         }
     }
 
-    private var rowBackground: some View { Color.black.opacity(0.2) }
+    private var rowBackground: some View { Color.surface }
 }
 
 /// Gear button for the Progress header.

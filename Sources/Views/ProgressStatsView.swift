@@ -55,11 +55,11 @@ struct ProgressStatsView: View {
                          tint: Theme.good)
                 StatTile(label: "Streak",
                          value: stats.dailyStreak == 1 ? "1 day" : "\(stats.dailyStreak) days",
-                         tint: stats.dailyStreak > 0 ? Theme.accent : .secondary)
+                         tint: stats.dailyStreak > 0 ? Color.warm : Color.textSecondary)
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Skill rating
@@ -77,7 +77,7 @@ struct ProgressStatsView: View {
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.black.opacity(0.35))
+                    Capsule().fill(Color.surfaceRaised)
                     Capsule()
                         .fill(Theme.accent)
                         .frame(width: max(geo.size.width * rating.levelProgress,
@@ -89,18 +89,18 @@ struct ProgressStatsView: View {
             if let nextLevel = SkillRating.Level(rawValue: rating.level.rawValue + 1) {
                 Text("Score \(Int(rating.score)) — \(Int(rating.levelProgress * 100))% of the way to \(nextLevel.name).")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             } else {
                 Text("Score \(Int(rating.score)) — top tier. Keep it sharp.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             }
             Text(rating.nextStep)
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Theme.mint)
         }
         .padding(12)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Session report card
@@ -129,29 +129,29 @@ struct ProgressStatsView: View {
                                 Spacer()
                                 Text("\(m.chose) → \(m.correctPlay)")
                                     .font(.caption)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.textSecondary)
                             }
                             .padding(.vertical, 6)
                             .padding(.horizontal, 10)
-                            .background(idx % 2 == 0 ? Color.black.opacity(0.15) : Color.clear)
+                            .background(idx % 2 == 0 ? Color.surfaceSubtle : Color.clear)
                         }
                     }
                     .clipShape(RoundedRectangle(cornerRadius: 10))
                     if stats.sessionMistakes.count > 6 {
                         Text("Showing the last 6 of \(stats.sessionMistakes.count) mistakes.")
                             .font(.caption2)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.textSecondary)
                     }
                 }
             }
             .padding(12)
-            .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
         }
     }
 
     private var sessionAccuracyColor: Color {
         let acc = Double(stats.sessionCorrect) / Double(max(stats.sessionDecisions, 1))
-        return acc >= 0.9 ? Theme.good : acc >= 0.7 ? Theme.accent : Theme.bad
+        return acc >= 0.9 ? Theme.good : acc >= 0.7 ? Color.warning : Theme.bad
     }
 
     // MARK: - Daily goal & streak
@@ -168,16 +168,16 @@ struct ProgressStatsView: View {
                 Spacer()
                 HStack(spacing: 4) {
                     Image(systemName: "flame.fill")
-                        .foregroundStyle(streak > 0 ? .orange : .secondary)
+                        .foregroundStyle(streak > 0 ? Color.warm : Color.textSecondary)
                     Text(streak == 1 ? "1 day" : "\(streak) days")
                         .font(.subheadline.weight(.bold))
-                        .foregroundStyle(streak > 0 ? Theme.accent : .secondary)
+                        .foregroundStyle(streak > 0 ? Color.warm : Color.textSecondary)
                 }
             }
 
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Color.black.opacity(0.35))
+                    Capsule().fill(Color.surfaceRaised)
                     Capsule()
                         .fill(today >= goal ? Theme.good : Theme.accent)
                         .frame(width: max(geo.size.width * progress, progress > 0 ? 10 : 0))
@@ -190,10 +190,10 @@ struct ProgressStatsView: View {
                  ? "Goal hit — \(today) decisions today. Streak safe!"
                  : "\(today) of \(goal) decisions today. Play hands or quiz spots to keep the streak.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.textSecondary)
         }
         .padding(12)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     // MARK: - Leaks
@@ -205,24 +205,24 @@ struct ProgressStatsView: View {
             if leaks.isEmpty {
                 Text("Answer more hands and quiz spots — your most-missed plays will show up here so you know exactly what to fix.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
-                    .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(leaks.enumerated()), id: \.element.key) { idx, leak in
                         HStack(spacing: 10) {
                             Text("\(Int(leak.stat.accuracy * 100))%")
                                 .font(.system(.subheadline, design: .rounded).weight(.bold))
-                                .foregroundStyle(leak.stat.accuracy < 0.5 ? Theme.bad : .orange)
+                                .foregroundStyle(leak.stat.accuracy < 0.5 ? Theme.bad : Color.warning)
                                 .frame(width: 44, alignment: .leading)
                             VStack(alignment: .leading, spacing: 1) {
                                 Text(SpotID.displayName(leak.key))
                                     .font(.caption.weight(.semibold))
                                 Text("\(leak.stat.total) attempts")
                                     .font(.caption2)
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.textSecondary)
                             }
                             Spacer()
                             if let play = SpotID.correctActionName(leak.key) {
@@ -233,10 +233,10 @@ struct ProgressStatsView: View {
                         }
                         .padding(.vertical, 8)
                         .padding(.horizontal, 12)
-                        .background(idx % 2 == 0 ? Color.black.opacity(0.15) : Color.clear)
+                        .background(idx % 2 == 0 ? Color.surfaceSubtle : Color.clear)
                     }
                 }
-                .background(Color.black.opacity(0.1))
+                .background(Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: 12))
                 if !stats.recurringMistakes.isEmpty {
                     Button {
@@ -246,14 +246,14 @@ struct ProgressStatsView: View {
                             .font(.subheadline.weight(.bold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 11)
-                            .foregroundStyle(.black)
+                            .foregroundStyle(.onAccent)
                             .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
                     }
                     .accessibilityIdentifier("reviewMistakesButton")
                 }
                 Text("Drill these in the Quiz tab's Smart mode — it deals your weak spots first.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             }
         }
     }
@@ -289,9 +289,9 @@ struct ProgressStatsView: View {
             if days.count < 2 {
                 Text("Play on a few different days to see your trend here.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 120)
-                    .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 Chart(days) { day in
                     LineMark(
@@ -309,7 +309,7 @@ struct ProgressStatsView: View {
                 .chartYScale(domain: 0...100)
                 .frame(height: 180)
                 .padding()
-                .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
@@ -321,22 +321,21 @@ struct ProgressStatsView: View {
             if history.count < 2 {
                 Text("Play a few hands to see your chip stack over time.")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                     .frame(maxWidth: .infinity, minHeight: 100)
-                    .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                    .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
             } else {
                 Chart(Array(history.enumerated()), id: \.offset) { idx, value in
                     LineMark(x: .value("Hand", idx), y: .value("Chip stack", value))
                         .foregroundStyle(Theme.accent)
                         .interpolationMethod(.monotone)
                     AreaMark(x: .value("Hand", idx), y: .value("Chip stack", value))
-                        .foregroundStyle(LinearGradient(colors: [Theme.accent.opacity(0.3), .clear],
-                                                        startPoint: .top, endPoint: .bottom))
+                        .foregroundStyle(Theme.accent.opacity(0.15))
                         .interpolationMethod(.monotone)
                 }
                 .frame(height: 160)
                 .padding()
-                .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+                .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
             }
         }
     }
@@ -416,7 +415,7 @@ private struct MistakeReviewView: View {
                 VStack(spacing: 20) {
                     Text("Mistake \(index + 1) of \(mistakes.count)")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.textSecondary)
 
                     VStack(spacing: 16) {
                         Text(SpotID.displayName(mistake.key))
@@ -428,13 +427,13 @@ private struct MistakeReviewView: View {
                                 VStack(spacing: 5) {
                                     Text("Dealer shows")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(.textSecondary)
                                     CardView(card: Card(rank: spot.dealerRank, suit: .clubs), size: 1.45)
                                 }
                                 VStack(spacing: 5) {
                                     Text("Your hand")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundStyle(.textSecondary)
                                     HStack(spacing: 8) {
                                         ForEach(spot.cards) { card in
                                             CardView(card: card, size: 1.45)
@@ -455,11 +454,11 @@ private struct MistakeReviewView: View {
                             }
                             Text("\(Int(mistake.stat.accuracy * 100))% correct across \(mistake.stat.total) attempts")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundStyle(.textSecondary)
                         }
                         .padding(14)
                         .frame(maxWidth: .infinity)
-                        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 12))
+                        .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 12))
                     }
                     .padding(18)
                     .frame(maxWidth: .infinity)
@@ -475,7 +474,7 @@ private struct MistakeReviewView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 14)
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.onAccent)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 11))
                 }
                 .padding()

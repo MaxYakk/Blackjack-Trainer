@@ -56,12 +56,12 @@ struct SettingsSheet: View {
                     HStack {
                         Text("Starting chips")
                         Spacer()
-                        Text(Money.chips(engine.sessionBuyIn)).foregroundStyle(.secondary)
+                        Text(Money.chips(engine.sessionBuyIn)).foregroundStyle(.textSecondary)
                     }
                     HStack {
                         Text("Chips now")
                         Spacer()
-                        Text(Money.chips(engine.bankroll)).foregroundStyle(.secondary)
+                        Text(Money.chips(engine.bankroll)).foregroundStyle(.textSecondary)
                     }
                     // Read-only mid-session: the minimum is the unit every bet
                     // is graded in, and raising it could instantly leave the player
@@ -69,7 +69,7 @@ struct SettingsSheet: View {
                     HStack {
                         Text("Table minimum")
                         Spacer()
-                        Text(Money.chips(engine.tableMinimum)).foregroundStyle(.secondary)
+                        Text(Money.chips(engine.tableMinimum)).foregroundStyle(.textSecondary)
                     }
                 } header: {
                     Text("Session")
@@ -79,7 +79,7 @@ struct SettingsSheet: View {
                 Section {
                     Text("Bet-sizing practice: keep bets at the table minimum when the true count is low, and raise them by about one unit per point once it reaches +2. The app grades each bet against the count. Chips here are for practice only.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             .navigationTitle("Table Options")

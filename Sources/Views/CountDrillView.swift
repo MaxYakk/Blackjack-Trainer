@@ -80,7 +80,7 @@ private struct CountDrillContent: View {
         }
         .font(.subheadline)
         .padding()
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var stage: some View {
@@ -95,7 +95,7 @@ private struct CountDrillContent: View {
                 } else {
                     Text("?")
                         .font(.system(size: 60, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .foregroundStyle(Color.textTertiary)
                 }
             }
             .frame(height: 150)
@@ -103,14 +103,14 @@ private struct CountDrillContent: View {
             if engine.phase == .running {
                 Text("Card \(engine.dealtCount)/\(engine.totalCards)")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             }
 
             if engine.showHint && engine.phase == .running {
                 Text("Running \(signed(engine.runningCount))  •  \(engine.decksRemaining, specifier: "%.1f") left  •  True \(engine.trueCount, specifier: "%+.1f")")
                     .font(.caption)
                     .padding(6)
-                    .background(Color.black.opacity(0.3), in: Capsule())
+                    .background(Color.surfaceRaised, in: Capsule())
             }
 
             Button {
@@ -127,7 +127,7 @@ private struct CountDrillContent: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.onAccent)
             }
             .accessibilityIdentifier("countDrillControl")
         }
@@ -155,7 +155,7 @@ private struct CountDrillContent: View {
                         .fontWeight(.semibold)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                        .background(Theme.felt, in: RoundedRectangle(cornerRadius: 8))
+                        .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 8))
                 }
             }
 
@@ -167,7 +167,7 @@ private struct CountDrillContent: View {
             }
         }
         .padding()
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func resultText(correct: Bool) -> String {
@@ -182,7 +182,7 @@ private struct CountDrillContent: View {
         HStack(spacing: 14) {
             Text("Hi Lo:")
             Text("2-6 = +1").foregroundStyle(Theme.good)
-            Text("7-9 = 0").foregroundStyle(.secondary)
+            Text("7-9 = 0").foregroundStyle(.textSecondary)
             Text("10-A = -1").foregroundStyle(Theme.bad)
         }
         .font(.caption)
@@ -200,14 +200,14 @@ private struct CountDrillContent: View {
             Text("True Count = Running Count ÷ Decks Remaining")
                 .font(.caption.weight(.bold))
                 .padding(8)
-                .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
+                .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 8))
             Text("Estimate the decks remaining by eye to the nearest half deck. For example, a running count of +6 with 3 decks left gives you a true count of +2. Base your bets and strategy changes on the true count, not the running count.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.textSecondary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding()
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func signed(_ n: Int) -> String { n > 0 ? "+\(n)" : "\(n)" }

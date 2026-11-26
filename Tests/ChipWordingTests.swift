@@ -5,7 +5,7 @@ import Testing
 // Practice-chip wording: amounts carry no currency symbol, and no trophy
 // title or description reads like money or gambling slang.
 //
-// Compile alongside: Sources/Engine, Sources/Store and Money from Theme.swift
+// Compile alongside: Sources/Engine, Sources/Store and Money from Sources/Views/Money.swift
 
 struct ChipWordingTests {
     @Test func amountsHaveNoCurrencySymbol() {
