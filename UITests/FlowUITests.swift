@@ -14,6 +14,44 @@ final class FlowUITests: XCTestCase {
         if start.waitForExistence(timeout: 2) { start.tap() }
     }
 
+    /// Walks a first-launch player through welcome, the required 7-page app
+    /// tour and the basics offer, ending on the app with "Start training".
+    /// The tour has no Skip, so it taps Next until Done appears.
+    private func finishOnboarding(_ app: XCUIApplication) {
+        let getStarted = app.buttons["onboardingGetStarted"]
+        XCTAssertTrue(getStarted.waitForExistence(timeout: 5), "welcome screen should appear")
+        getStarted.tap()
+
+        let done = app.buttons["appTourDone"]
+        for _ in 0..<12 where !done.exists {
+            let next = app.buttons["appTourNext"]
+            XCTAssertTrue(next.waitForExistence(timeout: 3), "the app tour should offer Next until its last page")
+            next.tap()
+        }
+        XCTAssertTrue(done.waitForExistence(timeout: 3), "the app tour should end with Done")
+        done.tap()
+
+        let startTraining = app.buttons["onboardingStartTraining"]
+        XCTAssertTrue(startTraining.waitForExistence(timeout: 3), "the basics offer should follow the tour")
+        startTraining.tap()
+    }
+
+    /// The Hands per round segments are plain buttons labelled "1", "2", "3".
+    private func handsSegment(_ app: XCUIApplication, _ count: Int) -> XCUIElement {
+        app.buttons["\(count)"]
+    }
+
+    /// Opens a themed menu picker row and taps one option in its list.
+    private func choose(_ option: String, from picker: XCUIElement, in app: XCUIApplication) {
+        picker.tap()
+        let row = app.buttons[option]
+        XCTAssertTrue(row.waitForExistence(timeout: 3), "the picker list should offer \(option)")
+        row.tap()
+        let gone = NSPredicate(format: "exists == false")
+        let closed = XCTNSPredicateExpectation(predicate: gone, object: row)
+        _ = XCTWaiter.wait(for: [closed], timeout: 3)
+    }
+
     /// How to Play, End session and Table Options are direct header buttons
     /// now (no menu), so there is nothing to open. Kept so older call sites
     /// still read naturally.
@@ -44,7 +82,7 @@ final class FlowUITests: XCTestCase {
                        "first launch should not make the player page through a feature tour")
         assertNoVisibleDashPunctuation(in: app)
 
-        app.buttons["onboardingGetStarted"].tap()
+        finishOnboarding(app)
         startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5))
     }
@@ -54,9 +92,9 @@ final class FlowUITests: XCTestCase {
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
         app.launch()
 
-        XCTAssertFalse(app.staticTexts["New to blackjack? Learn the game"].exists)
-
         startSessionIfNeeded(app)
+        XCTAssertFalse(app.buttons["learnBasicsCard"].exists,
+                       "the lobby's learn card should not follow the player onto the table")
         openHeaderMenu(app)
         let learnButton = app.buttons["learnBlackjackHeaderButton"]
         XCTAssertTrue(learnButton.waitForExistence(timeout: 5))
@@ -126,9 +164,6 @@ final class FlowUITests: XCTestCase {
         ]
         app.launch()
 
-        let skipOnboarding = app.buttons["onboardingSkip"]
-        if skipOnboarding.waitForExistence(timeout: 2) { skipOnboarding.tap() }
-
         let countTab = app.tabBars.buttons["Count"]
         XCTAssertTrue(countTab.waitForExistence(timeout: 5))
         countTab.tap()
@@ -166,12 +201,12 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(reviewButton.waitForExistence(timeout: 5))
         reviewButton.tap()
 
-        XCTAssertTrue(app.staticTexts["Mistake Review"].waitForExistence(timeout: 3))
+        XCTAssertTrue(app.navigationBars["Mistake Review"].waitForExistence(timeout: 3))
         XCTAssertTrue(app.staticTexts["Hard 16 vs 10"].exists)
         XCTAssertTrue(app.staticTexts["You chose Stand 4 times"].exists)
         XCTAssertTrue(app.staticTexts["Correct play: Hit"].exists)
 
-        app.buttons["Next Mistake"].tap()
+        app.buttons["reviewNextButton"].tap()
         XCTAssertTrue(app.staticTexts["Hard 12 vs 3"].waitForExistence(timeout: 2))
     }
 
@@ -192,8 +227,13 @@ final class FlowUITests: XCTestCase {
         let optionsNavigation = app.navigationBars["Table Options"]
         tableOptions.tap()
         XCTAssertTrue(optionsNavigation.waitForExistence(timeout: 4))
-        XCTAssertTrue(app.staticTexts["Table Rules"].exists)
-        XCTAssertTrue(app.staticTexts["Counting"].exists)
+        // Section headers may render upper-cased, so match ignoring case.
+        for header in ["Table rules", "Training help"] {
+            let match = app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", header))
+            XCTAssertTrue(match.firstMatch.exists, "Table Options should have a \(header) section")
+        }
+        XCTAssertTrue(app.descendants(matching: .any)["tableOptionsDeckPicker"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["deviationsToggle"].exists)
     }
 
     func testTwoHandBettingInstructionsStayInsideSpots() {
@@ -203,7 +243,7 @@ final class FlowUITests: XCTestCase {
         startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["spot0"].waitForExistence(timeout: 5))
-        app.segmentedControls.buttons["2"].tap()
+        handsSegment(app, 2).tap()
         XCTAssertTrue(app.buttons["spot1"].waitForExistence(timeout: 2))
 
         for index in 0..<2 {
@@ -223,7 +263,7 @@ final class FlowUITests: XCTestCase {
         startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["spot0"].waitForExistence(timeout: 5))
-        let threeHands = app.segmentedControls.buttons["3"]
+        let threeHands = handsSegment(app, 3)
         threeHands.tap()
         if !threeHands.isSelected { threeHands.tap() }
         XCTAssertTrue(threeHands.isSelected, "the three-hand option should stay selected")
@@ -296,13 +336,13 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(chip5.waitForExistence(timeout: 12), "betting screen with chip tray should appear")
         // A prior test may have left numHands > 1 persisted — every spot then
         // needs its own bet, so force back to a single spot first.
-        if app.segmentedControls.buttons["1"].exists { app.segmentedControls.buttons["1"].tap() }
+        if handsSegment(app, 1).exists { handsSegment(app, 1).tap() }
         chip5.tap()
         chip5.tap()
 
         let betAmount = app.staticTexts["betAmount"]
         XCTAssertTrue(betAmount.waitForExistence(timeout: 2))
-        XCTAssertEqual(betAmount.label, "Bet 10", "two 5-chip chips should read Bet 10")
+        XCTAssertEqual(betAmount.label, "Bet $10", "two $5 chips should read Bet $10")
         attach(app, "1-betting")
         Thread.sleep(forTimeInterval: 3)
 
@@ -348,7 +388,8 @@ final class FlowUITests: XCTestCase {
         Thread.sleep(forTimeInterval: 3)
     }
 
-    /// Reproduces the reported crash when swiping between pages.
+    /// Tabs are not swipeable, so this only checks that swiping across the
+    /// table never crashes the app or drops the tab bar (an earlier crash report).
     func testSwipeNavigation() {
         let app = XCUIApplication()
         app.launchArguments = ["-hasCompletedOnboarding", "YES"]
@@ -374,7 +415,7 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
         // A prior test may have left numHands > 1 persisted — each spot now needs
         // its own bet, so force back to a single spot for this single-bet loop.
-        if app.segmentedControls.buttons["1"].exists { app.segmentedControls.buttons["1"].tap() }
+        if handsSegment(app, 1).exists { handsSegment(app, 1).tap() }
 
         var didSplit = false
         for _ in 0..<60 where !didSplit {
@@ -412,7 +453,7 @@ final class FlowUITests: XCTestCase {
         startSessionIfNeeded(app)
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
 
-        app.segmentedControls.buttons["2"].tap()     // play 2 hands
+        handsSegment(app, 2).tap()     // play 2 hands
         // Each spot needs its own bet — fund both independently.
         app.buttons["chip0"].tap()                   // spot 1 is active by default
         app.buttons["spot1"].tap()
@@ -447,8 +488,6 @@ final class FlowUITests: XCTestCase {
         ]
         app.launch()
 
-        let skipOnboarding = app.buttons["onboardingSkip"]
-        if skipOnboarding.waitForExistence(timeout: 2) { skipOnboarding.tap() }
         startSessionIfNeeded(app)
 
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 5))
@@ -498,8 +537,8 @@ final class FlowUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["startSessionButton"].waitForExistence(timeout: 5),
                       "ending the session should return to the lobby")
-        XCTAssertEqual(app.staticTexts["buyInAmount"].label, "100")
-        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "5",
+        XCTAssertEqual(app.staticTexts["buyInAmount"].label, "$100")
+        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "$5",
                        "ending the session should reset the next table to the friendly defaults")
         XCTAssertTrue(app.descendants(matching: .any)["sessionReceipt"].waitForExistence(timeout: 3),
                       "the lobby should show the session summary after ending a session")
@@ -515,21 +554,21 @@ final class FlowUITests: XCTestCase {
         let increase = app.buttons["buyInIncrease"]
 
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
-        XCTAssertEqual(amount.label, "100")
-        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "5")
+        XCTAssertEqual(amount.label, "$100")
+        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "$5")
         XCTAssertTrue(decrease.exists)
         XCTAssertTrue(increase.exists)
-        XCTAssertFalse(app.segmentedControls["buyInStepPicker"].exists,
+        XCTAssertFalse(app.descendants(matching: .any)["buyInStepPicker"].exists,
                        "starting chips should not require a separate adjustment-step control")
         XCTAssertFalse(app.buttons["buyInPreset500"].exists)
         XCTAssertFalse(app.steppers["buyInStepper"].exists)
 
         decrease.tap()
-        XCTAssertEqual(amount.label, "50")
+        XCTAssertEqual(amount.label, "$50")
         increase.tap()
-        XCTAssertEqual(amount.label, "100")
+        XCTAssertEqual(amount.label, "$100")
         increase.tap()
-        XCTAssertEqual(amount.label, "250")
+        XCTAssertEqual(amount.label, "$250")
     }
 
     func testSetupIncludesTableRules() {
@@ -537,16 +576,14 @@ final class FlowUITests: XCTestCase {
         app.launchArguments = ["-hasCompletedOnboarding", "YES", "-pe_sessionActive", "NO"]
         app.launch()
 
-        XCTAssertTrue(app.staticTexts["STARTING CHIPS"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.staticTexts["STARTING MONEY"].waitForExistence(timeout: 5))
         let deckPicker = app.descendants(matching: .any)["buyInDeckPicker"]
         let dealerPicker = app.descendants(matching: .any)["buyInDealerPicker"]
         XCTAssertTrue(deckPicker.exists, "the session lobby should let players choose the deck count")
         XCTAssertTrue(dealerPicker.exists, "the session lobby should let players choose the dealer soft-17 rule")
 
-        deckPicker.tap()
-        app.buttons["4"].tap()
-        dealerPicker.tap()
-        app.buttons["Hits soft 17"].tap()
+        choose("4", from: deckPicker, in: app)
+        choose("Hits soft 17", from: dealerPicker, in: app)
         app.buttons["startSessionButton"].tap()
 
         openHeaderMenu(app)
@@ -578,8 +615,8 @@ final class FlowUITests: XCTestCase {
         app.launch()
 
         let title = app.staticTexts["Hit Me"]
-        let buyInHeading = app.staticTexts["STARTING CHIPS"]
-        let footer = app.staticTexts["Play until you end the session or run out of chips."]
+        let buyInHeading = app.staticTexts["STARTING MONEY"]
+        let footer = app.staticTexts["Play until you end the session or run out of money."]
         let playTab = app.tabBars.buttons["Play"]
         XCTAssertTrue(title.waitForExistence(timeout: 5))
         XCTAssertTrue(buyInHeading.exists)
@@ -605,7 +642,7 @@ final class FlowUITests: XCTestCase {
         let amount = app.staticTexts["minimumBetAmount"]
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
         for _ in 0..<8 { app.buttons["minimumBetIncrease"].tap() }
-        XCTAssertEqual(amount.label, "2,000")
+        XCTAssertEqual(amount.label, "$2,000")
     }
 
     func testMinimumBetUsesCompactPreviousAndNextControls() {
@@ -622,7 +659,7 @@ final class FlowUITests: XCTestCase {
         let increase = app.buttons["minimumBetIncrease"]
 
         XCTAssertTrue(amount.waitForExistence(timeout: 5))
-        XCTAssertEqual(amount.label, "5")
+        XCTAssertEqual(amount.label, "$5")
         XCTAssertTrue(decrease.exists)
         XCTAssertTrue(increase.exists)
         XCTAssertTrue(increase.isEnabled)
@@ -630,9 +667,9 @@ final class FlowUITests: XCTestCase {
                        "minimum selection should not open the full list")
 
         increase.tap()
-        XCTAssertEqual(amount.label, "10")
+        XCTAssertEqual(amount.label, "$10")
         decrease.tap()
-        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "5")
+        XCTAssertEqual(app.staticTexts["minimumBetAmount"].label, "$5")
     }
 
     private func attach(_ app: XCUIApplication, _ name: String) {
@@ -646,7 +683,9 @@ final class FlowUITests: XCTestCase {
     private func assertNoVisibleDashPunctuation(in app: XCUIApplication,
                                                 file: StaticString = #filePath,
                                                 line: UInt = #line) {
-        for character in ["-", "–", "—", "−"] {
+        // Dash punctuation only. The minus sign (U+2212) is allowed: losses
+        // read "−$25".
+        for character in ["-", "–", "—"] {
             let matches = app.descendants(matching: .any)
                 .matching(NSPredicate(format: "label CONTAINS %@", character))
             XCTAssertEqual(matches.count, 0,
@@ -667,12 +706,15 @@ final class FlowUITests: XCTestCase {
         XCTAssertTrue(app.buttons["chip0"].waitForExistence(timeout: 12))
         // A prior test may have left numHands > 1 persisted — each spot now needs
         // its own bet, so force back to a single spot for this single-bet loop.
-        if app.segmentedControls.buttons["1"].exists { app.segmentedControls.buttons["1"].tap() }
+        if handsSegment(app, 1).exists { handsSegment(app, 1).tap() }
         openHeaderMenu(app)
         app.buttons["settingsButton"].tap()
         XCTAssertTrue(app.buttons["Done"].waitForExistence(timeout: 4))
         for label in ["Count-based strategy changes", "Ask for count checks during play", "Show running / true count"] {
-            let sw = app.switches[label]
+            // Themed toggles are one combined button: the label is the title
+            // followed by its hint, so match on the start of the label.
+            let sw = app.descendants(matching: .any)
+                .matching(NSPredicate(format: "label BEGINSWITH %@", label)).firstMatch
             if sw.exists { sw.tap() }
         }
         app.buttons["Done"].tap()

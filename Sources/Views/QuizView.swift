@@ -41,7 +41,7 @@ private struct QuizContent: View {
     @Environment(Stats.self) private var stats
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showChallenge = false
-    /// "Auto-next after a right answer": moves on by itself shortly after a
+    /// "Next hand on its own after a right answer": moves on by itself shortly after a
     /// correct answer. Off by default so the "why" line stays readable.
     @AppStorage("quiz_autoAdvance") private var autoAdvance = false
 
@@ -241,7 +241,7 @@ private struct QuizContent: View {
     private var autoAdvanceToggle: some View {
         Toggle(isOn: $autoAdvance) {
             VStack(alignment: .leading, spacing: Space.xxs) {
-                Text("Auto-next after a right answer")
+                Text("Next hand on its own after a right answer")
                     .font(.calloutText)
                     .foregroundStyle(.textPrimary)
                 Text("The next hand appears by itself a moment after a correct answer. A wrong answer always waits for you.")
