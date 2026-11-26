@@ -11,7 +11,7 @@ struct StrategyCellDetail: View {
     let showAccuracy: Bool
     let spot: SpotStat?
 
-    @ScaledMetric(relativeTo: .footnote) private var minHeight: CGFloat = 88
+    @ScaledMetric(relativeTo: .footnote) private var minHeight: CGFloat = 72
 
     var body: some View {
         Panel(.subtle, padding: Space.sm, spacing: Space.xxs) {

@@ -58,9 +58,13 @@ struct StrategyChartView: View {
                                 .padding(.bottom, Space.md)
                             footnote
                                 .padding(.bottom, Space.lg)
-                            deviationsSection
                         } header: {
                             pinnedHeader(metrics)
+                        }
+                        // Its own section with no pinned header, so the
+                        // explanation card and dealer row scroll away here.
+                        Section {
+                            deviationsSection
                         }
                     }
                     .padding(.horizontal, Space.md)
@@ -162,23 +166,111 @@ struct StrategyChartView: View {
             .filter { !isDoubleDeck || $0.appliesToDoubleDeck }
             .map { $0.resolved(dealerHitsSoft17: dealerHitsSoft17) }
         return VStack(alignment: .leading, spacing: Space.xs) {
-            SectionHeader("Count deviations: Illustrious 18",
-                          subtitle: "Plays that change with the true count (Hi Lo), for \(rulesCaption).")
-            Text("Once basic strategy is solid, these are the most valuable changes. To be graded on them, open Play, tap the gear icon, and turn on count strategy changes. Take insurance at true count +3 or higher.")
-                .font(.detail)
-                .foregroundStyle(.textSecondary)
+            SectionHeader("Plays that change with the count",
+                          subtitle: "The Illustrious 18, for \(rulesCaption).")
+            VStack(alignment: .leading, spacing: Space.xxs) {
+                deviationTip("TC is the true count. Each play flips once the count reaches its number.")
+                deviationTip("To be graded on these, turn on Count-based strategy changes from the gear icon in Play.")
+            }
             VStack(spacing: 0) {
+                DeviationRow(title: "Insurance", subtitle: "Below that: decline it",
+                             chipText: "Take it", chipFill: .accent, chipTextColor: .onAccent,
+                             threshold: Deviations.insuranceIndex, spoken: "Take insurance at a true count of 3 or more. Below that, decline it.",
+                             striped: true)
                 ForEach(Array(plays.enumerated()), id: \.offset) { idx, dev in
-                    Text(dev.note)
-                        .font(.detail)
-                        .foregroundStyle(.textPrimary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.vertical, Space.xs)
-                        .padding(.horizontal, Space.sm)
-                        .background(idx % 2 == 0 ? Color.surfaceSubtle : Color.clear)
+                    DeviationRow(play: dev, striped: idx % 2 == 1)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: Radius.medium, style: .continuous))
         }
+    }
+
+    private func deviationTip(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
+            Text("•")
+                .foregroundStyle(.accent)
+                .accessibilityHidden(true)
+            Text(text)
+                .foregroundStyle(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.detail)
+    }
+}
+
+/// One count play on a single scannable row: the hand on the left, the play
+/// and the true count it starts at on the right, and what to do below that.
+private struct DeviationRow: View {
+    let title: String
+    let subtitle: String
+    let chipText: String
+    let chipFill: Color
+    let chipTextColor: Color
+    let threshold: Double
+    let spoken: String
+    let striped: Bool
+
+    init(title: String, subtitle: String, chipText: String, chipFill: Color, chipTextColor: Color,
+         threshold: Double, spoken: String, striped: Bool) {
+        self.title = title
+        self.subtitle = subtitle
+        self.chipText = chipText
+        self.chipFill = chipFill
+        self.chipTextColor = chipTextColor
+        self.threshold = threshold
+        self.spoken = spoken
+        self.striped = striped
+    }
+
+    init(play: Deviation, striped: Bool) {
+        self.init(title: "\(play.handKey) vs \(play.dealerKey)",
+                  subtitle: "Below that: \(play.below.name)",
+                  chipText: play.atOrAbove.name,
+                  chipFill: ChartColors.fill(for: play.atOrAbove.rawValue),
+                  chipTextColor: ChartColors.text,
+                  threshold: play.index,
+                  spoken: "\(play.handKey) against \(play.dealerKey). \(play.atOrAbove.name) at a true count of \(Self.spokenCount(play.index)) or more. Below that, \(play.below.name.lowercased()).",
+                  striped: striped)
+    }
+
+    private static func count(_ value: Double) -> String {
+        let n = Int(value.rounded())
+        return n > 0 ? "+\(n)" : "\(n)"
+    }
+
+    private static func spokenCount(_ value: Double) -> String {
+        let n = Int(value.rounded())
+        return n < 0 ? "negative \(-n)" : "\(n)"
+    }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: Space.sm) {
+            VStack(alignment: .leading, spacing: 0) {
+                Text(title)
+                    .font(.calloutText.weight(.semibold))
+                    .foregroundStyle(.textPrimary)
+                Text(subtitle)
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
+            }
+            Spacer(minLength: Space.xs)
+            VStack(alignment: .trailing, spacing: Space.xxs) {
+                Text(chipText)
+                    .font(.captionText.weight(.bold))
+                    .foregroundStyle(chipTextColor)
+                    .padding(.horizontal, Space.xs)
+                    .padding(.vertical, 2)
+                    .background(chipFill, in: RoundedRectangle(cornerRadius: Radius.small / 2, style: .continuous))
+                Text("TC \(Self.count(threshold)) or more")
+                    .font(.detail)
+                    .foregroundStyle(.textPrimary)
+            }
+        }
+        .padding(.vertical, Space.xs)
+        .padding(.horizontal, Space.sm)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(striped ? Color.surfaceSubtle : Color.clear)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(spoken)
     }
 }
