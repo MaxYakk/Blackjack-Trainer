@@ -21,14 +21,21 @@ final class DailyChallengeEngine {
 
     /// Only the day's FIRST run counts — the deal is deterministic, so
     /// replays of already-seen answers must not inflate day totals, spot
-    /// accuracy, or the recorded score. Replays are pure practice.
+    /// accuracy, or the recorded score. Replays are pure practice. A first
+    /// run that was quit partway (app closed, then reopened) also makes any
+    /// later run practice, since its answers have been seen.
     let isReplay: Bool
+
+    /// The day's counted run was started earlier but never finished, so this
+    /// run is practice. Lets the UI word that differently from a finished day.
+    let isRestartOfUnfinishedRun: Bool
 
     init(stats: Stats, dateKey: String) {
         self.stats = stats
         self.dateKey = dateKey
         self.spots = DailyChallengeDeal.spots(for: dateKey)
-        self.isReplay = stats.data.challenges[dateKey] != nil
+        self.isReplay = stats.challengeRunUsed(dateKey: dateKey)
+        self.isRestartOfUnfinishedRun = isReplay && stats.data.challenges[dateKey] == nil
     }
 
     var current: CatalogSpot? { spots.indices.contains(index) ? spots[index] : nil }
@@ -54,6 +61,9 @@ final class DailyChallengeEngine {
         // Challenge reps feed the same personalization data as quiz reps —
         // but only on the day's first run.
         if !isReplay {
+            // Saved with the first answer (in the same blob as the answer's
+            // stats), so closing the app now can't reopen a fresh "first" run.
+            stats.markChallengeStarted(dateKey: dateKey)
             let spotKey = SpotID.key(cards: spot.cards, dealerUp: spot.dealerRank, canSplit: spot.isPair)
             stats.recordChallengeAnswer(correct: ok, spotKey: spotKey)
             if !ok {
