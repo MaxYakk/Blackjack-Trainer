@@ -2,38 +2,53 @@ import Foundation
 import Testing
 @testable import BlackjackTrainer
 
-// Practice-chip wording: amounts carry no currency symbol, and no trophy
-// title or description reads like money or gambling slang.
+// Play-money wording: amounts show a "$" so the table feels real, but nothing
+// promises real money or prizes, and the notice says so plainly.
 //
 // Compile alongside: Sources/Engine, Sources/Store and Money from Sources/Views/Money.swift
 
 struct ChipWordingTests {
-    @Test func amountsHaveNoCurrencySymbol() {
-        #expect(Money.string(1250) == "1,250")
-        #expect(Money.wholeString(1250) == "1,250")
-        #expect(Money.string(0) == "0")
-        #expect(Money.string(10_000) == "10,000")
+    @Test func amountsShowADollarSign() {
+        #expect(Money.string(1250) == "$1,250")
+        #expect(Money.wholeString(1250) == "$1,250")
+        #expect(Money.string(0) == "$0")
+        #expect(Money.string(10_000) == "$10,000")
     }
 
-    @Test func fractionalPayoutsKeepTheirFraction() {
-        // A 3:2 blackjack on an odd bet pays a half chip.
-        #expect(Money.string(7.5) == "7.5")
-        #expect(Money.string(0.25) == "0.25")
-        #expect(Money.string(12.345) == "12.35" || Money.string(12.345) == "12.34")
-        #expect(Money.chips(7.5) == "7.5 chips")
+    @Test func fractionalPayoutsShowCents() {
+        // A 3:2 blackjack on an odd bet pays a fraction.
+        #expect(Money.string(7.5) == "$7.50")
+        #expect(Money.string(0.25) == "$0.25")
+        #expect(Money.string(12.345) == "$12.35" || Money.string(12.345) == "$12.34")
     }
 
-    @Test func chipWordAgreesWithTheAmount() {
-        #expect(Money.chips(1) == "1 chip")
-        #expect(Money.chips(25) == "25 chips")
-        #expect(Money.chips(0) == "0 chips")
-        #expect(Money.signedChips(50) == "+50 chips")
-        #expect(Money.signedChips(-50) == "-50 chips")
-        #expect(Money.signedChips(0) == "0 chips")
+    @Test func lossesUseATrueMinus() {
+        #expect(Money.string(-25) == "\u{2212}$25")
+        #expect(Money.signed(-25) == "\u{2212}$25")
+        #expect(Money.signed(50) == "+$50")
+        #expect(Money.signed(7.5) == "+$7.50")
+        #expect(Money.signed(0) == "$0")
+    }
+
+    @Test func chipsHelpersDoNotAddTheWordChips() {
+        #expect(Money.chips(1) == "$1")
+        #expect(Money.chips(25) == "$25")
+        #expect(Money.signedChips(50) == "+$50")
+        #expect(Money.signedChips(-50) == "\u{2212}$50")
+    }
+
+    @Test func noticeSaysPlayMoneyAndNeverPromisesRealMoney() {
+        let line = PracticeNotice.line.lowercased()
+        #expect(line.contains("play money"))
+        #expect(line.contains("no real money"))
+        #expect(line.contains("no prizes"))
+        for phrase in ["win real", "cash out", "cash-out", "withdraw", "buy chips", "deposit", "payout"] {
+            #expect(!line.contains(phrase), "notice must not mention \"\(phrase)\"")
+        }
     }
 
     @Test func trophyWordingHasNoMoneyOrGamblingSlang() {
-        let banned = ["$", "cash", "roller", "whale", "bankroll", "buy in", "buy-in",
+        let banned = ["cash", "roller", "whale", "bankroll", "buy in", "buy-in",
                       "grinder", "lucky", "jackpot", "casino", "wager", "house"]
         let all = Achievements.all(from: Achievements.Inputs())
         #expect(!all.isEmpty)

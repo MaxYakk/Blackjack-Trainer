@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The lobby shown when no practice session is running: pick the starting
-/// chips, the table minimum, how many hands to play and the table rules,
+/// money, the table minimum, how many hands to play and the table rules,
 /// then start. Also shows the summary of the session that just ended, and a
 /// "learn the basics" shortcut for players who have never played a hand.
 struct SessionSetupView: View {
@@ -20,7 +20,7 @@ struct SessionSetupView: View {
     private let maxAmount = ChipSizing.maxStartingChips
 
     private enum AmountField: String, Identifiable {
-        case buyIn = "Starting chips", minimum = "Minimum bet"
+        case buyIn = "Starting money", minimum = "Minimum bet"
         var id: String { rawValue }
     }
 
@@ -44,7 +44,7 @@ struct SessionSetupView: View {
                             buyInSection
                             tableSection
                             startSection
-                            Text("Play until you end the session or run out of chips.")
+                            Text("Play until you end the session or run out of money.")
                                 .font(.captionText)
                                 .foregroundStyle(.textTertiary)
                                 .multilineTextAlignment(.center)
@@ -56,17 +56,13 @@ struct SessionSetupView: View {
                 }
             }
         }
-        .alert(editing?.rawValue ?? "", isPresented: Binding(
-            get: { editing != nil },
-            set: { if !$0 { editing = nil } }
-        )) {
-            TextField("Amount", text: $draft)
-                .keyboardType(.decimalPad)
-            Button("Set") { commitDraft() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Type an amount up to \(Money.string(maxAmount)).")
-        }
+        .themedTextPrompt(editing?.rawValue ?? "",
+                          message: "Type an amount up to \(Money.string(maxAmount)).",
+                          text: $draft,
+                          isPresented: Binding(
+                              get: { editing != nil },
+                              set: { if !$0 { editing = nil } }
+                          )) { commitDraft() }
         .fullScreenCover(isPresented: $showTutorial) {
             BeginnerBlackjackTutorial()
         }
@@ -115,16 +111,16 @@ struct SessionSetupView: View {
         .accessibilityIdentifier("learnBasicsCard")
     }
 
-    // MARK: - Starting chips
+    // MARK: - Starting money
 
     private var buyInSection: some View {
         VStack(spacing: Space.sm) {
-            sectionLabel("STARTING CHIPS")
+            sectionLabel("STARTING MONEY")
             amountSelector(
                 value: buyIn,
                 field: .buyIn,
                 ids: ("buyInDecrease", "buyInAmount", "buyInIncrease", "buyInEdit"),
-                labels: ("Fewer starting chips", "More starting chips", "Type starting chips"),
+                labels: ("Less starting money", "More starting money", "Type starting money"),
                 canDecrease: buyInOptions.contains { $0 < buyIn },
                 canIncrease: buyInOptions.contains { $0 > buyIn },
                 step: adjustBuyIn
@@ -152,34 +148,15 @@ struct SessionSetupView: View {
             }
             VStack(alignment: .leading, spacing: Space.xs) {
                 rowTitle("Hands per round")
-                Picker("Hands per round", selection: $hands) {
-                    ForEach(PlayEngine.spotRange, id: \.self) { Text("\($0)").tag($0) }
-                }
-                .pickerStyle(.segmented)
+                SegmentedChoice(Array(PlayEngine.spotRange), selection: $hands,
+                                accessibilityLabel: "Hands per round") { "\($0)" }
             }
-            HStack {
-                rowTitle("Decks")
-                Spacer()
-                Picker("Decks", selection: $engine.numDecks) {
-                    ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
-                }
-                .pickerStyle(.menu)
-                .tint(.accent)
+            ThemedMenuPicker("Decks", selection: $engine.numDecks,
+                             options: PlayEngine.allowedDeckCounts) { "\($0)" }
                 .accessibilityIdentifier("buyInDeckPicker")
-                .accessibilityValue("\(engine.numDecks)")
-            }
-            HStack {
-                rowTitle("Dealer")
-                Spacer()
-                Picker("Dealer", selection: $engine.dealerHitsSoft17) {
-                    Text("Stands soft 17").tag(false)
-                    Text("Hits soft 17").tag(true)
-                }
-                .pickerStyle(.menu)
-                .tint(.accent)
+            ThemedMenuPicker("Dealer", selection: $engine.dealerHitsSoft17,
+                             options: [false, true]) { $0 ? "Hits soft 17" : "Stands soft 17" }
                 .accessibilityIdentifier("buyInDealerPicker")
-                .accessibilityValue(engine.dealerHitsSoft17 ? "Hits soft 17" : "Stands soft 17")
-            }
         }
         .panel()
     }
@@ -211,7 +188,7 @@ struct SessionSetupView: View {
     }
 
     private var startBlockedReason: String {
-        "Starting chips must cover at least one minimum bet of \(Money.string(minimum))."
+        "Starting money must cover at least one minimum bet of \(Money.string(minimum))."
     }
 
     // MARK: - Amount selector
@@ -243,10 +220,13 @@ struct SessionSetupView: View {
                     beginEditing(field)
                 } label: {
                     Image(systemName: "pencil")
-                        .font(.heading)
+                        .font(.captionText.weight(.semibold))
                         .foregroundStyle(.textSecondary)
-                        .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                        .frame(width: 26, height: 26)
                         .background(.surfaceRaised, in: Circle())
+                        // The visible dot is small; the tap area stays a full 44pt.
+                        .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(labels.edit)
@@ -350,7 +330,7 @@ struct SessionSetupView: View {
 private struct SessionReceiptCard: View {
     let summary: SessionSummary
 
-    private var headline: String { summary.busted ? "OUT OF CHIPS" : "SESSION COMPLETE" }
+    private var headline: String { summary.busted ? "OUT OF MONEY" : "SESSION COMPLETE" }
     private var headlineColor: Color { summary.busted ? .negative : .accent }
 
     private var netLine: String {
@@ -387,7 +367,7 @@ private struct SessionReceiptCard: View {
                 StatTile(label: summary.rounds == 1 ? "Round" : "Rounds",
                          value: "\(summary.rounds)", tint: .textPrimary)
                 StatTile(label: "Best round", value: Money.string(summary.biggestWin), tint: .textPrimary)
-                StatTile(label: "Peak chips", value: Money.string(summary.peak), tint: .textPrimary)
+                StatTile(label: "Peak balance", value: Money.string(summary.peak), tint: .textPrimary)
                 StatTile(label: summary.blackjacks == 1 ? "Blackjack" : "Blackjacks",
                          value: "\(summary.blackjacks)", tint: .warm)
             }

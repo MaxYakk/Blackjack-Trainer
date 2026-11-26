@@ -60,14 +60,14 @@ struct PlayHeader: View {
     }
 }
 
-/// One line of session numbers under the header: chips, session result and,
+/// One line of session numbers under the header: balance, session result and,
 /// when count display is on, the running and true counts.
 struct PlayStatsStrip: View {
     let engine: PlayEngine
 
     var body: some View {
         HStack(spacing: 0) {
-            item("Chips", engine.money(engine.bankroll), .accent)
+            item("Balance", engine.money(engine.bankroll), .accent)
             divider
             item("Session", sessionText, sessionColor, spoken: sessionSpoken)
             if engine.showCount {

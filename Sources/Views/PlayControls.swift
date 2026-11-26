@@ -175,7 +175,7 @@ struct CountCheckControlsView: View {
     }
 }
 
-/// Round settled: a compact result card, then New Bet / Replay / Replay ×2.
+/// Round settled: a compact result card, then New Bet / Replay / Double Bet.
 struct RoundDoneControlsView: View {
     let engine: PlayEngine
 
@@ -190,16 +190,17 @@ struct RoundDoneControlsView: View {
                     .buttonStyle(.primaryCompact)
                     .disabled(!engine.canReplay)
                     .accessibilityHint("Deals again with the same bet")
-                Button("Replay ×2") { engine.replayDouble() }
+                Button("Double Bet") { engine.replayDouble() }
                     .buttonStyle(.secondaryCompact)
                     .disabled(!engine.canReplayDouble)
-                    .accessibilityLabel("Double bet and replay")
+                    .accessibilityLabel("Double the bet and deal again")
+                    .accessibilityHint("Deals again with twice your last bet")
             }
         }
     }
 }
 
-/// The settled-round card: outcome and detail on the left, chips won or lost
+/// The settled-round card: outcome and detail on the left, money won or lost
 /// on the right. Coral for a natural, mint for a win, red for a loss.
 struct RoundResultCard: View {
     let outcome: RoundOutcome
@@ -236,7 +237,7 @@ struct RoundResultCard: View {
     }
 }
 
-/// Out of chips: the chips left can't cover another table-minimum bet, so
+/// Out of money: the balance left can't cover another table-minimum bet, so
 /// the only move is a fresh session.
 struct FeltedControlsView: View {
     let engine: PlayEngine
@@ -244,7 +245,7 @@ struct FeltedControlsView: View {
     var body: some View {
         VStack(spacing: Space.sm) {
             VStack(spacing: Space.xxs) {
-                Text("Out of chips")
+                Text("Out of money")
                     .font(.heading)
                     .foregroundStyle(.negative)
                 Text("Start a fresh session to keep practicing.")
