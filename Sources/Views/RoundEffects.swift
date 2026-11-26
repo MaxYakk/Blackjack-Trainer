@@ -1,9 +1,10 @@
 import SwiftUI
 
-// Visual language for round results: cards fly in from the shoe, result
-// stamps slam onto each hand, losing bets get swept to the dealer, winning
-// bets get matched with winnings next to the original stack, and the table celebrates a
-// winning round with confetti and a gold banner.
+// Visual language for a round: cards slide in from the shoe, the hole card
+// flips, result stamps land on each hand, lost bets are swept to the dealer,
+// won bets get their winnings beside them, and a small toast marks a winning
+// round. Every movement goes through `Motion`, so Reduce Motion turns it into
+// a short fade (or nothing).
 
 // MARK: - Deal transition
 
@@ -19,16 +20,19 @@ private struct DealSlide: ViewModifier {
 }
 
 extension AnyTransition {
-    /// Cards arrive from the shoe's corner with a slight twist instead of
-    /// fading straight down.
-    static var dealtCard: AnyTransition {
-        .modifier(active: DealSlide(active: true), identity: DealSlide(active: false))
+    /// Cards arrive from the shoe's corner with a slight twist; a plain fade
+    /// with Reduce Motion.
+    static func dealtCard(_ reduceMotion: Bool) -> AnyTransition {
+        reduceMotion
+            ? .opacity
+            : .modifier(active: DealSlide(active: true), identity: DealSlide(active: false))
     }
 }
 
 // MARK: - Dealer hole card flip
 
-/// Turns the dealer's hole card over with a 3D flip instead of a crossfade.
+/// Turns the dealer's hole card over with a 3D flip (a cross-fade with
+/// Reduce Motion).
 struct HoleCardView: View {
     let card: Card
     let faceDown: Bool
@@ -36,24 +40,26 @@ struct HoleCardView: View {
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
+    private var flip: Double { reduceMotion ? 0 : 180 }
+
     var body: some View {
         ZStack {
             CardView(card: card, faceDown: false, size: size)
                 .opacity(faceDown ? 0 : 1)
                 .accessibilityHidden(faceDown)
-                .rotation3DEffect(.degrees(faceDown ? 180 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+                .rotation3DEffect(.degrees(faceDown ? flip : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
             CardView(card: card, faceDown: true, size: size)
                 .opacity(faceDown ? 1 : 0)
                 .accessibilityHidden(!faceDown)
-                .rotation3DEffect(.degrees(faceDown ? 0 : -180), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
+                .rotation3DEffect(.degrees(faceDown ? 0 : -flip), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
         }
-        .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: faceDown)
+        .motion(.emphasized, value: faceDown)
     }
 }
 
 // MARK: - Result stamp
 
-/// A rubber-stamp result mark that slams onto a settled hand.
+/// A small result tag that lands on a settled hand.
 struct ResultStamp: View {
     let result: HandResult
     var delay: Double = 0
@@ -72,50 +78,60 @@ struct ResultStamp: View {
         }
     }
 
+    /// Coral for a natural, mint for a win, red for a loss.
     private var color: Color {
         switch result {
-        case .win: return Theme.good
-        case .blackjack: return Theme.accent
-        case .push: return Color.textPrimary
-        case .lose, .bust, .dealerBlackjack: return Theme.bad
+        case .win: return .positive
+        case .blackjack: return .warm
+        case .push: return .textPrimary
+        case .lose, .bust, .dealerBlackjack: return .negative
         }
     }
 
     var body: some View {
         Text(text)
-            .font(.system(size: 14, weight: .black, design: .rounded))
-            .tracking(1.6)
+            .scaledFont(size: 13, weight: .black, relativeTo: .caption, maxSize: 16)
+            .tracking(1.2)
             .lineLimit(1)
-            .minimumScaleFactor(0.55)
+            .minimumScaleFactor(0.6)
             .foregroundStyle(color)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 3)
-            .background(Color.surface, in: RoundedRectangle(cornerRadius: 5))
+            .padding(.horizontal, Space.xs)
+            .padding(.vertical, Space.xxs / 2)
+            .background(.surface, in: RoundedRectangle(cornerRadius: Radius.small / 2))
             .overlay {
-                RoundedRectangle(cornerRadius: 5)
-                    .strokeBorder(color.opacity(0.9), lineWidth: 2)
+                RoundedRectangle(cornerRadius: Radius.small / 2)
+                    .strokeBorder(color, lineWidth: 2)
             }
-            .rotationEffect(.degrees(-9))
-            .shadow(color: .shadowColor, radius: 4, y: 2)
-            .scaleEffect(shown ? 1 : 2.6)
+            .rotationEffect(.degrees(reduceMotion ? 0 : -8))
+            .shadow(color: .shadowColor, radius: 3, y: 2)
+            .scaleEffect(shown || reduceMotion ? 1 : 1.8)
             .opacity(shown ? 1 : 0)
             .allowsHitTesting(false)
+            .accessibilityHidden(true)   // the hand's own label carries the result
             .onAppear {
-                if reduceMotion {
-                    shown = true
-                } else {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.55).delay(delay)) {
-                        shown = true
-                    }
-                }
+                withAnimation(Motion.spring.resolved(reduceMotion)?.delay(delay)) { shown = true }
             }
+    }
+}
+
+extension HandResult {
+    /// Spoken result for a hand.
+    var spokenName: String {
+        switch self {
+        case .win: return "won"
+        case .lose: return "lost"
+        case .push: return "push"
+        case .bust: return "bust"
+        case .blackjack: return "blackjack"
+        case .dealerBlackjack: return "dealer blackjack"
+        }
     }
 }
 
 // MARK: - Bet chips: sweep on a loss, winnings on a win
 
 /// The chips riding under one hand. When the round settles, a lost bet is
-/// swept up toward the dealer; a won bet gets its winnings dropped beside it.
+/// swept up toward the dealer; a won bet gets its winnings placed beside it.
 struct BetChipsView: View {
     let hand: PlayerHand
     let settled: Bool
@@ -136,22 +152,19 @@ struct BetChipsView: View {
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 5) {
+        HStack(alignment: .bottom, spacing: Space.xxs) {
             ChipStack(amount: hand.bet, size: size)
-                .offset(y: swept ? -300 : 0)
+                .offset(y: swept && !reduceMotion ? -300 : 0)
                 .opacity(swept ? 0 : 1)
             if paid {
                 ChipStack(amount: winnings, size: size)
-                    .transition(
-                        reduceMotion
-                            ? .opacity
-                            : .offset(y: -260).combined(with: .opacity)
-                    )
+                    .transition(reduceMotion ? .opacity : .offset(y: -260).combined(with: .opacity))
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Bet \(Money.chips(hand.bet))")
         .onChange(of: settled) { _, isSettled in
-            guard isSettled else { return }
-            resolve()
+            if isSettled { resolve() }
         }
         .onAppear {
             if settled { resolve() }
@@ -163,153 +176,125 @@ struct BetChipsView: View {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 200_000_000)
                 Sound.play(.chip)
-                if reduceMotion {
-                    withAnimation(.easeIn(duration: 0.2)) { swept = true }
-                } else {
-                    withAnimation(.easeIn(duration: 0.35)) { swept = true }
-                }
+                Motion.perform(.standard, reduceMotion: reduceMotion) { swept = true }
             }
         } else if won {
             Task { @MainActor in
                 try? await Task.sleep(nanoseconds: 150_000_000)
                 Sound.play(.chip)
-                withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { paid = true }
+                Motion.perform(.spring, reduceMotion: reduceMotion) { paid = true }
             }
         }
     }
 }
 
-// MARK: - Loss vignette
+// MARK: - Loss edge
 
-/// A brief red table-light flash around the edges when the dealer wins the round.
-struct LossVignetteView: View {
-    var body: some View {
-        RadialGradient(
-            colors: [.clear, .clear, Theme.bad.opacity(0.42)],
-            center: .center,
-            startRadius: 90,
-            endRadius: 520
-        )
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-    }
-}
-
-// MARK: - Win banner
-
-/// The big table-center moment for a winning round.
-struct WinOverlayView: View {
-    let amount: Double
-    let blackjack: Bool
-    let detail: String
+/// A thin red edge that briefly outlines the table when the dealer takes the
+/// round. Flat (no gradient), subtle, and skipped entirely with Reduce Motion.
+private struct LossEdge: ViewModifier {
+    let active: Bool
+    let cornerRadius: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content.overlay {
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .strokeBorder(Color.negative, lineWidth: 2)
+                .opacity(active && !reduceMotion ? 0.7 : 0)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+    }
+}
+
+extension View {
+    /// Outlines the view's rounded shape in red while `active` (not with Reduce Motion).
+    func lossEdge(_ active: Bool, cornerRadius: CGFloat = Radius.large) -> some View {
+        modifier(LossEdge(active: active, cornerRadius: cornerRadius))
+    }
+}
+
+// MARK: - Win toast
+
+/// A small toast at the top of the table for a winning round. The result card
+/// in the control dock carries the full details; this is just the moment.
+struct WinToastView: View {
+    let outcome: RoundOutcome
 
     var body: some View {
-        VStack(spacing: 8) {
-            Text(blackjack ? "BLACKJACK" : "HAND WON")
-                .font(.system(size: blackjack ? 38 : 44, weight: .black, design: .rounded))
-                .tracking(3)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-                .foregroundStyle(Theme.accent)
-            Text(Money.signedChips(amount))
-                .monospacedDigit()
-                .font(.system(size: 30, weight: .heavy, design: .rounded))
+        HStack(spacing: Space.xs) {
+            Image(systemName: outcome.symbol)
+                .foregroundStyle(outcome.tint)
+            Text(outcome.title)
+                .font(.heading)
+                .foregroundStyle(outcome.tint)
+            Text(outcome.amountText)
+                .font(.numberInline)
                 .foregroundStyle(.textPrimary)
-            if !detail.isEmpty {
-                Text(detail)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.textPrimary)
-            }
         }
-        .padding(.horizontal, 34)
-        .padding(.vertical, 26)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .scaleEffect(appeared ? 1 : 0.55)
-        .opacity(appeared ? 1 : 0)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
+        .padding(.horizontal, Space.md)
+        .padding(.vertical, Space.xs)
+        .background(outcome.tintBackground, in: Capsule())
+        .overlay { Capsule().strokeBorder(outcome.tint.opacity(0.6), lineWidth: Metrics.hairline) }
+        .shadow(color: .shadowColor, radius: 6, y: 3)
         .allowsHitTesting(false)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(blackjack ? "Blackjack" : "Hand won"). Gained \(Money.chips(amount)). \(detail)")
+        .accessibilityLabel("\(outcome.title). \(outcome.amountText)")
         .accessibilityIdentifier("winCelebration")
-        .onAppear {
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.spring(response: 0.42, dampingFraction: 0.62)) { appeared = true }
-            }
-        }
     }
 }
 
 // MARK: - End session confirmation
 
 /// A confirmation card for ending the practice session, centered over the
-/// table in place of the system's generic bottom action sheet.
+/// table. Modal for VoiceOver, with the escape gesture (two-finger scrub)
+/// meaning "Keep playing".
 struct EndSessionConfirmCard: View {
     let amount: String
     let onConfirm: () -> Void
     let onCancel: () -> Void
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var appeared = false
-
     var body: some View {
-        VStack(spacing: 18) {
-            ZStack {
-                Circle()
-                    .fill(Theme.accent.opacity(0.16))
-                    .frame(width: 64, height: 64)
-                Image(systemName: "flag.checkered")
-                    .font(.system(size: 26, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
-            VStack(spacing: 6) {
-                Text("END SESSION?")
-                    .font(.system(size: 19, weight: .black, design: .rounded))
-                    .tracking(2.2)
+        VStack(spacing: Space.md) {
+            Image(systemName: "flag.checkered")
+                .font(.sectionTitle)
+                .foregroundStyle(.accent)
+                .frame(width: 56, height: 56)
+                .background(.positiveBg, in: Circle())
+                .accessibilityHidden(true)
+            VStack(spacing: Space.xxs) {
+                Text("End this session?")
+                    .font(.sectionTitle)
                     .foregroundStyle(.textPrimary)
-                Text("Finish with \(amount)")
-                    .font(.subheadline)
-                    .foregroundStyle(Color.textSecondary)
+                    .accessibilityAddTraits(.isHeader)
+                Text("You'll finish with \(amount) and see your session summary.")
+                    .font(.calloutText)
+                    .foregroundStyle(.textSecondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            VStack(spacing: 10) {
-                Button(action: onConfirm) {
-                    Text("End session")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 13)
-                        .background(Theme.accent, in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(.onAccent)
-                }
-                Button(action: onCancel) {
-                    Text("Keep Playing")
-                        .font(.subheadline.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .foregroundStyle(Color.textPrimary)
-                }
+            VStack(spacing: Space.xs) {
+                PrimaryButton("End session", action: onConfirm)
+                SecondaryButton("Keep playing", action: onCancel)
             }
         }
-        .padding(24)
-        .frame(maxWidth: 320)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .padding(Space.lg)
+        .frame(maxWidth: 340)
+        .background(.surface, in: RoundedRectangle(cornerRadius: Radius.large, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Color.divider, lineWidth: 1)
+            RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+                .strokeBorder(Color.divider, lineWidth: Metrics.hairline)
         }
         .shadow(color: .shadowColor, radius: 24, y: 10)
-        .scaleEffect(appeared ? 1 : 0.9)
-        .opacity(appeared ? 1 : 0)
+        .padding(.horizontal, Space.lg)
+        .accessibilityElement(children: .contain)
+        .accessibilityAddTraits(.isModal)
+        .accessibilityAction(.escape, onCancel)
         .accessibilityIdentifier("cashOutConfirmCard")
-        .onAppear {
-            if reduceMotion {
-                appeared = true
-            } else {
-                withAnimation(.spring(response: 0.38, dampingFraction: 0.72)) { appeared = true }
-            }
-        }
     }
 }
 
@@ -342,26 +327,20 @@ private struct SplitMix64: RandomNumberGenerator {
     }
 }
 
-/// A one-shot celebration burst: gold flecks and chips raining over the felt.
-/// The parent removes this view when the celebration window ends.
+/// A one-shot burst for a natural blackjack (never with Reduce Motion; see
+/// `WinCelebrationPolicy`). The parent removes it when the moment ends.
 struct ConfettiBurstView: View {
     let seed: Int
 
     @State private var start = Date()
     private let pieces: [ConfettiPiece]
 
-    private static let palette: [Color] = [
-        Color.accent,
-        Color.accent,
-        Color.warm,
-        Color.textPrimary,
-        Color.warning
-    ]
+    private static let palette: [Color] = [.warm, .warm, .accent, .textPrimary, .warning]
 
     init(seed: Int) {
         self.seed = seed
         var rng = SplitMix64(seed: UInt64(bitPattern: Int64(seed)))
-        pieces = (0..<70).map { _ in
+        pieces = (0..<60).map { _ in
             ConfettiPiece(
                 x: CGFloat.random(in: 0.02...0.98, using: &rng),
                 delay: Double.random(in: 0...0.4, using: &rng),
@@ -371,7 +350,7 @@ struct ConfettiBurstView: View {
                 phase: Double.random(in: 0...(2 * .pi), using: &rng),
                 spin: Double.random(in: 1.5...7, using: &rng),
                 size: CGFloat.random(in: 5...11, using: &rng),
-                color: Self.palette.randomElement(using: &rng) ?? Theme.accent,
+                color: Self.palette.randomElement(using: &rng) ?? .warm,
                 isChip: Double.random(in: 0...1, using: &rng) < 0.22
             )
         }
@@ -382,40 +361,40 @@ struct ConfettiBurstView: View {
             Canvas { context, canvasSize in
                 let elapsed = timeline.date.timeIntervalSince(start)
                 for piece in pieces {
-                    let t = elapsed - piece.delay
-                    guard t > 0 else { continue }
-                    let alpha = t > 1.5 ? max(0, 1 - (t - 1.5) / 0.55) : 1
-                    guard alpha > 0 else { continue }
-                    let y = -20 + piece.fall * t + 85 * t * t
-                    guard y < canvasSize.height + 20 else { continue }
-                    let x = piece.x * canvasSize.width
-                        + piece.swayAmp * sin(t * piece.swayFreq + piece.phase)
-
-                    var ctx = context
-                    ctx.opacity = alpha
-                    ctx.translateBy(x: x, y: y)
-                    ctx.rotate(by: .radians(piece.spin * t + piece.phase))
-                    if piece.isChip {
-                        let r = piece.size * 0.62
-                        let rect = CGRect(x: -r, y: -r, width: r * 2, height: r * 2)
-                        ctx.fill(Path(ellipseIn: rect), with: .color(piece.color))
-                        ctx.stroke(
-                            Path(ellipseIn: rect.insetBy(dx: r * 0.3, dy: r * 0.3)),
-                            with: .color(Color.textPrimary.opacity(0.8)),
-                            lineWidth: 1
-                        )
-                    } else {
-                        let rect = CGRect(
-                            x: -piece.size / 2, y: -piece.size * 0.3,
-                            width: piece.size, height: piece.size * 0.6
-                        )
-                        ctx.fill(Path(rect), with: .color(piece.color))
-                    }
+                    draw(piece, elapsed: elapsed, in: &context, size: canvasSize)
                 }
             }
         }
         .ignoresSafeArea()
         .allowsHitTesting(false)
+        .accessibilityHidden(true)
         .onAppear { start = Date() }
+    }
+
+    private func draw(_ piece: ConfettiPiece, elapsed: Double,
+                      in context: inout GraphicsContext, size canvasSize: CGSize) {
+        let t = elapsed - piece.delay
+        guard t > 0 else { return }
+        let alpha = t > 1.5 ? max(0, 1 - (t - 1.5) / 0.55) : 1
+        guard alpha > 0 else { return }
+        let y = -20 + piece.fall * t + 85 * t * t
+        guard y < canvasSize.height + 20 else { return }
+        let x = piece.x * canvasSize.width + piece.swayAmp * sin(t * piece.swayFreq + piece.phase)
+
+        var ctx = context
+        ctx.opacity = alpha
+        ctx.translateBy(x: x, y: y)
+        ctx.rotate(by: .radians(piece.spin * t + piece.phase))
+        if piece.isChip {
+            let r = piece.size * 0.62
+            let rect = CGRect(x: -r, y: -r, width: r * 2, height: r * 2)
+            ctx.fill(Path(ellipseIn: rect), with: .color(piece.color))
+            ctx.stroke(Path(ellipseIn: rect.insetBy(dx: r * 0.3, dy: r * 0.3)),
+                       with: .color(Color.textPrimary.opacity(0.8)), lineWidth: 1)
+        } else {
+            let rect = CGRect(x: -piece.size / 2, y: -piece.size * 0.3,
+                              width: piece.size, height: piece.size * 0.6)
+            ctx.fill(Path(rect), with: .color(piece.color))
+        }
     }
 }
