@@ -38,7 +38,9 @@ final class QuizEngine {
     private(set) var player: [Card] = []
     private(set) var dealerUp: Card?
     private(set) var feedback = ""
-    private(set) var feedbackGood = false
+    /// Green / yellow / red for the last answer.
+    private(set) var grade: Grade = .wrong
+    var feedbackGood: Bool { grade == .correct }
     /// One short sentence on why the best play is right (empty until answered).
     private(set) var reason = ""
     private(set) var answered = false
@@ -206,7 +208,12 @@ final class QuizEngine {
         }
     }
 
-    /// What review adds to the feedback line after an answer.
+    /// What review adds to the feedback line after an answer. A close call
+    /// neither clears the hand nor resets its progress.
+    static func reviewNote(grade: Grade, streak: Int) -> String {
+        reviewNote(correct: grade == .correct, streak: streak)
+    }
+
     static func reviewNote(correct: Bool, streak: Int) -> String {
         guard correct else { return ". It stays on your review list." }
         return streak >= ProgressMetrics.reviewClearStreak
@@ -216,29 +223,37 @@ final class QuizEngine {
 
     func answer(_ action: Action) {
         guard !answered, let up = dealerUp else { return }
-        let correct = BasicStrategy.correctAction(
-            cards: player, dealerUp: up.rank, canDouble: true, canSplit: canSplit
-        )
+        let verdict = MoveGrader.grade(action, cards: player, dealerUp: up.rank,
+                                       canDouble: true, canSplit: canSplit)
+        let correct = verdict.best
         answered = true
         lastCorrect = correct
-        let ok = action == correct
-        if ok { streak += 1 } else { streak = 0 }
+        grade = verdict.grade
+        // A close call (yellow) neither extends nor breaks the streak.
+        switch grade {
+        case .correct: streak += 1
+        case .close: break
+        case .wrong: streak = 0
+        }
         let spotKey = SpotID.key(cards: player, dealerUp: up.rank, canSplit: canSplit)
-        stats.recordQuiz(correct: ok, streak: streak, spotKey: spotKey)
-        if !ok {
+        stats.recordQuiz(grade: grade, streak: streak, spotKey: spotKey)
+        // Only red answers go on the review list.
+        if grade == .wrong {
             stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
         }
-        feedbackGood = ok
-        feedback = ok
-            ? "Correct: \(correct.name)"
-            : "Best play is \(correct.name), not \(action.name)"
+        switch grade {
+        case .correct: feedback = "Correct: \(correct.name)"
+        case .close: feedback = MoveGrader.closeText(verdict)
+        case .wrong: feedback = "Best play is \(correct.name), not \(action.name)"
+        }
         if isReviewing {
-            feedback += Self.reviewNote(correct: ok, streak: stats.spotStreak(spotKey))
+            if grade == .close { feedback = String(feedback.dropLast()) }   // drop the period before the note
+            feedback += Self.reviewNote(grade: grade, streak: stats.spotStreak(spotKey))
         }
         reason = QuizReasons.explain(correct: correct, cards: player,
                                      dealerUp: up.rank, canSplit: canSplit)
-        // Haptic only — a buzz on wrong, a light success tap on right. No ringtone.
-        Haptics.notify(ok ? 1 : -1)
+        // Haptic only: a buzz on wrong, a soft tap on close, a success tap on right.
+        Haptics.notify(grade == .correct ? 1 : grade == .close ? 0 : -1)
     }
 }
 

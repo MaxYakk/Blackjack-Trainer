@@ -46,14 +46,15 @@ struct DrillHandTable: View {
 /// the same height (even when empty) so the pad underneath never jumps.
 struct DrillFeedback: View {
     let message: String?
-    let good: Bool
+    /// Green, yellow (close) or red.
+    let grade: Grade
     let reason: String
 
     @ScaledMetric(relativeTo: .footnote) private var reasonHeight: CGFloat = 40
 
     var body: some View {
         VStack(spacing: Space.xs) {
-            FeedbackPill(message, kind: good ? .correct : .incorrect, announces: false)
+            FeedbackPill(message, kind: FeedbackPill.Kind(grade: grade), announces: false)
             Text(message == nil ? "" : reason)
                 .font(.detail)
                 .foregroundStyle(.textSecondary)
@@ -64,9 +65,9 @@ struct DrillFeedback: View {
         // One announcement with the reason included, instead of the pill's own.
         .onChange(of: message) { _, newValue in
             guard let newValue else { return }
-            let prefix = good ? "Correct. " : "Incorrect. "
-            let spoken = newValue.localizedCaseInsensitiveContains(prefix.dropLast(2))
-                ? newValue : prefix + newValue
+            let word = FeedbackPill.Kind(grade: grade).spokenPrefix
+            let spoken = newValue.localizedCaseInsensitiveContains(word)
+                ? newValue : "\(word). \(newValue)"
             AccessibilityNotification.Announcement("\(spoken). \(reason)").post()
         }
     }

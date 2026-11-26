@@ -2,22 +2,36 @@ import SwiftUI
 
 // MARK: - Feedback pill
 //
-// The "Correct" / "Not quite" line after a decision. It always takes the same
-// height, even when empty, so the layout under it never jumps.
+// The "Correct" / "Close" / "Not quite" line after a decision. It always takes
+// the same height, even when empty, so the layout under it never jumps.
 //
 //     FeedbackPill(engine.feedback.isEmpty ? nil : engine.feedback,
-//                  kind: engine.feedbackGood ? .correct : .incorrect)
+//                  kind: .init(grade: engine.grade))
+//
+// Green / yellow / red: `.correct` (positive), `.close` (warning amber),
+// `.incorrect` (negative). Each has its own symbol and spoken prefix, so the
+// grade never relies on color.
 //
 // When `message` changes to new text, VoiceOver announces it (turn off with
 // `announces: false` if the screen already announces it some other way).
 
 struct FeedbackPill: View {
     enum Kind {
-        case correct, incorrect, info, warning
+        case correct, close, incorrect, info, warning
+
+        /// Green, yellow or red for a graded move or bet.
+        init(grade: Grade) {
+            switch grade {
+            case .correct: self = .correct
+            case .close: self = .close
+            case .wrong: self = .incorrect
+            }
+        }
 
         var tint: Color {
             switch self {
             case .correct: return .positive
+            case .close: return .warning
             case .incorrect: return .negative
             case .info: return .textSecondary
             case .warning: return .warning
@@ -27,6 +41,7 @@ struct FeedbackPill: View {
         var fill: Color {
             switch self {
             case .correct: return .positiveBg
+            case .close: return .warmBg
             case .incorrect: return .negativeBg
             case .info: return .surfaceRaised
             case .warning: return .warmBg
@@ -36,6 +51,7 @@ struct FeedbackPill: View {
         var symbol: String {
             switch self {
             case .correct: return "checkmark.circle.fill"
+            case .close: return "minus.circle.fill"
             case .incorrect: return "xmark.circle.fill"
             case .info: return "info.circle.fill"
             case .warning: return "exclamationmark.triangle.fill"
@@ -46,6 +62,7 @@ struct FeedbackPill: View {
         var spokenPrefix: String {
             switch self {
             case .correct: return "Correct"
+            case .close: return "Close"
             case .incorrect: return "Incorrect"
             case .info: return ""
             case .warning: return "Note"

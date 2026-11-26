@@ -128,43 +128,47 @@ struct GradingFixTests {
         #expect(Deviations.matching(cards: Self.hand(.ten, .six), dealerUp: .ten, dealerHitsSoft17: true)?.index == 0)
     }
 
-    // MARK: Bug 4: bet grading tests the count
+    // MARK: Bug 4: bet grading tests the count (now green / yellow / red)
 
     private static func bet(_ amount: Double, count: Int, min: Double = 25,
-                            bankroll: Double = 10_000) -> BetSizingVerdict {
-        BetSizingEvaluator.verdict(spotBet: amount, countUnits: count, tableMinimum: min,
-                                   bankroll: bankroll, spreadCap: 6)
+                            bankroll: Double = 10_000) -> BetGrade {
+        BetSizingEvaluator.grade(spotBets: [amount], countUnits: count, tableMinimum: min,
+                                 bankroll: bankroll, spreadCap: 6)
     }
 
     @Test func bigBetAtNegativeCountIsTooHigh() {
-        // 10,000 chips at a 25 minimum: the chips could carry 150, but the count says 25.
-        #expect(Self.bet(150, count: 1) == .tooHigh)
-        #expect(Self.bet(75, count: 1) == .tooHigh)
-        #expect(Self.bet(50, count: 1) == .acceptable)
-        #expect(Self.bet(25, count: 1) == .acceptable)
+        // 10,000 chips at a 25 minimum: the chips could carry far more, but the count says 25.
+        #expect(Self.bet(150, count: 1).grade == .wrong)
+        #expect(Self.bet(150, count: 1).countDirection == .tooHigh)
+        #expect(Self.bet(75, count: 1).grade == .close)   // one unit over the window
+        #expect(Self.bet(50, count: 1).grade == .correct)
+        #expect(Self.bet(25, count: 1).grade == .correct)
     }
 
     @Test func flatBettingTheMinimumFailsOnceTheCountRises() {
         for count in 2...6 {
-            #expect(Self.bet(25, count: count) == .tooLow, "count \(count)")
+            let g = Self.bet(25, count: count)
+            #expect(g.countDirection == .tooLow, "count \(count)")
+            #expect(g.grade != .correct, "count \(count)")
         }
-        #expect(Self.bet(50, count: 2) == .acceptable)
-        #expect(Self.bet(150, count: 6) == .acceptable)
-        #expect(Self.bet(100, count: 6) == .acceptable)
-        #expect(Self.bet(75, count: 6) == .tooLow)
+        #expect(Self.bet(25, count: 3).grade == .close)   // window 2...5, one unit short
+        #expect(Self.bet(25, count: 6).grade == .wrong)   // window 4...8, three short
+        #expect(Self.bet(50, count: 2).grade == .correct)
+        #expect(Self.bet(150, count: 6).grade == .correct)
+        #expect(Self.bet(100, count: 6).grade == .correct)
+        #expect(Self.bet(75, count: 6).grade == .close)
     }
 
-    @Test func stackCapStillApplies() {
-        // $1,500 at $25 carries $100 a spot even when the count wants $150.
-        #expect(Self.bet(150, count: 6, bankroll: 1500) == .tooHigh)
-        #expect(Self.bet(100, count: 6, bankroll: 1500) == .acceptable)
-        #expect(BetSizingEvaluator.exceedsStack(spotBet: 125, tableMinimum: 25, bankroll: 1500, spreadCap: 6))
-        #expect(!BetSizingEvaluator.exceedsStack(spotBet: 75, tableMinimum: 25, bankroll: 1500, spreadCap: 6))
+    @Test func stackLimitStillApplies() {
+        // $1,500 at $25: 10% is $150 (green), up to 30% is yellow, more is red.
+        #expect(Self.bet(150, count: 6, bankroll: 1500).grade == .correct)
+        #expect(Self.bet(200, count: 6, bankroll: 1500).stackGrade == .close)
+        #expect(Self.bet(500, count: 6, bankroll: 1500).stackGrade == .wrong)
     }
 
     @Test func zeroTableMinimumDoesNotCrash() {
-        #expect(Self.bet(25, count: 3, min: 0) == .acceptable)
-        #expect(Self.bet(25, count: 3, min: -5) == .acceptable)
+        #expect(Self.bet(25, count: 3, min: 0).grade == .correct)
+        #expect(Self.bet(25, count: 3, min: -5).grade == .correct)
         #expect(BetSizingEvaluator.recommendedUnits(countUnits: 4, maxBet: 0, tableMinimum: 0) == 1)
         #expect(BetSizingEvaluator.maxBet(bankroll: 1000, tableMinimum: 0, spreadCap: 6) == 0)
     }

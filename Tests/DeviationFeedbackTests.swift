@@ -32,9 +32,8 @@ struct DeviationFeedbackTests {
     }
 }
 
-// Bet feedback must say why a bet failed: too big for the stack, or too big
-// for the count. And a 2-unit bet at a low count gets the "minimum is
-// sharper" coaching (it was unreachable before).
+// Bet feedback must say why a bet was graded down: the balance, or the
+// count. A 2-unit bet at a low count is green but coached toward the minimum.
 @MainActor
 struct BetFeedbackTests {
 
@@ -47,12 +46,21 @@ struct BetFeedbackTests {
         return engine
     }
 
-    @Test func bigBetAtLowCountIsTooBigForTheCountNotTheStack() async {
+    @Test func threeUnitsAtLowCountIsABitBigForTheCount() async {
         let store = TestDefaults()
         let engine = table(store)
-        betEverySpot(engine, 15)   // 3 units; the stack could carry 6
+        betEverySpot(engine, 15)   // 3 units, one over the window; 3% of the balance
         await dealAndWait(engine)
-        #expect(!engine.betAdviceGood)
+        #expect(engine.betGrade == .close)
+        #expect(engine.betAdviceText.hasPrefix("A bit big for the count"), "Got: \(engine.betAdviceText)")
+    }
+
+    @Test func fiveUnitsAtLowCountIsTooBigForTheCountNotTheStack() async {
+        let store = TestDefaults()
+        let engine = table(store)
+        betEverySpot(engine, 25)   // 5 units; 5% of the balance is fine
+        await dealAndWait(engine)
+        #expect(engine.betGrade == .wrong)
         #expect(engine.betAdviceText.hasPrefix("Too big for the count"), "Got: \(engine.betAdviceText)")
     }
 
@@ -61,7 +69,7 @@ struct BetFeedbackTests {
         let engine = table(store)
         betEverySpot(engine, 10)
         await dealAndWait(engine)
-        #expect(!engine.betAdviceGood)
-        #expect(engine.betAdviceText.contains("is the sharper bet"), "Got: \(engine.betAdviceText)")
+        #expect(engine.betGrade == .correct)
+        #expect(engine.betAdviceText.contains("is sharper"), "Got: \(engine.betAdviceText)")
     }
 }

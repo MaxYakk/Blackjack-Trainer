@@ -73,9 +73,13 @@ final class PlayEngine {
     private(set) var phase: GamePhase = .betting
 
     private(set) var feedbackText = ""
-    private(set) var feedbackGood = false
+    /// Green / yellow / red for the last graded decision (move, insurance, count check).
+    private(set) var feedbackGrade: Grade = .wrong
+    var feedbackGood: Bool { feedbackGrade == .correct }
     private(set) var betAdviceText = ""
-    private(set) var betAdviceGood = true
+    /// Green / yellow / red for this round's bet.
+    private(set) var betGrade: Grade = .correct
+    var betAdviceGood: Bool { betGrade == .correct }
 
     // Betting — one wager per spot, independently adjustable.
     private(set) var spotBets: [Double] = [0]
@@ -311,9 +315,11 @@ final class PlayEngine {
         return min(Int(tc.rounded(.down)), betSpreadCap)
     }
 
-    /// The most one spot should carry for the current stack (see BetSizingEvaluator).
+    /// The most one spot should carry for the current stack: its share of
+    /// 1/10 of the balance across all spots (see BetSizingEvaluator).
     var maxComfortableBet: Double {
-        BetSizingEvaluator.maxBet(bankroll: bankroll, tableMinimum: tableMinimum, spreadCap: betSpreadCap)
+        BetSizingEvaluator.maxBet(bankroll: bankroll, tableMinimum: tableMinimum,
+                                  spreadCap: betSpreadCap, spots: numHands)
     }
 
     /// The count ramp trimmed to what the stack can carry.
@@ -639,10 +645,16 @@ final class PlayEngine {
     func answerInsurance(take: Bool) {
         guard phase == .insurance else { return }
         let shouldTake = useDeviations && trueCount >= Deviations.insuranceIndex
-        let ok = take == shouldTake
-        stats.recordDecision(correct: ok, spotKey: nil)
-        feedbackGood = ok
-        if useDeviations {
+        let grade = MoveGrader.gradeInsurance(take: take, trueCount: trueCount,
+                                              useDeviations: useDeviations)
+        let ok = grade == .correct
+        stats.recordDecision(grade: grade, spotKey: nil)
+        feedbackGrade = grade
+        if grade == .close {
+            feedbackText = shouldTake
+                ? "Close. At true count +3 or more, insurance pays."
+                : "Close. Only insure at true count +3 or higher."
+        } else if useDeviations {
             if ok {
                 feedbackText = shouldTake
                     ? "Right. The count is high enough to insure (true count +3 or more)."
@@ -668,7 +680,7 @@ final class PlayEngine {
         guard phase == .countCheck else { return }
         let ok = countGuess == countCheckActual
         stats.recordCountCheck(correct: ok)
-        feedbackGood = ok
+        feedbackGrade = Grade(correct: ok)
         feedbackText = ok
             ? "Right. The running count is \(countCheckActual)."
             : "Running count was \(countCheckActual) (you said \(countGuess))."
@@ -677,62 +689,71 @@ final class PlayEngine {
 
     private func evaluateBet() {
         let tc = trueCount
-        let rec = recommendedUnits
-        let cap = maxComfortableBet
-        let averageSpotBet = totalWager / Double(numHands)
-        let verdict = BetSizingEvaluator.verdict(
-            spotBet: averageSpotBet,
+        let result = BetSizingEvaluator.grade(
+            spotBets: spotBets,
             countUnits: countUnits,
             tableMinimum: tableMinimum,
             bankroll: bankroll,
             spreadCap: betSpreadCap
         )
-        let correct = verdict == .acceptable
-        // Allowed (the stack can take it) but a counter would still bet the
-        // minimum here. Coached, not scored as a mistake.
-        // (3+ units already grades as too high, so this covers the 2-unit bet.)
-        let bigAtLowCount = correct && tc < 2 && averageSpotBet > tableMinimum + 0.001
-        // The count wants more than the stack should carry.
-        let stackLimited = countUnits > rec
-        // Too high can mean too much for the stack, or too much for the count.
-        let overStack = BetSizingEvaluator.exceedsStack(
-            spotBet: averageSpotBet, tableMinimum: tableMinimum,
-            bankroll: bankroll, spreadCap: betSpreadCap)
-        stats.recordBet(correct: correct)
-        // The terse mode never hints at the count, so it only grades.
-        betAdviceGood = correct && !(bigAtLowCount && betHints)
+        stats.recordBet(grade: result.grade)
+        betGrade = result.grade
+        betAdviceText = Self.betAdvice(result, trueCount: tc, hints: betHints,
+                                       tableMinimum: tableMinimum, spots: numHands,
+                                       averageSpotBet: totalWager / Double(max(1, numHands)),
+                                       countWantsMore: countUnits > result.recommendedUnits)
+    }
 
-        if betHints {
-            // Full coaching: reveals the count and the suggested bet.
-            let tcStr = String(format: "%+.1f", tc)
-            switch verdict {
-            case .tooHigh:
-                betAdviceText = overStack
-                    ? "Too big for your balance. Keep each bet at \(money(cap)) or less."
-                    : "Too big for the count. Bet about \(money(recommendedBet)) at \(tcStr)."
-            case .tooLow:
-                betAdviceText = stackLimited
-                    ? "True count \(tcStr). Bet more, up to \(money(recommendedBet))."
-                    : "True count \(tcStr). Bet more, about \(money(recommendedBet))."
-            case .acceptable:
-                if bigAtLowCount {
-                    betAdviceText = "True count \(tcStr): the minimum (\(money(tableMinimum))) is the sharper bet."
-                } else if tc < 2 {
-                    betAdviceText = "Good. True count \(tcStr), so stay near the minimum."
-                } else {
-                    betAdviceText = "Nice bet. True count \(tcStr), about \(rec) unit\(rec == 1 ? "" : "s")."
-                }
+    /// One line on the bet, naming whichever check set the grade: the
+    /// balance (total on the table) or the count. Terse mode never hints at
+    /// the count.
+    static func betAdvice(_ result: BetGrade, trueCount tc: Double, hints: Bool,
+                          tableMinimum: Double, spots: Int, averageSpotBet: Double,
+                          countWantsMore: Bool) -> String {
+        let money = Money.string
+        let recBet = Double(result.recommendedUnits) * tableMinimum
+        let each = spots > 1 ? "each hand" : "the bet"
+        // The balance check speaks when it is at least as bad as the count check.
+        let stackIssue = result.stackGrade != .correct
+            && result.stackGrade.credit <= result.countGrade.credit
+        let tcStr = String(format: "%+.1f", tc)
+        let close = result.grade == .close
+
+        if result.grade == .correct {
+            guard hints else { return "Good bet." }
+            if tc < 2 {
+                // Green either way; a raise at a low count gets a nudge.
+                return averageSpotBet > tableMinimum + 0.001
+                    ? "Fine. At true count \(tcStr), the minimum (\(money(tableMinimum))) is sharper."
+                    : "Good. True count \(tcStr), so stay near the minimum."
             }
-        } else {
-            // Terse verdict only, never reveals the count.
-            switch verdict {
-            case .acceptable:
-                betAdviceText = "Good bet."
-            case .tooHigh:
-                betAdviceText = overStack ? "Too much for your balance." : "Too big for the count."
-            case .tooLow:
-                betAdviceText = "You bet too little."
+            let rec = result.recommendedUnits
+            return "Nice bet. True count \(tcStr), about \(rec) unit\(rec == 1 ? "" : "s")."
+        }
+        if stackIssue {
+            if hints {
+                return close
+                    ? "A bit risky for your balance. Keep \(each) near \(money(result.maxSpotBet))."
+                    : "Too much for your balance. Keep \(each) at \(money(result.maxSpotBet)) or less."
             }
+            return close ? "A bit risky for your balance." : "Too much for your balance."
+        }
+        switch result.countDirection {
+        case .tooHigh:
+            if hints {
+                return close
+                    ? "A bit big for the count. About \(money(recBet)) at \(tcStr)."
+                    : "Too big for the count. Bet about \(money(recBet)) at \(tcStr)."
+            }
+            return close ? "A bit big for the count." : "Too big for the count."
+        case .tooLow, .acceptable:
+            if hints {
+                let amount = countWantsMore ? "up to" : "about"
+                return close
+                    ? "A bit low. True count \(tcStr), bet \(amount) \(money(recBet))."
+                    : "True count \(tcStr). Bet more, \(amount) \(money(recBet))."
+            }
+            return close ? "A bit small for the count." : "You bet too little."
         }
     }
 
@@ -743,14 +764,14 @@ final class PlayEngine {
     private func judge(_ action: Action) {
         guard hands.indices.contains(currentIndex) else { return }
         let h = hands[currentIndex]
-        let basic = BasicStrategy.correctAction(
-            cards: h.cards,
-            dealerUp: dealerUpRank(),
-            canDouble: canDouble(h),
-            canSplit: canSplit(h),
-            dealerHitsSoft17: dealerHitsSoft17,
-            numDecks: numDecks
+        let verdict = MoveGrader.grade(
+            action, cards: h.cards, dealerUp: dealerUpRank(),
+            canDouble: canDouble(h), canSplit: canSplit(h),
+            dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks,
+            // Index plays (H17 and double deck use their own) only when on.
+            trueCount: useDeviations ? trueCount : nil
         )
+        let correct = verdict.best
 
         // Which chart cell this decision counts toward (nil = none). Spot
         // identity comes from the hand's SHAPE, not split legality, and the
@@ -763,48 +784,38 @@ final class PlayEngine {
             canDouble: canDouble(h), canSplit: canSplit(h),
             dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks)
 
-        if useDeviations {
-            // Grade against the count-aware play; teach the index when it differs.
-            let correct = Deviations.correctAction(
-                cards: h.cards, dealerUp: dealerUpRank(), trueCount: trueCount,
-                canDouble: canDouble(h), canSplit: canSplit(h),
-                dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks
-            )
-            // Same inputs as grading, so the note names the play that was graded
-            // (8,8 vs 10 is a split, not "16 vs 10"; H17 and double deck use their indices).
-            let dev = Deviations.matching(cards: h.cards, dealerUp: dealerUpRank(),
-                                          canSplit: canSplit(h), dealerHitsSoft17: dealerHitsSoft17,
-                                          numDecks: numDecks)
-            let isIndexPlay = correct != basic
-            let ok = action == correct
-            // When the count overrides the chart, the result says nothing about
-            // the player's basic strategy — keep it out of spot accuracy.
-            stats.recordDecision(correct: ok, spotKey: isIndexPlay ? nil : spotKey)
-            if !ok, !isIndexPlay, let spotKey {
-                stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
-            }
-            feedbackGood = ok
-            if ok && isIndexPlay {
-                feedbackText = "Nice index play: \(dev?.note ?? "the count says \(correct.name)")."
-            } else if ok {
-                feedbackText = "Correct. \(correct.name)."
-            } else if isIndexPlay {
-                feedbackText = "Not quite. \(dev?.note ?? "The count says \(correct.name)")."
-            } else {
-                feedbackText = "Not quite. Basic strategy says \(correct.name)."
-            }
-            return
+        // When the count overrides the chart, the result says nothing about
+        // the player's basic strategy: keep it out of spot accuracy.
+        let isIndexPlay = verdict.isIndexPlay
+        stats.recordDecision(grade: verdict.grade, spotKey: isIndexPlay ? nil : spotKey)
+        // Only red plays go on the review list; a close call isn't a mistake to drill.
+        if verdict.grade == .wrong, !isIndexPlay, let spotKey {
+            stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
         }
+        feedbackGrade = verdict.grade
+        feedbackText = Self.moveFeedback(verdict, useDeviations: useDeviations)
+    }
 
-        let ok = action == basic
-        stats.recordDecision(correct: ok, spotKey: spotKey)
-        if !ok, let spotKey {
-            stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: basic.name)
+    /// One line on a graded move (green, yellow or red).
+    static func moveFeedback(_ verdict: MoveVerdict, useDeviations: Bool) -> String {
+        let correct = verdict.best
+        // The note names the play that was graded (8,8 vs 10 is a split, not
+        // "16 vs 10"; H17 and double deck use their own indices).
+        let note = verdict.deviation?.note
+        switch verdict.grade {
+        case .close:
+            return MoveGrader.closeText(verdict)
+        case .correct:
+            if useDeviations && verdict.isIndexPlay {
+                return "Nice index play: \(note ?? "the count says \(correct.name)")."
+            }
+            return useDeviations ? "Correct. \(correct.name)." : "Correct! Basic strategy says \(correct.name)."
+        case .wrong:
+            if useDeviations && verdict.isIndexPlay {
+                return "Not quite. \(note ?? "The count says \(correct.name)")."
+            }
+            return "Not quite. Basic strategy says \(correct.name)."
         }
-        feedbackGood = ok
-        feedbackText = ok
-            ? "Correct! Basic strategy says \(basic.name)."
-            : "Not quite. Basic strategy says \(basic.name)."
     }
 
     func hit() {

@@ -34,6 +34,7 @@ enum Achievements {
     struct Inputs {
         var decisions = 0            // play + quiz combined
         var decisionsCorrect = 0
+        var decisionsClose = 0       // close calls (yellow), half credit
         var spotsPracticed = 0
         var masteredSpots = 0        // 90%+ accuracy over 5+ attempts
         var quizBestStreak = 0
@@ -44,6 +45,7 @@ enum Achievements {
         var countChecksCorrect = 0
         var betDecisions = 0
         var betCorrect = 0
+        var betClose = 0
         var challengesPlayed = 0
         var perfectChallenges = 0
         var longestDailyStreak = 0
@@ -106,8 +108,11 @@ enum Achievements {
     static let categories = ["Strategy", "Table Play", "Card Counting", "Dedication"]
 
     static func all(from i: Inputs) -> [Achievement] {
-        let accuracy = i.decisions == 0 ? 0 : Double(i.decisionsCorrect) / Double(i.decisions)
-        let betAccuracy = i.betDecisions == 0 ? 0 : Double(i.betCorrect) / Double(i.betDecisions)
+        // Close calls (yellow) count as half credit.
+        let accuracy = Accuracy.fraction(correct: i.decisionsCorrect, close: i.decisionsClose,
+                                         total: i.decisions) ?? 0
+        let betAccuracy = Accuracy.fraction(correct: i.betCorrect, close: i.betClose,
+                                            total: i.betDecisions) ?? 0
 
         return [
             // MARK: Strategy
