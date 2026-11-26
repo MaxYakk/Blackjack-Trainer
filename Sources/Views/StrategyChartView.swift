@@ -116,7 +116,7 @@ struct StrategyChartView: View {
         return VStack(alignment: .leading, spacing: Space.xs) {
             SectionHeader("Count deviations: Illustrious 18",
                           subtitle: "Plays that change with the true count (Hi Lo), for \(rulesCaption).")
-            Text("Once basic strategy is solid, these are the most valuable changes. To be graded on them, turn on Count deviations in Play: gear icon, then Table Options. Take insurance at true count +3 or higher.")
+            Text("Once basic strategy is solid, these are the most valuable changes. To be graded on them, open Play, tap the gear icon, and turn on count strategy changes. Take insurance at true count +3 or higher.")
                 .font(.detail)
                 .foregroundStyle(.textSecondary)
             VStack(spacing: 0) {
