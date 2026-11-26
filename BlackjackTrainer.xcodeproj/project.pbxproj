@@ -19,8 +19,10 @@
 		1363224C61FF9C2CB43AD52D /* FeedbackPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5385FD75B9BC2F0BEABBA44 /* FeedbackPill.swift */; };
 		14C93F66B3AE5A98F89FBDAF /* AchievementCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = E12106ABD4CC1D154C8DE778 /* AchievementCard.swift */; };
 		17329FECFDFAB99F3ADFB8F2 /* DailyChallengeDeal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607D8337F040799CC895290C /* DailyChallengeDeal.swift */; };
+		17FB759E0C0054A27E56AB65 /* ThemedToggleStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = E44A10C4C74A871F92AEA3C5 /* ThemedToggleStyle.swift */; };
 		198C846F769B8656F263F56D /* FlowUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC75324797801B412A7D156A /* FlowUITests.swift */; };
 		1A59044060C9BB470C924E4A /* QuizView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D53105964D85732933CB707D /* QuizView.swift */; };
+		1F13DF58DCA930714187330B /* ThemedMenuPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75D17841065771ECC67CB927 /* ThemedMenuPicker.swift */; };
 		209A1607E71C524B1960396B /* WinCelebrationPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9176EEF3B56EEE9E7E12A1F /* WinCelebrationPolicyTests.swift */; };
 		211CC0B1B0E277D5354A75F6 /* Panel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE41018E6B95ECBA91155D08 /* Panel.swift */; };
 		2224A2333430A7E109B8C492 /* PrivacyPolicyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE0BFE981CFC6CB58F6C207 /* PrivacyPolicyView.swift */; };
@@ -82,11 +84,13 @@
 		BD2AA590A18B960097425517 /* CountDrillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */; };
 		BFA9AE4EB92B3D0383E0EA4D /* ProgressStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 905F281CB9044EAAB5A5F75D /* ProgressStatsView.swift */; };
 		C1D46B81529A7188E128FE38 /* TabBarStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA5477C3CF2785EE8B071905 /* TabBarStyle.swift */; };
+		C242EAA8DA029FB284DCDFA2 /* SegmentedChoice.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECD7AB640863993CBF238A5C /* SegmentedChoice.swift */; };
 		C745585EAFC5111100F7006B /* BeginnerBlackjackTutorial.swift in Sources */ = {isa = PBXBuildFile; fileRef = 64DB3F99EDB7718A05E7EC11 /* BeginnerBlackjackTutorial.swift */; };
 		C74E5BC457A25225AC702EC1 /* Sound.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E86ADE4AE7058F41B7B2D69 /* Sound.swift */; };
 		C75AA4F9A63D57CBAD839723 /* ChipSizing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99A1686CEB850A68872CC0C3 /* ChipSizing.swift */; };
 		CB0D76C8896BAF9B1DC453C5 /* ProgressFormat.swift in Sources */ = {isa = PBXBuildFile; fileRef = C552CECF09CE4E382B7AC219 /* ProgressFormat.swift */; };
 		CB88E4676F1E28BA39644A78 /* ProgressSessionPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F31BF0A1B072432DADCD89BF /* ProgressSessionPanel.swift */; };
+		CF87CA990996B566137B7396 /* ThemedConfirm.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73C863F67A9C60B216BB92E8 /* ThemedConfirm.swift */; };
 		D84125A6441F2C04E9EFCD83 /* StrategyLegend.swift in Sources */ = {isa = PBXBuildFile; fileRef = D870BFD6EA183FD07684A712 /* StrategyLegend.swift */; };
 		D96E4C6C9898EC4F2E065263 /* Stats.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA51242057562607EC409D6 /* Stats.swift */; };
 		DAA80C6987EE1B2F3D7E0506 /* StrategyChartGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8934CE96D81698D586AEE32 /* StrategyChartGrid.swift */; };
@@ -171,7 +175,9 @@
 		65337332603AA609164876A5 /* PlayTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayTableView.swift; sourceTree = "<group>"; };
 		66182A423001FB5CA1CAD0E5 /* BetSizingToleranceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetSizingToleranceTests.swift; sourceTree = "<group>"; };
 		7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CountDrillView.swift; sourceTree = "<group>"; };
+		73C863F67A9C60B216BB92E8 /* ThemedConfirm.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedConfirm.swift; sourceTree = "<group>"; };
 		75268E01B8686E9CB7D23020 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		75D17841065771ECC67CB927 /* ThemedMenuPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedMenuPicker.swift; sourceTree = "<group>"; };
 		75E44AC5C9C70A02E32484A4 /* TolerantDecoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TolerantDecoding.swift; sourceTree = "<group>"; };
 		7DFFD2F04DB3C3F597AB615F /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		7EE0BFE981CFC6CB58F6C207 /* PrivacyPolicyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivacyPolicyView.swift; sourceTree = "<group>"; };
@@ -223,7 +229,9 @@
 		E194B90ECE23AD536F94EACF /* SkillRating.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SkillRating.swift; sourceTree = "<group>"; };
 		E2AA345EE71737AB0F89812A /* AppInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfo.swift; sourceTree = "<group>"; };
 		E37C67BFB31DE5357246F270 /* WinCelebrationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WinCelebrationPolicy.swift; sourceTree = "<group>"; };
+		E44A10C4C74A871F92AEA3C5 /* ThemedToggleStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemedToggleStyle.swift; sourceTree = "<group>"; };
 		EB8636CFA1811073656E6953 /* SessionFlowTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionFlowTests.swift; sourceTree = "<group>"; };
+		ECD7AB640863993CBF238A5C /* SegmentedChoice.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SegmentedChoice.swift; sourceTree = "<group>"; };
 		EEC72E6D52F22F21C9A3BAA2 /* QuizReasonTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuizReasonTests.swift; sourceTree = "<group>"; };
 		F11DDAF95497B7AB56988AEC /* TabSelection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabSelection.swift; sourceTree = "<group>"; };
 		F2E7333A5383D7BCE32E9818 /* DoubleDeckStrategyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DoubleDeckStrategyTests.swift; sourceTree = "<group>"; };
@@ -312,7 +320,11 @@
 				CE41018E6B95ECBA91155D08 /* Panel.swift */,
 				47CFF3AAE394B8916D5F6CAD /* ProgressBar.swift */,
 				936E119263CE88BF0DCA23A4 /* SectionHeader.swift */,
+				ECD7AB640863993CBF238A5C /* SegmentedChoice.swift */,
 				D20923F974759B1B535016BA /* StatTile.swift */,
+				73C863F67A9C60B216BB92E8 /* ThemedConfirm.swift */,
+				75D17841065771ECC67CB927 /* ThemedMenuPicker.swift */,
+				E44A10C4C74A871F92AEA3C5 /* ThemedToggleStyle.swift */,
 			);
 			path = Components;
 			sourceTree = "<group>";
@@ -652,6 +664,7 @@
 				0515A52B5C1DE853727A7E3C /* RoundEffects.swift in Sources */,
 				4A5B741243B4C97C6C3BEA29 /* RoundOutcome.swift in Sources */,
 				40F17E783575F3DAD6221FA7 /* SectionHeader.swift in Sources */,
+				C242EAA8DA029FB284DCDFA2 /* SegmentedChoice.swift in Sources */,
 				801B444C9B9E4BCB5523F6E0 /* SessionSetupView.swift in Sources */,
 				AFA9CC08BFC1EEE0CF142EDF /* SettingsRows.swift in Sources */,
 				B5FF59D71D63F71A616CE643 /* SettingsView.swift in Sources */,
@@ -670,6 +683,9 @@
 				7844767263F9634EC2472411 /* TabSelection.swift in Sources */,
 				0C3F32B2F25CF5DD5415253E /* TableMessageSlot.swift in Sources */,
 				222FA6830B4ABC3BF9778359 /* Theme.swift in Sources */,
+				CF87CA990996B566137B7396 /* ThemedConfirm.swift in Sources */,
+				1F13DF58DCA930714187330B /* ThemedMenuPicker.swift in Sources */,
+				17FB759E0C0054A27E56AB65 /* ThemedToggleStyle.swift in Sources */,
 				0106F8875EADB0A49C899A60 /* TolerantDecoding.swift in Sources */,
 				63E1BA990FF7838FB23A4060 /* Typography.swift in Sources */,
 				99C3C01A770F18E0CFE28140 /* WelcomeParts.swift in Sources */,
