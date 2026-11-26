@@ -752,28 +752,16 @@ final class PlayEngine {
             numDecks: numDecks
         )
 
-        // Spot identity must come from the hand's SHAPE, not split legality —
-        // canSplit(h) also checks bankroll and the resplit cap, and letting
-        // those reclassify 8,8 as "hard 16" would corrupt the pair stats that
-        // the heatmap, leaks list, and Smart quiz are built on. When a pair
-        // can't legally be split, the graded question isn't the chart's pair
-        // cell at all, so it stays out of spot stats entirely (spotKey nil).
-        let isPairShape = h.cards.count == 2
-            && h.cards[0].rank.strategyKey == h.cards[1].rank.strategyKey
-        // The chart (and every spot stat built on it) is the 4–8 deck S17
-        // chart. In the cells H17 or double deck flips, the graded play no
-        // longer matches the chart cell,
-        // so those decisions stay out of spot stats — same reasoning as
-        // count deviations below.
-        let chartAction = BasicStrategy.correctAction(
-            cards: h.cards,
-            dealerUp: dealerUpRank(),
-            canDouble: canDouble(h),
-            canSplit: canSplit(h)
-        )
-        let spotKey: String? = (isPairShape && !canSplit(h)) || chartAction != basic
-            ? nil
-            : SpotID.key(cards: h.cards, dealerUp: dealerUpRank(), canSplit: canSplit(h))
+        // Which chart cell this decision counts toward (nil = none). Spot
+        // identity comes from the hand's SHAPE, not split legality, and the
+        // decision only counts when it is that cell's own question: not an
+        // unsplittable pair, not a hand that can't double (a three card hard
+        // 11 where "hit" is right), not a cell H17 or double deck flips.
+        // See SpotAttribution.
+        let spotKey = SpotAttribution.key(
+            cards: h.cards, dealerUp: dealerUpRank(),
+            canDouble: canDouble(h), canSplit: canSplit(h),
+            dealerHitsSoft17: dealerHitsSoft17, numDecks: numDecks)
 
         if useDeviations {
             // Grade against the count-aware play; teach the index when it differs.
