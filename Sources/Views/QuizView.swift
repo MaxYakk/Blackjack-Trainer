@@ -50,8 +50,8 @@ private struct QuizContent: View {
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Quiz")
-            // Content scrolls; the decision pad stays pinned at the bottom so
-            // the buttons can never be pushed off a small screen.
+            // The settings scroll. The hand, the result and the decision pad
+            // below are pinned, so the cards and Hit / Stand never move.
             ScrollView {
                 VStack(spacing: Space.md) {
                     challengeCard
@@ -66,15 +66,19 @@ private struct QuizContent: View {
                     if engine.reviewIsEmpty {
                         reviewEmptyState
                     }
-                    if let up = engine.dealerUp {
-                        DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
-                    }
+                }
+                .padding(.horizontal, Space.md)
+                .padding(.bottom, Space.md)
+            }
+            if let up = engine.dealerUp {
+                VStack(spacing: Space.xs) {
+                    DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
                     DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
                                   good: engine.feedbackGood,
                                   reason: engine.reason)
                 }
                 .padding(.horizontal, Space.md)
-                .padding(.bottom, Space.md)
+                .padding(.top, Space.xs)
             }
             bottomBar
         }
@@ -255,16 +259,24 @@ private struct QuizContent: View {
         .accessibilityIdentifier("quizAutoNextToggle")
     }
 
+    /// Hit / Stand / Double / Split, or Next after an answer. Next sits in
+    /// the same space the pad uses, so the hand above never shifts.
     @ViewBuilder
     private var bottomBar: some View {
         Group {
             if engine.reviewIsEmpty {
                 EmptyView()
-            } else if engine.answered {
-                PrimaryButton("Next") { engine.next() }
-                    .transition(Motion.slide(reduceMotion))
             } else {
-                DecisionPad(canSplit: engine.canSplit) { engine.answer($0) }
+                ZStack(alignment: .bottom) {
+                    DecisionPad(canSplit: engine.canSplit) { _ in }
+                        .hidden()
+                    if engine.answered {
+                        PrimaryButton("Next") { engine.next() }
+                            .transition(Motion.slide(reduceMotion))
+                    } else {
+                        DecisionPad(canSplit: engine.canSplit) { engine.answer($0) }
+                    }
+                }
             }
         }
         .padding(.horizontal, Space.md)

@@ -708,19 +708,19 @@ final class PlayEngine {
             switch verdict {
             case .tooHigh:
                 betAdviceText = overStack
-                    ? "Too big for your balance. With \(Money.chips(bankroll)), keep each bet at \(money(cap)) or less."
-                    : "Too big for the count. The true count is \(tcStr), so bet about \(rec) unit\(rec == 1 ? "" : "s") (\(money(recommendedBet)))."
+                    ? "Too big for your balance. Keep each bet at \(money(cap)) or less."
+                    : "Too big for the count. Bet about \(money(recommendedBet)) at \(tcStr)."
             case .tooLow:
                 betAdviceText = stackLimited
-                    ? "The true count is \(tcStr). Bet more, up to \(money(recommendedBet)), the most your balance should cover."
-                    : "The true count is \(tcStr). Bet more, about \(rec) units (\(money(recommendedBet)))."
+                    ? "True count \(tcStr). Bet more, up to \(money(recommendedBet))."
+                    : "True count \(tcStr). Bet more, about \(money(recommendedBet))."
             case .acceptable:
                 if bigAtLowCount {
-                    betAdviceText = "You can afford it, but with a true count of \(tcStr) the minimum (\(money(tableMinimum))) is the sharper bet."
+                    betAdviceText = "True count \(tcStr): the minimum (\(money(tableMinimum))) is the sharper bet."
                 } else if tc < 2 {
-                    betAdviceText = "Good. The true count is \(tcStr). Keep the bet near the table minimum here."
+                    betAdviceText = "Good. True count \(tcStr), so stay near the minimum."
                 } else {
-                    betAdviceText = "Nice bet. With a true count of \(tcStr), that is close enough to \(rec) units."
+                    betAdviceText = "Nice bet. True count \(tcStr), about \(rec) unit\(rec == 1 ? "" : "s")."
                 }
             }
         } else {
@@ -785,13 +785,13 @@ final class PlayEngine {
             }
             feedbackGood = ok
             if ok && isIndexPlay {
-                feedbackText = "Nice index play: \(dev?.note ?? "Deviation")."
+                feedbackText = "Nice index play: \(dev?.note ?? "the count says \(correct.name)")."
             } else if ok {
                 feedbackText = "Correct. \(correct.name)."
             } else if isIndexPlay {
-                feedbackText = "Deviation: \(dev?.note ?? "index play") says \(correct.name) (you chose \(action.name))."
+                feedbackText = "Not quite. \(dev?.note ?? "The count says \(correct.name)")."
             } else {
-                feedbackText = "Not quite. Basic strategy says \(correct.name) (you chose \(action.name))."
+                feedbackText = "Not quite. Basic strategy says \(correct.name)."
             }
             return
         }
@@ -804,7 +804,7 @@ final class PlayEngine {
         feedbackGood = ok
         feedbackText = ok
             ? "Correct! Basic strategy says \(basic.name)."
-            : "Not quite. Basic strategy says \(basic.name) (you chose \(action.name))."
+            : "Not quite. Basic strategy says \(basic.name)."
     }
 
     func hit() {
