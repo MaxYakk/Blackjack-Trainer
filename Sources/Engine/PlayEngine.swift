@@ -6,7 +6,8 @@ import Observation
 final class PlayEngine {
     /// Valid table shapes. Saved values outside these are pulled back in on
     /// load, and settings are clamped when changed.
-    static let deckRange = 4...8
+    static let allowedDeckCounts = [2, 4, 6, 8]
+    static let defaultDeckCount = 6
     static let spotRange = 1...3
     static let defaultTableMinimum = 5.0
 
@@ -177,8 +178,12 @@ final class PlayEngine {
         d.set(sessionBlackjacks, forKey: PlaySessionStore.blackjacksKey)
     }
 
+    /// Keeps the deck count to a shoe the table offers: a single deck
+    /// becomes double deck (the nearest offered), anything else invalid
+    /// goes back to the 6-deck default.
     static func clampDecks(_ n: Int) -> Int {
-        min(deckRange.upperBound, max(deckRange.lowerBound, n))
+        if allowedDeckCounts.contains(n) { return n }
+        return n == 1 ? 2 : defaultDeckCount
     }
 
     private func loadSettings() {

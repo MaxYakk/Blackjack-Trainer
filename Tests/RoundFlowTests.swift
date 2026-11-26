@@ -235,8 +235,8 @@ struct RoundFlowTests {
         d.set(-5.0, forKey: "pe_tableMin")
         d.set(9, forKey: "pe_numHands")
         let engine = PlayEngine(stats: Stats(defaults: d), defaults: d)
-        #expect(engine.numDecks == 4)
-        #expect(engine.shoe.numDecks == 4)
+        #expect(engine.numDecks == 6, "An invalid deck count goes back to the 6-deck default")
+        #expect(engine.shoe.numDecks == 6)
         #expect(engine.tableMinimum == 5)
         #expect(engine.numHands == 3)
         #expect(engine.spotBets.count == 3)
@@ -245,12 +245,20 @@ struct RoundFlowTests {
         d.set(0, forKey: "pe_numHands")
         d.set(0.0, forKey: "pe_tableMin")
         let again = PlayEngine(stats: Stats(defaults: d), defaults: d)
-        #expect(again.numDecks == 8)
+        #expect(again.numDecks == 6)
         #expect(again.numHands == 1)
         #expect(again.tableMinimum == 5)
 
         again.numDecks = 1
-        #expect(again.numDecks == 4, "1- and 2-deck shoes are no longer offered")
+        #expect(again.numDecks == 2, "Single deck isn't offered; the nearest is double deck")
+        again.numDecks = 2
+        #expect(again.numDecks == 2, "Double deck is a valid table")
+        again.numDecks = 5
+        #expect(again.numDecks == 6)
+        for decks in PlayEngine.allowedDeckCounts {
+            d.set(decks, forKey: "pe_numDecks")
+            #expect(PlayEngine(stats: Stats(defaults: d), defaults: d).numDecks == decks)
+        }
         again.tableMinimum = 0
         #expect(again.tableMinimum == 5)
     }
