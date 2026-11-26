@@ -230,21 +230,31 @@ private struct CountDrillContent: View {
 
     private var explainer: some View {
         Panel(spacing: Space.xs) {
-            Text("Counting a shoe with multiple decks")
+            Text("Tips: running to true count")
                 .font(.heading)
                 .foregroundStyle(.accent)
-            Text("The running count means less on its own once several decks are in play. Convert it to a true count for your real edge:")
-                .font(.detail)
-                .foregroundStyle(.textPrimary)
-            Text("True Count = Running Count ÷ Decks Remaining")
+            Text("True count = running count ÷ decks left")
                 .font(.detail.weight(.bold))
                 .foregroundStyle(.textPrimary)
                 .padding(Space.xs)
                 .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
-            Text("Estimate the decks remaining by eye to the nearest half deck. For example, a running count of +6 with 3 decks left gives you a true count of +2. Base your bets and strategy changes on the true count, not the running count.")
-                .font(.detail)
-                .foregroundStyle(.textSecondary)
+            tip("Guess the decks left by eye, to the nearest half deck.")
+            tip("Example: +6 with 3 decks left is a true count of +2.")
+            tip("Bet and change plays by the true count, not the running count.")
         }
+    }
+
+    private func tip(_ text: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
+            Text("•")
+                .foregroundStyle(.accent)
+                .accessibilityHidden(true)
+            Text(text)
+                .foregroundStyle(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .font(.detail)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func signed(_ n: Int) -> String { n > 0 ? "+\(n)" : "\(n)" }
