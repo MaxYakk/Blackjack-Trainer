@@ -213,3 +213,14 @@ enum ProgressMetrics {
         return streak
     }
 }
+
+extension Stats {
+    /// True until the player has done anything that records progress: no
+    /// graded plays, quiz answers, bets, count drills, count checks or daily
+    /// challenge answers (those feed the day totals and spot accuracy).
+    var hasNoProgress: Bool {
+        data.strategyTotal == 0 && data.quizTotal == 0 && data.handsPlayed == 0
+            && data.drillsCompleted == 0 && data.countChecks == 0 && data.betDecisions == 0
+            && data.challenges.isEmpty && data.days.isEmpty && data.spots.isEmpty
+    }
+}

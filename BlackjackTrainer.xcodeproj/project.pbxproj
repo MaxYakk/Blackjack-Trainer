@@ -69,6 +69,7 @@
 		7844767263F9634EC2472411 /* TabSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11DDAF95497B7AB56988AEC /* TabSelection.swift */; };
 		7B1DDC315A33AD8B65D77772 /* ChipWordingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54526263481AED3FFFA8303A /* ChipWordingTests.swift */; };
 		801B444C9B9E4BCB5523F6E0 /* SessionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF6270EA27D0348BD529008 /* SessionSetupView.swift */; };
+		8365998B9159B741FB1AD40F /* ProgressEmptyStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E93FDF20303D34F239F863D /* ProgressEmptyStateTests.swift */; };
 		8393F158D4A9758CF9B6888B /* BasicsOfferView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1BBBE7546CBC859A6D44AAA6 /* BasicsOfferView.swift */; };
 		840416A5AFDBE40FDD18CD72 /* DecisionPad.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44DBCC6C0A25A44085C23988 /* DecisionPad.swift */; };
 		86CB3B879484B183F1E9B782 /* GradingFixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2184B11A696C4332A503FB2F /* GradingFixTests.swift */; };
@@ -186,6 +187,7 @@
 		4B88BBB82F9025BDBE212B13 /* Colors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Colors.swift; sourceTree = "<group>"; };
 		4BFB6681D8DE2C1A56D0CE9F /* CardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CardView.swift; sourceTree = "<group>"; };
 		4C865FB52BCE215F31993942 /* Cards.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Cards.swift; sourceTree = "<group>"; };
+		4E93FDF20303D34F239F863D /* ProgressEmptyStateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressEmptyStateTests.swift; sourceTree = "<group>"; };
 		508E7E79E6ACD7B2EBD03C09 /* AllAchievementsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllAchievementsView.swift; sourceTree = "<group>"; };
 		5109A6282816ECCAEFADC01D /* Achievements.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Achievements.swift; sourceTree = "<group>"; };
 		526788530DAD1A4C8069EF46 /* AppTourDemos.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppTourDemos.swift; sourceTree = "<group>"; };
@@ -343,6 +345,7 @@
 				F2E7333A5383D7BCE32E9818 /* DoubleDeckStrategyTests.swift */,
 				2184B11A696C4332A503FB2F /* GradingFixTests.swift */,
 				E8E12F18C4CCCBC4A9095B0E /* PlaySoundTests.swift */,
+				4E93FDF20303D34F239F863D /* ProgressEmptyStateTests.swift */,
 				EEC72E6D52F22F21C9A3BAA2 /* QuizReasonTests.swift */,
 				0B6F28660D83518C6714D377 /* QuizReviewTests.swift */,
 				A0D7D6737699F4C3A93CFD54 /* ReminderSchedulerTests.swift */,
@@ -783,6 +786,7 @@
 				FFEDBE3E003DEF9828D8B2D7 /* DoubleDeckStrategyTests.swift in Sources */,
 				86CB3B879484B183F1E9B782 /* GradingFixTests.swift in Sources */,
 				C4F0A94FBCFA882D7A27C8F5 /* PlaySoundTests.swift in Sources */,
+				8365998B9159B741FB1AD40F /* ProgressEmptyStateTests.swift in Sources */,
 				E4E618BF87581D4DA6EE3BCF /* QuizReasonTests.swift in Sources */,
 				DED4C5A9152865015E374C86 /* QuizReviewTests.swift in Sources */,
 				4FB312C8CDBAAD9223BBFECC /* ReminderSchedulerTests.swift in Sources */,

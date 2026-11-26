@@ -11,6 +11,9 @@ struct SessionSetupView: View {
     @State private var buyIn: Double = 100
     @State private var minimum: Double = 5
     @State private var editing: AmountField?
+    /// The field being typed into. The prompt clears `editing` as it closes,
+    /// before it calls `commitDraft`, so the commit reads this one instead.
+    @State private var draftField: AmountField?
     @State private var draft = ""
     @State private var hands = 1
     @State private var setupLoaded = false
@@ -283,6 +286,7 @@ struct SessionSetupView: View {
     private func beginEditing(_ field: AmountField) {
         let current = field == .buyIn ? buyIn : minimum
         draft = current.rounded() == current ? String(Int(current)) : String(format: "%.2f", current)
+        draftField = field
         editing = field
     }
 
@@ -298,11 +302,11 @@ struct SessionSetupView: View {
     }
 
     private func commitDraft() {
-        defer { editing = nil }
+        defer { editing = nil; draftField = nil }
         guard let raw = Self.parseAmount(draft), raw.isFinite, raw > 0 else { return }
         let value = min((raw * 100).rounded() / 100, maxAmount)
         guard value >= 0.01 else { return }
-        switch editing {
+        switch draftField {
         case .buyIn: buyIn = value
         case .minimum: minimum = value
         case nil: break
