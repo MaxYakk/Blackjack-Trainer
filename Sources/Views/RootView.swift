@@ -17,7 +17,7 @@ enum Tab: Int, CaseIterable, Identifiable {
 
     var icon: String {
         switch self {
-        case .play: return "rectangle.on.rectangle.angled"
+        case .play: return "suit.spade.fill"
         case .quiz: return "questionmark.circle.fill"
         case .count: return "plusminus.circle.fill"
         case .strategy: return "square.grid.3x3.fill"
