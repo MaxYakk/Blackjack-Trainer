@@ -62,6 +62,7 @@ private struct QuizContent: View {
                         difficultyPicker
                         reviewEntry
                     }
+                    if !engine.reviewIsEmpty { autoAdvanceToggle }
                     if engine.reviewIsEmpty {
                         reviewEmptyState
                     }
@@ -71,7 +72,6 @@ private struct QuizContent: View {
                     DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
                                   good: engine.feedbackGood,
                                   reason: engine.reason)
-                    if !engine.reviewIsEmpty { autoAdvanceToggle }
                 }
                 .padding(.horizontal, Space.md)
                 .padding(.bottom, Space.md)
@@ -244,7 +244,7 @@ private struct QuizContent: View {
                 Text("Next hand on its own after a right answer")
                     .font(.calloutText)
                     .foregroundStyle(.textPrimary)
-                Text("The next hand appears by itself a moment after a correct answer. A wrong answer always waits for you.")
+                Text("Moves on by itself after a correct answer. A wrong answer waits for you.")
                     .font(.detail)
                     .foregroundStyle(.textSecondary)
                     .fixedSize(horizontal: false, vertical: true)
