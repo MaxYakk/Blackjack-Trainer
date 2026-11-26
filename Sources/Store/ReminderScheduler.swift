@@ -1,10 +1,10 @@
 import Foundation
 import UserNotifications
 
-/// Schedules one personalized local reminder per day (7pm). The body is
-/// rebuilt from current stats every time the app backgrounds, so the nudge
-/// always reflects the player's actual streak and worst leak — never a
-/// generic "come back!".
+/// Schedules a single, non-repeating local reminder for the next 7pm, with
+/// text computed at scheduling time. It is skipped for today when the daily
+/// goal is already met, and rebuilt whenever the app backgrounds/foregrounds,
+/// so it never announces a streak that has since broken.
 enum ReminderScheduler {
     private static let identifier = "daily_training_reminder"
     static let enabledKey = "dailyReminderEnabled"
@@ -12,7 +12,7 @@ enum ReminderScheduler {
     /// Ask for permission and schedule; reports back whether the user allowed it.
     @MainActor
     static func enable(stats: Stats, completion: @escaping @MainActor (Bool) -> Void) {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, _ in
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, _ in
             Task { @MainActor in
                 if granted { refresh(stats: stats) }
                 completion(granted)
@@ -35,20 +35,34 @@ enum ReminderScheduler {
         }
     }
 
-    /// Re-schedule tomorrow's reminder with fresh personalized copy.
-    /// Safe to call often; it replaces the pending request in place.
+    /// Next 7pm strictly in the future; today's slot is skipped when the goal
+    /// is already met (or 7pm has passed).
+    static func nextFireDate(now: Date, goalMet: Bool, calendar: Calendar = .current) -> Date? {
+        guard let today = calendar.date(bySettingHour: 19, minute: 0, second: 0, of: now) else { return nil }
+        if today > now && !goalMet { return today }
+        return calendar.date(byAdding: .day, value: 1, to: today)
+    }
+
+    /// Re-schedule the next reminder with fresh copy. Safe to call often;
+    /// it replaces the pending request in place.
     @MainActor
     static func refresh(stats: Stats) {
         guard UserDefaults.standard.bool(forKey: enabledKey) else { return }
 
+        let now = Date()
+        let goalMet = stats.todayDecisions >= stats.data.dailyGoal
+        guard let fire = nextFireDate(now: now, goalMet: goalMet) else { return }
+        // Tomorrow's copy: today's progress no longer counts, so the streak
+        // is only "on the line" if it is still alive when that day starts.
+        let isToday = Calendar.current.isDate(fire, inSameDayAs: now)
+
         let content = UNMutableNotificationContent()
         content.title = "Blackjack Trainer"
-        content.body = body(for: stats)
+        content.body = body(for: stats, firesToday: isToday)
         content.sound = .default
 
-        var time = DateComponents()
-        time.hour = 19
-        let trigger = UNCalendarNotificationTrigger(dateMatching: time, repeats: true)
+        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
 
         let center = UNUserNotificationCenter.current()
@@ -59,11 +73,15 @@ enum ReminderScheduler {
     /// The most motivating true thing we can say: a streak to protect beats a
     /// leak to fix beats a generic nudge.
     @MainActor
-    private static func body(for stats: Stats) -> String {
+    private static func body(for stats: Stats, firesToday: Bool) -> String {
         let streak = stats.dailyStreak
         let goal = stats.data.dailyGoal
 
-        if streak > 0 && stats.todayDecisions < goal {
+        let goalMet = stats.todayDecisions >= goal
+        // Firing today: streak is at risk only if the goal is unmet. Firing
+        // tomorrow: the streak survives only if today's goal was met.
+        let streakAtRisk = firesToday ? !goalMet : goalMet
+        if streak > 0 && streakAtRisk {
             return "Your \(streak)-day streak is on the line — \(goal) quick decisions keeps it alive."
         }
         if let worst = stats.weakestSpots.first {
