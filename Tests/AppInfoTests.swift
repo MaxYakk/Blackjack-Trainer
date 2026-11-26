@@ -31,4 +31,8 @@ struct AppInfoTests {
         #expect(AppInfo.supportEmail == nil)
         #expect(AppInfo.supportMailURL(email: AppInfo.supportEmail, subject: "x") == nil)
     }
+
+    @Test func aboutNoticeStatesNoRealMoney() {
+        #expect(AppInfo.practiceChipsNotice.hasPrefix(PracticeNotice.line))
+    }
 }

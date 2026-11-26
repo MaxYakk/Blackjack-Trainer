@@ -31,16 +31,16 @@ struct SettingsView: View {
                         .frame(minHeight: Metrics.minTapTarget)
                 }
             }
-            .confirmationDialog("Reset all progress?", isPresented: $showResetConfirm, titleVisibility: .visible) {
-                Button("Reset everything", role: .destructive) {
-                    stats.resetAll()
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This erases your stats, accuracy history, achievements, streak and practice chips, and starts you fresh. It can't be undone.")
-            }
         }
+        .themedConfirm("Reset all progress?", isPresented: $showResetConfirm,
+                       message: "This erases your stats, accuracy history, achievements, streak and practice chips, and starts you fresh. It can't be undone.",
+                       actions: [
+                           .destructive("Reset everything") {
+                               stats.resetAll()
+                               dismiss()
+                           },
+                           .cancel(),
+                       ])
         .onAppear(perform: refreshReminderAuthorization)
     }
 
@@ -58,7 +58,7 @@ struct SettingsView: View {
                         .foregroundStyle(.textSecondary)
                 }
             }
-            .tint(.accent)
+            .toggleStyle(.themed)
             .settingsRowFrame()
             .accessibilityIdentifier("dailyReminderToggle")
 
@@ -157,13 +157,21 @@ struct SettingsView: View {
     // MARK: Privacy
 
     private var legalSection: some View {
-        SettingsSection(title: "Privacy") {
+        SettingsSection(title: "Privacy & Terms") {
             NavigationLink {
                 PrivacyPolicyView()
             } label: {
                 SettingsLinkLabel(title: "Privacy Policy")
             }
             .buttonStyle(.plain)
+            HairlineDivider()
+            NavigationLink {
+                TermsView()
+            } label: {
+                SettingsLinkLabel(title: "Terms of Service")
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("termsOfServiceLink")
             if let url = AppInfo.privacyPolicyURL {
                 HairlineDivider()
                 Link(destination: url) {
@@ -173,7 +181,7 @@ struct SettingsView: View {
             if let url = AppInfo.termsURL {
                 HairlineDivider()
                 Link(destination: url) {
-                    SettingsLinkLabel(title: "Terms of Use", trailingImage: "arrow.up.right")
+                    SettingsLinkLabel(title: "Terms of Service on the web", trailingImage: "arrow.up.right")
                 }
             }
         }
