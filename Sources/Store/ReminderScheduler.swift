@@ -6,7 +6,10 @@ import UserNotifications
 /// goal is already met, and rebuilt whenever the app backgrounds/foregrounds,
 /// so it never announces a streak that has since broken.
 enum ReminderScheduler {
-    private static let identifier = "daily_training_reminder"
+    private static let identifierPrefix = "daily_training_reminder"
+    /// First fire (personalized) plus this many generic follow-ups.
+    static let followUpCount = 6
+    private static let allIdentifiers = (0...followUpCount).map { "\(identifierPrefix)_\($0)" }
     static let enabledKey = "dailyReminderEnabled"
 
     /// Ask for permission and schedule; reports back whether the user allowed it.
@@ -22,7 +25,7 @@ enum ReminderScheduler {
 
     static func disable() {
         UNUserNotificationCenter.current()
-            .removePendingNotificationRequests(withIdentifiers: [identifier])
+            .removePendingNotificationRequests(withIdentifiers: allIdentifiers)
     }
 
     /// Whether the OS still allows this app to notify — the in-app toggle can
@@ -56,19 +59,28 @@ enum ReminderScheduler {
         // is only "on the line" if it is still alive when that day starts.
         let isToday = Calendar.current.isDate(fire, inSameDayAs: now)
 
-        let content = UNMutableNotificationContent()
-        content.title = "Blackjack Trainer"
-        content.body = body(for: stats, firesToday: isToday)
-        content.sound = .default
-
-        let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
-        let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
-        let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
-
+        let dates = fireDates(first: fire)
         let center = UNUserNotificationCenter.current()
-        center.removePendingNotificationRequests(withIdentifiers: [identifier])
-        center.add(request)
+        center.removePendingNotificationRequests(withIdentifiers: allIdentifiers)
+
+        for (i, date) in dates.enumerated() {
+            let content = UNMutableNotificationContent()
+            content.title = "Blackjack Trainer"
+            // Only the first is personalized; later ones can't know the future streak.
+            content.body = i == 0 ? body(for: stats, firesToday: isToday) : genericBody
+            content.sound = .default
+            let parts = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+            let trigger = UNCalendarNotificationTrigger(dateMatching: parts, repeats: false)
+            center.add(UNNotificationRequest(identifier: allIdentifiers[i], content: content, trigger: trigger))
+        }
     }
+
+    /// The first fire date followed by 7pm on each of the next `followUpCount` days.
+    static func fireDates(first: Date, calendar: Calendar = .current) -> [Date] {
+        (0...followUpCount).compactMap { calendar.date(byAdding: .day, value: $0, to: first) }
+    }
+
+    private static let genericBody = "A few hands a day is how basic strategy sticks. Deal yourself in."
 
     /// The most motivating true thing we can say: a streak to protect beats a
     /// leak to fix beats a generic nudge.

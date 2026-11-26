@@ -28,4 +28,13 @@ struct ReminderSchedulerTests {
         #expect(cal.component(.day, from: fire) == 11)
         #expect(cal.component(.hour, from: fire) == 19)
     }
+
+    @Test func fireDatesCoverSevenConsecutiveSevenPMs() {
+        let first = ReminderScheduler.nextFireDate(now: date(10), goalMet: false, calendar: cal)!
+        let dates = ReminderScheduler.fireDates(first: first, calendar: cal)
+        #expect(dates.count == ReminderScheduler.followUpCount + 1)
+        #expect(dates.first == first)
+        #expect(dates.allSatisfy { cal.component(.hour, from: $0) == 19 })
+        #expect(cal.component(.day, from: dates.last!) == 16)
+    }
 }
