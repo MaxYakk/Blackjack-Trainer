@@ -85,7 +85,7 @@ struct ProgressTrends: View {
         let history = stats.data.bankrollHistory
         return Panel(spacing: Space.xs) {
             VStack(alignment: .leading, spacing: Space.xxs / 2) {
-                Text("Practice chip stack")
+                Text("Balance")
                     .font(.calloutText.weight(.semibold))
                     .foregroundStyle(.textPrimary)
                 Text("Just for fun. It is not a measure of skill.")
@@ -93,10 +93,10 @@ struct ProgressTrends: View {
                     .foregroundStyle(.textSecondary)
             }
             if history.count < 2 {
-                placeholder("Play a few hands to see your chip stack over time.")
+                placeholder("Play a few hands to see your balance over time.")
             } else {
                 Chart(Array(history.enumerated()), id: \.offset) { offset, value in
-                    LineMark(x: .value("Hand", offset), y: .value("Chips", value))
+                    LineMark(x: .value("Hand", offset), y: .value("Balance", value))
                         .foregroundStyle(Color.accent)
                         .interpolationMethod(.monotone)
                 }
@@ -121,10 +121,10 @@ struct ProgressTrends: View {
                     Text("Hands played").font(.fine).foregroundStyle(Color.textSecondary)
                 }
                 .chartYAxisLabel(position: .top, alignment: .leading) {
-                    Text("Chips").font(.fine).foregroundStyle(Color.textSecondary)
+                    Text("Balance").font(.fine).foregroundStyle(Color.textSecondary)
                 }
                 .frame(height: 160)
-                .accessibilityLabel("Practice chip stack over time")
+                .accessibilityLabel("Play money balance over time")
                 .accessibilityValue(TrendSummary.chips(history))
             }
         }

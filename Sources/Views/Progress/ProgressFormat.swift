@@ -60,6 +60,6 @@ enum TrendSummary {
         }
         let low = history.min() ?? last
         let high = history.max() ?? last
-        return "\(history.count) hands. Started at \(Money.wholeString(first)) chips, now \(Money.wholeString(last)). Low \(Money.wholeString(low)), high \(Money.wholeString(high))."
+        return "\(history.count) hands. Started at \(Money.wholeString(first)), now \(Money.wholeString(last)). Low \(Money.wholeString(low)), high \(Money.wholeString(high))."
     }
 }

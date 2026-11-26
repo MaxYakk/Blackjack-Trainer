@@ -35,7 +35,7 @@ struct SettingsView: View {
             }
         }
         .themedConfirm("Reset all progress?", isPresented: $showResetConfirm,
-                       message: "This erases your stats, accuracy history, achievements, streak and practice chips, and starts you fresh. It can't be undone.",
+                       message: "This erases your stats, accuracy history, achievements, streak and play money balance, and starts you fresh. It can't be undone.",
                        actions: [
                            .destructive("Reset everything") {
                                stats.resetAll()
@@ -136,7 +136,7 @@ struct SettingsView: View {
 
     private var dataSection: some View {
         SettingsSection(title: "Data",
-                        footer: "Erases all stats, history and practice chips on this device.") {
+                        footer: "Erases all stats, history and your play money balance on this device.") {
             Button(role: .destructive) {
                 showResetConfirm = true
             } label: {

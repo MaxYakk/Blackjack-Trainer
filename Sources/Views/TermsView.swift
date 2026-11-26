@@ -3,7 +3,7 @@ import SwiftUI
 /// Short, plain-language terms of service shown inside the app.
 struct TermsView: View {
     private let points: [(title: String, body: String)] = [
-        ("Play money only", "\(AppInfo.appName) is a training tool. It uses practice chips only: nothing can be bought, won or cashed out."),
+        ("Play money only", "\(AppInfo.appName) is a training tool. It uses play money only: nothing can be bought, won or cashed out."),
         ("Educational advice", "Strategy and counting advice is for learning. It does not guarantee any result at a real casino."),
         ("Provided as is", "The app is provided as is, without warranties of any kind."),
         ("Legal age", "If you ever play for real money, you must be of legal age to gamble where you live."),

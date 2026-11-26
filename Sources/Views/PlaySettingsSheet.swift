@@ -89,8 +89,8 @@ struct SettingsSheet: View {
 
     private var sessionSection: some View {
         Section {
-            readOnlyRow("Starting chips", Money.chips(engine.sessionBuyIn))
-            readOnlyRow("Chips now", Money.chips(engine.bankroll))
+            readOnlyRow("Starting money", Money.chips(engine.sessionBuyIn))
+            readOnlyRow("Balance now", Money.chips(engine.bankroll))
             // Read-only mid-session: the minimum is the unit every bet is
             // graded in, and raising it could instantly leave the player out
             // of chips. It's chosen at session start (SessionSetupView).
@@ -98,7 +98,7 @@ struct SettingsSheet: View {
         } header: {
             Text("Session")
         } footer: {
-            Text("Bet-sizing practice: keep bets at the table minimum when the true count is low, and raise them by about one unit per point once it reaches +2. To change starting chips or the minimum, use End session at the table and start a new session. \(PracticeNotice.line)")
+            Text("Bet-sizing practice: keep bets at the table minimum when the true count is low, and raise them by about one unit per point once it reaches +2. To change starting money or the minimum, use End session at the table and start a new session. \(PracticeNotice.line)")
         }
         .listRowBackground(Color.surface)
     }

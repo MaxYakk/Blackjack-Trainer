@@ -7,7 +7,7 @@ struct PrivacyPolicyView: View {
         ("No accounts", "There is nothing to sign up for or log in to."),
         ("No ads, no tracking", "The app has no advertising and no analytics or tracking of any kind."),
         ("No network requests", "The app never connects to the internet. Everything runs on your device."),
-        ("Your progress stays on your device", "Your stats, practice chips and settings are saved only on this device."),
+        ("Your progress stays on your device", "Your stats, play money balance and settings are saved only on this device."),
         ("Reminders are local", "The optional daily reminder is a notification scheduled on your device. Nothing is sent to us."),
         ("Deleting the app deletes the data", "If you delete \(AppInfo.appName), everything it saved goes with it."),
     ]
