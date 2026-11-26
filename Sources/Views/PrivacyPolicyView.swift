@@ -20,13 +20,13 @@ struct PrivacyPolicyView: View {
                         Text(point.title).font(.headline)
                         Text(point.body)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
+                            .foregroundStyle(.textSecondary)
                     }
                     .accessibilityElement(children: .combine)
                 }
                 Text(AppInfo.copyrightLine)
                     .font(.footnote)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()

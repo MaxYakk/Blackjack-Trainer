@@ -11,7 +11,7 @@ struct StrategyChartView: View {
                 VStack(alignment: .leading, spacing: 20) {
                     Text("6 decks, dealer stands soft 17, double after split allowed. H = Hit, S = Stand, D = Double (else Hit), Ds = Double (else Stand), P = Split. \"10\" covers 10/J/Q/K.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.textSecondary)
 
                     heatmapToggle
 
@@ -46,11 +46,11 @@ struct StrategyChartView: View {
             if showHeatmap {
                 Text("Each cell is colored by how you actually play it — green is solid, red is a leak, dark cells haven't been practiced yet.")
                     .font(.caption2)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             }
         }
         .padding(12)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     /// Red (0%) through amber to green (100%) on the hue wheel.
@@ -61,7 +61,7 @@ struct StrategyChartView: View {
     private func heatmapBackground(category: String, row: String, col: String) -> Color {
         let key = SpotID.key(category: category, row: row, dealerCol: col)
         guard let spot = stats.data.spots[key], spot.total > 0 else {
-            return Color.white.opacity(0.06)
+            return Color.surfaceSubtle
         }
         return heatColor(accuracy: spot.accuracy)
     }
@@ -71,7 +71,7 @@ struct StrategyChartView: View {
             Text("Count Deviations: Illustrious 18").font(.headline)
             Text("Once you've got basic strategy down, these are the most valuable plays that change with the true count (Hi Lo). Enable \"Count deviations\" in Play settings to be graded on them. Take insurance at true count +3 or higher.")
                 .font(.caption)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.textSecondary)
             VStack(spacing: 0) {
                 ForEach(Array(Deviations.illustrious.enumerated()), id: \.offset) { idx, dev in
                     HStack {
@@ -81,7 +81,7 @@ struct StrategyChartView: View {
                     }
                     .padding(.vertical, 7)
                     .padding(.horizontal, 10)
-                    .background(idx % 2 == 0 ? Color.black.opacity(0.15) : Color.clear)
+                    .background(idx % 2 == 0 ? Color.surfaceSubtle : Color.clear)
                 }
             }
             .clipShape(RoundedRectangle(cornerRadius: 10))
@@ -114,7 +114,7 @@ struct StrategyChartView: View {
             }
             Text("Columns = dealer's up card")
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(.textSecondary)
         }
     }
 
@@ -122,7 +122,7 @@ struct StrategyChartView: View {
         Text(text)
             .font(.caption2.weight(.bold))
             .frame(width: 30, height: 26)
-            .background(Color(red: 0.05, green: 0.25, blue: 0.17))
+            .background(Color.surfaceRaised)
             .foregroundStyle(Theme.accent)
     }
 
@@ -133,18 +133,11 @@ struct StrategyChartView: View {
             .background(showHeatmap
                         ? heatmapBackground(category: category, row: row, col: col)
                         : color(for: action))
-            .foregroundStyle(.white)
+            .foregroundStyle(ChartColors.text)
     }
 
     private func color(for action: String) -> Color {
-        switch action {
-        case "H": return Color(red: 0.50, green: 0.18, blue: 0.12)
-        case "S": return Color(red: 0.12, green: 0.36, blue: 0.20)
-        case "D": return Color(red: 0.12, green: 0.29, blue: 0.50)
-        case "Ds": return Color(red: 0.18, green: 0.42, blue: 0.62)
-        case "P": return Color(red: 0.50, green: 0.42, blue: 0.12)
-        default: return .gray
-        }
+        ChartColors.fill(for: action)
     }
 }
 

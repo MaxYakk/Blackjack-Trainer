@@ -27,7 +27,7 @@ struct AchievementsSection: View {
                 Text("Achievements").font(.headline)
                 Text("\(unlocked.count) of \(total) unlocked")
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                 HStack(spacing: 10) {
                     tierTally(.gold, count: unlocked.filter { $0.tier == .gold }.count)
                     tierTally(.silver, count: unlocked.filter { $0.tier == .silver }.count)
@@ -37,20 +37,16 @@ struct AchievementsSection: View {
             Spacer()
         }
         .padding(12)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func completionRing(fraction: Double) -> some View {
         ZStack {
             Circle()
-                .stroke(Color.black.opacity(0.4), lineWidth: 6)
+                .stroke(Color.surfaceRaised, lineWidth: 6)
             Circle()
                 .trim(from: 0, to: fraction)
-                .stroke(
-                    AngularGradient(colors: [Theme.accent, .orange, Theme.accent],
-                                    center: .center),
-                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
-                )
+                .stroke(Theme.accent, style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 .rotationEffect(.degrees(-90))
             Text("\(Int(fraction * 100))%")
                 .font(.system(size: 14, weight: .heavy, design: .rounded))
@@ -62,10 +58,10 @@ struct AchievementsSection: View {
 
     private func tierTally(_ tier: Achievement.Tier, count: Int) -> some View {
         HStack(spacing: 3) {
-            Circle().fill(tierGradient(tier)).frame(width: 9, height: 9)
+            Circle().fill(tierColor(tier)).frame(width: 9, height: 9)
             Text("\(count)")
                 .font(.caption2.weight(.bold))
-                .foregroundStyle(count > 0 ? .primary : .secondary)
+                .foregroundStyle(count > 0 ? Color.textPrimary : Color.textSecondary)
         }
     }
 
@@ -86,7 +82,7 @@ struct AchievementsSection: View {
                     HStack(spacing: 10) {
                         Image(systemName: a.icon)
                             .font(.subheadline)
-                            .foregroundStyle(tierGradient(a.tier))
+                            .foregroundStyle(tierColor(a.tier))
                             .frame(width: 24)
                         VStack(alignment: .leading, spacing: 3) {
                             HStack {
@@ -94,13 +90,13 @@ struct AchievementsSection: View {
                                 Spacer()
                                 Text(a.progressText)
                                     .font(.caption2.weight(.bold))
-                                    .foregroundStyle(.secondary)
+                                    .foregroundStyle(.textSecondary)
                             }
                             GeometryReader { geo in
                                 ZStack(alignment: .leading) {
-                                    Capsule().fill(Color.black.opacity(0.4))
+                                    Capsule().fill(Color.surfaceRaised)
                                     Capsule()
-                                        .fill(tierGradient(a.tier))
+                                        .fill(tierColor(a.tier))
                                         .frame(width: max(geo.size.width * a.progress, 6))
                                 }
                             }
@@ -110,7 +106,7 @@ struct AchievementsSection: View {
                 }
             }
             .padding(12)
-            .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
         }
     }
 
@@ -121,12 +117,12 @@ struct AchievementsSection: View {
             HStack {
                 Text(category.uppercased())
                     .font(.caption2.weight(.heavy))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
                     .kerning(1)
                 Spacer()
                 Text("\(items.filter(\.unlocked).count)/\(items.count)")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.textSecondary)
             }
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
                 ForEach(items) { AchievementCard(achievement: $0) }
@@ -145,57 +141,57 @@ private struct AchievementCard: View {
             HStack {
                 Image(systemName: achievement.icon)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(achievement.unlocked ? .white : .secondary)
+                    .foregroundStyle(achievement.unlocked ? Color.onTier : Color.textSecondary)
                     .frame(width: 30, height: 30)
                     .background(
                         Circle().fill(achievement.unlocked
-                                      ? AnyShapeStyle(Color.white.opacity(0.22))
-                                      : AnyShapeStyle(Color.black.opacity(0.3)))
+                                      ? Color.onTier.opacity(0.12)
+                                      : Color.surfaceRaised)
                     )
                 Spacer()
                 if achievement.unlocked {
                     Image(systemName: "checkmark.seal.fill")
                         .font(.caption)
-                        .foregroundStyle(.white.opacity(0.9))
+                        .foregroundStyle(Color.onTier)
                 } else {
                     Image(systemName: "lock.fill")
                         .font(.caption2)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.textSecondary)
                 }
             }
             Text(achievement.title)
                 .font(.caption.weight(.bold))
-                .foregroundStyle(achievement.unlocked ? .white : .primary)
+                .foregroundStyle(achievement.unlocked ? Color.onTier : Color.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.8)
             Text(achievement.detail)
-                .font(.system(size: 9.5))
-                .foregroundStyle(achievement.unlocked ? .white.opacity(0.85) : .secondary)
+                .font(.fine)
+                .foregroundStyle(achievement.unlocked ? Color.onTier : Color.textSecondary)
                 .lineLimit(2, reservesSpace: true)
 
             if achievement.unlocked {
                 Text(achievement.tier.name.uppercased())
-                    .font(.system(size: 8, weight: .heavy))
+                    .font(.overline)
                     .kerning(0.8)
-                    .foregroundStyle(.white.opacity(0.9))
+                    .foregroundStyle(Color.onTier)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.black.opacity(0.25), in: Capsule())
+                    .background(Color.onTier.opacity(0.12), in: Capsule())
             } else {
                 VStack(alignment: .leading, spacing: 3) {
                     GeometryReader { geo in
                         ZStack(alignment: .leading) {
-                            Capsule().fill(Color.black.opacity(0.4))
+                            Capsule().fill(Color.surfaceRaised)
                             Capsule()
-                                .fill(tierGradient(achievement.tier))
+                                .fill(tierColor(achievement.tier))
                                 .frame(width: max(geo.size.width * achievement.progress,
                                                   achievement.progress > 0 ? 5 : 0))
                         }
                     }
                     .frame(height: 4)
                     Text(achievement.progressText)
-                        .font(.system(size: 8.5, weight: .semibold))
-                        .foregroundStyle(.secondary)
+                        .font(.fine.weight(.semibold))
+                        .foregroundStyle(.textSecondary)
                 }
             }
         }
@@ -204,37 +200,30 @@ private struct AchievementCard: View {
         .background(
             Group {
                 if achievement.unlocked {
-                    RoundedRectangle(cornerRadius: 12).fill(tierGradient(achievement.tier))
+                    RoundedRectangle(cornerRadius: 12).fill(tierColor(achievement.tier))
                 } else {
-                    RoundedRectangle(cornerRadius: 12).fill(Color.black.opacity(0.18))
+                    RoundedRectangle(cornerRadius: 12).fill(Color.surface)
                 }
             }
         )
         .overlay(
             RoundedRectangle(cornerRadius: 12)
                 .strokeBorder(achievement.unlocked
-                              ? Color.white.opacity(0.25)
-                              : Color.white.opacity(0.05),
+                              ? Color.clear
+                              : Color.divider,
                               lineWidth: 1)
         )
-        .shadow(color: achievement.unlocked && achievement.tier == .gold
-                ? Color.yellow.opacity(0.35) : .clear,
-                radius: 6)
         .opacity(achievement.unlocked || achievement.progress > 0 ? 1 : 0.75)
     }
 }
 
 // MARK: - Tier colors
 
-private func tierGradient(_ tier: Achievement.Tier) -> LinearGradient {
-    let colors: [Color]
+/// Flat tier metal. Text on it uses `onTier`.
+private func tierColor(_ tier: Achievement.Tier) -> Color {
     switch tier {
-    case .bronze:
-        colors = [Color(red: 0.72, green: 0.44, blue: 0.20), Color(red: 0.48, green: 0.28, blue: 0.13)]
-    case .silver:
-        colors = [Color(red: 0.68, green: 0.72, blue: 0.78), Color(red: 0.42, green: 0.46, blue: 0.54)]
-    case .gold:
-        colors = [Color(red: 0.98, green: 0.78, blue: 0.18), Color(red: 0.72, green: 0.50, blue: 0.05)]
+    case .bronze: return .tierBronze
+    case .silver: return .tierSilver
+    case .gold: return .tierGold
     }
-    return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
 }

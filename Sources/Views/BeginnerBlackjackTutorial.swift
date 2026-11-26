@@ -9,12 +9,8 @@ struct BeginnerBlackjackTutorial: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                LinearGradient(
-                    colors: [Theme.feltDark, Theme.felt],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-                .ignoresSafeArea()
+                Color.bg
+                    .ignoresSafeArea()
 
                 VStack(spacing: 0) {
                     HStack {
@@ -24,7 +20,7 @@ struct BeginnerBlackjackTutorial: View {
                             .foregroundStyle(Theme.accent)
                         Spacer()
                         Button("Close") { dismiss() }
-                            .foregroundStyle(.white.opacity(0.82))
+                            .foregroundStyle(Color.textSecondary)
                             .accessibilityIdentifier("tutorialClose")
                     }
                     .padding(.horizontal, 24)
@@ -40,7 +36,7 @@ struct BeginnerBlackjackTutorial: View {
                     HStack(spacing: 7) {
                         ForEach(pages.indices, id: \.self) { index in
                             Capsule()
-                                .fill(index == currentPage ? Theme.accent : Color.white.opacity(0.28))
+                                .fill(index == currentPage ? Theme.accent : Color.textTertiary)
                                 .frame(width: index == currentPage ? 22 : 7, height: 7)
                         }
                     }
@@ -52,7 +48,7 @@ struct BeginnerBlackjackTutorial: View {
                             Image(systemName: currentPage == pages.count - 1 ? "suit.spade.fill" : "arrow.right")
                         }
                         .font(.headline.weight(.bold))
-                        .foregroundStyle(Theme.cardBlack)
+                        .foregroundStyle(Color.onAccent)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 16)
                         .background(Theme.accent, in: Capsule())
@@ -93,11 +89,11 @@ private struct TutorialPageContent: View {
                 VStack(spacing: 10) {
                     Text(page.title)
                         .font(.system(size: 27, weight: .bold, design: .rounded))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(.textPrimary)
                         .multilineTextAlignment(.center)
                     Text(page.summary)
                         .font(.body)
-                        .foregroundStyle(.white.opacity(0.76))
+                        .foregroundStyle(Color.textSecondary)
                         .multilineTextAlignment(.center)
                 }
 
@@ -111,17 +107,17 @@ private struct TutorialPageContent: View {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(point.title)
                                     .font(.subheadline.weight(.bold))
-                                    .foregroundStyle(.white)
+                                    .foregroundStyle(.textPrimary)
                                 Text(point.detail)
                                     .font(.subheadline)
-                                    .foregroundStyle(.white.opacity(0.72))
+                                    .foregroundStyle(Color.textSecondary)
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
                     }
                 }
                 .padding(18)
-                .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+                .background(Color.surface, in: RoundedRectangle(cornerRadius: 18))
             }
             .padding(.horizontal, 24)
             .padding(.vertical, 20)

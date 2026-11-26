@@ -86,7 +86,7 @@ private struct CustomTabBar: View {
                         Text(tab.title)
                             .font(.caption2)
                     }
-                    .foregroundStyle(selection == tab ? Theme.accent : Color.secondary)
+                    .foregroundStyle(selection == tab ? Theme.accent : Color.textSecondary)
                     .frame(maxWidth: .infinity)
                     .contentShape(Rectangle())
                 }

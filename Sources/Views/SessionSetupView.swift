@@ -29,7 +29,7 @@ struct SessionSetupView: View {
 
     var body: some View {
         ZStack {
-            LinearGradient(colors: [Theme.felt, Theme.feltDark], startPoint: .top, endPoint: .bottom)
+            Color.bg
                 .ignoresSafeArea()
             VStack(spacing: 0) {
                 PageHeader("Hit Me", titleFont: .title3.weight(.bold))
@@ -44,14 +44,14 @@ struct SessionSetupView: View {
                             startButton
                             Text(PracticeNotice.line)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(.white.opacity(0.7))
+                                .foregroundStyle(Color.textSecondary)
                                 .accessibilityIdentifier("practiceNotice")
                             Text("Tap the starting chips or minimum bet to type your own amount.")
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(Color.textTertiary)
                             Text("Play until you end the session or run out of chips.")
                                 .font(.caption)
-                                .foregroundStyle(.white.opacity(0.55))
+                                .foregroundStyle(Color.textTertiary)
                         }
                         .padding(.horizontal)
                         .padding(.vertical, 24)
@@ -112,15 +112,15 @@ struct SessionSetupView: View {
                 }
             }
             .padding(6)
-            .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 10))
+            .background(Color.surfaceSubtle, in: RoundedRectangle(cornerRadius: 10))
             .overlay {
-                RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.12))
+                RoundedRectangle(cornerRadius: 10).strokeBorder(Color.divider)
             }
         }
         .padding(16)
-        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay {
-            RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.1))
+            RoundedRectangle(cornerRadius: 16).strokeBorder(Color.divider)
         }
     }
 
@@ -133,7 +133,7 @@ struct SessionSetupView: View {
                 HStack {
                     Text("Minimum bet")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Color.textPrimary)
                     Spacer()
                 }
                 HStack(spacing: 14) {
@@ -165,16 +165,16 @@ struct SessionSetupView: View {
                     }
                 }
                 .padding(6)
-                .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 10))
+                .background(Color.surfaceSubtle, in: RoundedRectangle(cornerRadius: 10))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 10).strokeBorder(Color.white.opacity(0.12))
+                    RoundedRectangle(cornerRadius: 10).strokeBorder(Color.divider)
                 }
             }
             VStack(spacing: 10) {
                 HStack {
                     Text("Hands per round")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Color.textPrimary)
                     Spacer()
                 }
                 Picker("Hands per round", selection: $hands) {
@@ -186,7 +186,7 @@ struct SessionSetupView: View {
                 HStack {
                     Text("Decks")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Color.textPrimary)
                     Spacer()
                     Picker("Decks", selection: $engine.numDecks) {
                         ForEach(PlayEngine.allowedDeckCounts, id: \.self) { Text("\($0)").tag($0) }
@@ -198,7 +198,7 @@ struct SessionSetupView: View {
                 HStack {
                     Text("Dealer")
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Color.textPrimary)
                     Spacer()
                     Picker("Dealer", selection: $engine.dealerHitsSoft17) {
                         Text("Stands soft 17").tag(false)
@@ -211,9 +211,9 @@ struct SessionSetupView: View {
             }
         }
         .padding(16)
-        .background(Color.black.opacity(0.22), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay {
-            RoundedRectangle(cornerRadius: 16).strokeBorder(Color.white.opacity(0.1))
+            RoundedRectangle(cornerRadius: 16).strokeBorder(Color.divider)
         }
     }
 
@@ -271,8 +271,8 @@ struct SessionSetupView: View {
             Image(systemName: systemImage)
                 .font(.headline.weight(.bold))
                 .frame(width: 44, height: 44)
-                .foregroundStyle(disabled ? Color.white.opacity(0.2) : Theme.accent)
-                .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 8))
+                .foregroundStyle(disabled ? Color.disabledText : Theme.accent)
+                .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
         .disabled(disabled)
@@ -289,10 +289,10 @@ struct SessionSetupView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 14)
                 .background(
-                    buyIn >= minimum ? Theme.accent : Color.gray.opacity(0.4),
+                    buyIn >= minimum ? Theme.accent : Color.disabledFill,
                     in: RoundedRectangle(cornerRadius: 12)
                 )
-                .foregroundStyle(.black)
+                .foregroundStyle(buyIn >= minimum ? Color.onAccent : Color.disabledText)
         }
         .disabled(buyIn < minimum)
         .accessibilityIdentifier("startSessionButton")
@@ -302,7 +302,7 @@ struct SessionSetupView: View {
         Text(text)
             .font(.caption.weight(.heavy))
             .tracking(2.2)
-            .foregroundStyle(.white.opacity(0.55))
+            .foregroundStyle(Color.textTertiary)
             .frame(maxWidth: .infinity, alignment: .leading)
     }
 
@@ -323,7 +323,7 @@ private struct SessionReceiptCard: View {
     private var netColor: Color {
         if summary.net > 0.005 { return Theme.good }
         if summary.net < -0.005 { return Theme.bad }
-        return .white
+        return .textPrimary
     }
 
     var body: some View {
@@ -337,7 +337,7 @@ private struct SessionReceiptCard: View {
                 .foregroundStyle(netColor)
             Text("Started with \(Money.chips(summary.buyIn)), finished with \(Money.chips(summary.cashedOut))")
                 .font(.footnote)
-                .foregroundStyle(.white.opacity(0.75))
+                .foregroundStyle(Color.textSecondary)
             HStack(spacing: 0) {
                 receiptStat("\(summary.rounds)", summary.rounds == 1 ? "round" : "rounds")
                 receiptDivider
@@ -353,7 +353,7 @@ private struct SessionReceiptCard: View {
         }
         .frame(maxWidth: .infinity)
         .padding(16)
-        .background(Color.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 16))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 16))
         .overlay {
             RoundedRectangle(cornerRadius: 16)
                 .strokeBorder(headlineColor.opacity(0.45), lineWidth: 1.2)
@@ -364,7 +364,7 @@ private struct SessionReceiptCard: View {
 
     private var receiptDivider: some View {
         Rectangle()
-            .fill(Color.white.opacity(0.15))
+            .fill(Color.divider)
             .frame(width: 1, height: 26)
     }
 
@@ -372,12 +372,14 @@ private struct SessionReceiptCard: View {
         VStack(spacing: 2) {
             Text(value)
                 .font(.footnote.weight(.bold))
-                .foregroundStyle(.white)
+                .foregroundStyle(.textPrimary)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
             Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.55))
+                .font(.fine)
+                .foregroundStyle(Color.textTertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity)
     }

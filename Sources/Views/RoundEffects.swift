@@ -40,9 +40,11 @@ struct HoleCardView: View {
         ZStack {
             CardView(card: card, faceDown: false, size: size)
                 .opacity(faceDown ? 0 : 1)
+                .accessibilityHidden(faceDown)
                 .rotation3DEffect(.degrees(faceDown ? 180 : 0), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
             CardView(card: card, faceDown: true, size: size)
                 .opacity(faceDown ? 1 : 0)
+                .accessibilityHidden(!faceDown)
                 .rotation3DEffect(.degrees(faceDown ? 0 : -180), axis: (x: 0, y: 1, z: 0), perspective: 0.4)
         }
         .animation(reduceMotion ? nil : .easeInOut(duration: 0.45), value: faceDown)
@@ -74,7 +76,7 @@ struct ResultStamp: View {
         switch result {
         case .win: return Theme.good
         case .blackjack: return Theme.accent
-        case .push: return .white.opacity(0.85)
+        case .push: return Color.textPrimary
         case .lose, .bust, .dealerBlackjack: return Theme.bad
         }
     }
@@ -88,13 +90,13 @@ struct ResultStamp: View {
             .foregroundStyle(color)
             .padding(.horizontal, 8)
             .padding(.vertical, 3)
-            .background(Color.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 5))
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 5))
             .overlay {
                 RoundedRectangle(cornerRadius: 5)
                     .strokeBorder(color.opacity(0.9), lineWidth: 2)
             }
             .rotationEffect(.degrees(-9))
-            .shadow(color: .black.opacity(0.5), radius: 4, y: 2)
+            .shadow(color: .shadowColor, radius: 4, y: 2)
             .scaleEffect(shown ? 1 : 2.6)
             .opacity(shown ? 1 : 0)
             .allowsHitTesting(false)
@@ -204,18 +206,6 @@ struct WinOverlayView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var appeared = false
 
-    private var goldGradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                Color(red: 1.0, green: 0.93, blue: 0.6),
-                Theme.accent,
-                Color(red: 0.82, green: 0.6, blue: 0.1)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
     var body: some View {
         VStack(spacing: 8) {
             Text(blackjack ? "BLACKJACK" : "HAND WON")
@@ -223,31 +213,20 @@ struct WinOverlayView: View {
                 .tracking(3)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
-                .foregroundStyle(goldGradient)
-                .shadow(color: Theme.accent.opacity(0.55), radius: 16)
-                .shadow(color: .black.opacity(0.65), radius: 3, y: 2)
+                .foregroundStyle(Theme.accent)
             Text(Money.signedChips(amount))
                 .monospacedDigit()
                 .font(.system(size: 30, weight: .heavy, design: .rounded))
-                .foregroundStyle(.white)
-                .shadow(color: .black.opacity(0.55), radius: 4, y: 2)
+                .foregroundStyle(.textPrimary)
             if !detail.isEmpty {
                 Text(detail)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .shadow(color: .black.opacity(0.5), radius: 3, y: 1)
+                    .foregroundStyle(Color.textPrimary)
             }
         }
         .padding(.horizontal, 34)
         .padding(.vertical, 26)
-        .background {
-            RadialGradient(
-                colors: [Color.black.opacity(0.62), Color.black.opacity(0.3), .clear],
-                center: .center,
-                startRadius: 30,
-                endRadius: 230
-            )
-        }
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .scaleEffect(appeared ? 1 : 0.55)
         .opacity(appeared ? 1 : 0)
         .allowsHitTesting(false)
@@ -290,10 +269,10 @@ struct EndSessionConfirmCard: View {
                 Text("END SESSION?")
                     .font(.system(size: 19, weight: .black, design: .rounded))
                     .tracking(2.2)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(.textPrimary)
                 Text("Finish with \(amount)")
                     .font(.subheadline)
-                    .foregroundStyle(.white.opacity(0.7))
+                    .foregroundStyle(Color.textSecondary)
             }
             VStack(spacing: 10) {
                 Button(action: onConfirm) {
@@ -302,31 +281,25 @@ struct EndSessionConfirmCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 13)
                         .background(Theme.accent, in: RoundedRectangle(cornerRadius: 12))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(.onAccent)
                 }
                 Button(action: onCancel) {
                     Text("Keep Playing")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundStyle(.white.opacity(0.85))
+                        .foregroundStyle(Color.textPrimary)
                 }
             }
         }
         .padding(24)
         .frame(maxWidth: 320)
-        .background(
-            LinearGradient(
-                colors: [Color(red: 0.08, green: 0.17, blue: 0.11), Color(red: 0.05, green: 0.11, blue: 0.08)],
-                startPoint: .top, endPoint: .bottom
-            ),
-            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
-        )
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .strokeBorder(Theme.accent.opacity(0.5), lineWidth: 1.2)
+                .strokeBorder(Color.divider, lineWidth: 1)
         }
-        .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
+        .shadow(color: .shadowColor, radius: 24, y: 10)
         .scaleEffect(appeared ? 1 : 0.9)
         .opacity(appeared ? 1 : 0)
         .accessibilityIdentifier("cashOutConfirmCard")
@@ -378,11 +351,11 @@ struct ConfettiBurstView: View {
     private let pieces: [ConfettiPiece]
 
     private static let palette: [Color] = [
-        Theme.accent,
-        Theme.accent,
-        Color(red: 1.0, green: 0.93, blue: 0.6),
-        .white,
-        Theme.mint
+        Color.accent,
+        Color.accent,
+        Color.warm,
+        Color.textPrimary,
+        Color.warning
     ]
 
     init(seed: Int) {
@@ -428,7 +401,7 @@ struct ConfettiBurstView: View {
                         ctx.fill(Path(ellipseIn: rect), with: .color(piece.color))
                         ctx.stroke(
                             Path(ellipseIn: rect.insetBy(dx: r * 0.3, dy: r * 0.3)),
-                            with: .color(.white.opacity(0.8)),
+                            with: .color(Color.textPrimary.opacity(0.8)),
                             lineWidth: 1
                         )
                     } else {

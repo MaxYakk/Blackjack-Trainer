@@ -4,50 +4,27 @@ import SwiftUI
 // insurance, count checks, and going broke — plus the shared button styles.
 // Split out of PlayView so the table-layout file stays readable.
 
-/// Primary felt-green action button (Hit / Stand / Double / Split, insurance).
+/// A table choice tile (insurance Yes/No). Same look as the `DecisionPad` keys.
 struct TableActionButton: View {
     let title: String
     var enabled = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(enabled ? Theme.felt : Color.gray.opacity(0.25),
-                            in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .gray)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.white.opacity(enabled ? 0.18 : 0), lineWidth: 1)
-                )
-        }
-        .disabled(!enabled)
+        DecisionButton(title: title, enabled: enabled, action: action)
     }
 }
 
-/// Low-emphasis dark button (Clear / Repeat).
+/// Low-emphasis button (Clear / Repeat): the shared compact secondary style.
 struct TableSecondaryButton: View {
     let title: String
     var enabled = true
     let action: () -> Void
 
     var body: some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .white.opacity(0.35))
-        }
-        .disabled(!enabled)
+        Button(action: action) { Text(title) }
+            .buttonStyle(.secondaryCompact)
+            .disabled(!enabled)
     }
 }
 
@@ -61,7 +38,7 @@ struct BettingControlsView: View {
             HStack(spacing: 10) {
                 Text("Hands")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
+                    .foregroundStyle(Color.textPrimary)
                 Picker("Hands", selection: $engine.numHands) {
                     ForEach(1...3, id: \.self) { Text("\($0)").tag($0) }
                 }
@@ -77,7 +54,7 @@ struct BettingControlsView: View {
             if engine.numHands > 1 {
                 Text("Tap a spot above, then tap chips to set its bet")
                     .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.55))
+                    .foregroundStyle(Color.textTertiary)
             }
             // Chip tray
             HStack(spacing: 10) {
@@ -102,15 +79,15 @@ struct BettingControlsView: View {
                         .font(.headline)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .background(engine.canDeal ? Theme.accent : Color.gray.opacity(0.4),
+                        .background(engine.canDeal ? Theme.accent : Color.disabledFill,
                                     in: RoundedRectangle(cornerRadius: 10))
-                        .foregroundStyle(.black)
+                        .foregroundStyle(engine.canDeal ? Color.onAccent : Color.disabledText)
                 }
                 .disabled(!engine.canDeal)
             }
             Text("Table minimum \(Money.chips(engine.tableMinimum))")
                 .font(.caption2)
-                .foregroundStyle(.white.opacity(0.55))
+                .foregroundStyle(Color.textTertiary)
         }
         .padding(.horizontal)
         .padding(.bottom, 6)
@@ -125,10 +102,10 @@ struct InsuranceControlsView: View {
         VStack(spacing: 12) {
             Text("Insurance?")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(.textPrimary)
             Text("The dealer shows an ace. Insurance costs \(Money.chips(engine.insuranceCost)) and pays 2 to 1 if the dealer has blackjack.")
                 .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
+                .foregroundStyle(Color.textSecondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 10) {
@@ -139,7 +116,7 @@ struct InsuranceControlsView: View {
             }
         }
         .padding()
-        .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
         .padding(.bottom, 6)
     }
@@ -153,7 +130,7 @@ struct CountCheckControlsView: View {
         VStack(spacing: 12) {
             Text("What's the running count?")
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(.textPrimary)
             Stepper(value: $engine.countGuess, in: -60...60) {
                 HStack {
                     Text("Your count")
@@ -172,11 +149,11 @@ struct CountCheckControlsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 12)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.onAccent)
             }
         }
         .padding()
-        .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
+        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
         .padding(.horizontal)
         .padding(.bottom, 6)
     }
@@ -196,11 +173,11 @@ struct FeltedControlsView: View {
                     .foregroundStyle(Theme.bad)
                 Text("You're out of practice chips. Start a fresh session.")
                     .font(.footnote)
-                    .foregroundStyle(.white.opacity(0.75))
+                    .foregroundStyle(Color.textSecondary)
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, 14)
-            .background(Color.black.opacity(0.3), in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.surface, in: RoundedRectangle(cornerRadius: 14))
             .overlay {
                 RoundedRectangle(cornerRadius: 14)
                     .strokeBorder(Theme.bad.opacity(0.5), lineWidth: 1.2)
@@ -213,7 +190,7 @@ struct FeltedControlsView: View {
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 13)
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 11))
-                    .foregroundStyle(.black)
+                    .foregroundStyle(.onAccent)
             }
             .accessibilityIdentifier("newBuyInButton")
         }
