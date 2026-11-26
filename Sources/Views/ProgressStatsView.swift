@@ -3,14 +3,14 @@ import Charts
 
 struct ProgressStatsView: View {
     @Environment(Stats.self) private var stats
-    @State private var showResetConfirm = false
-    @AppStorage(ReminderScheduler.enabledKey) private var reminderEnabled = false
-    @State private var reminderDenied = false
+    @State private var showSettings = false
     @State private var showMistakeReview = false
 
     var body: some View {
         VStack(spacing: 0) {
-            PageHeader("Progress")
+            PageHeader("Progress") {
+                SettingsGearButton { showSettings = true }
+            }
             ScrollView {
                 VStack(spacing: 18) {
                     snapshotSection
@@ -26,13 +26,14 @@ struct ProgressStatsView: View {
                     handsSection
                     countingSection
                     AchievementsSection()
-                    reminderSection
-                    resetButton
                 }
                 .padding()
             }
         }
         .background(Theme.feltDark.ignoresSafeArea())
+        .sheet(isPresented: $showSettings) {
+            SettingsView()
+        }
         .sheet(isPresented: $showMistakeReview) {
             MistakeReviewView(mistakes: stats.recurringMistakes)
         }
@@ -49,7 +50,9 @@ struct ProgressStatsView: View {
                 StatTile(label: "Hands played", value: "\(stats.data.handsPlayed)", tint: Theme.mint)
             }
             HStack(spacing: 10) {
-                StatTile(label: "Win rate", value: winRateText, tint: Theme.good)
+                StatTile(label: "Bet accuracy",
+                         value: stats.data.betDecisions == 0 ? "N/A" : "\(Int(stats.betAccuracy * 100))%",
+                         tint: Theme.good)
                 StatTile(label: "Streak",
                          value: stats.dailyStreak == 1 ? "1 day" : "\(stats.dailyStreak) days",
                          tint: stats.dailyStreak > 0 ? Theme.accent : .secondary)
@@ -151,58 +154,6 @@ struct ProgressStatsView: View {
         return acc >= 0.9 ? Theme.good : acc >= 0.7 ? Theme.accent : Theme.bad
     }
 
-    // MARK: - Daily reminder
-
-    private var reminderSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Toggle(isOn: reminderBinding) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Daily reminder")
-                        .font(.subheadline.weight(.semibold))
-                    Text("One evening nudge, personalized to your streak and weakest spot.")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .tint(Theme.accent)
-            if reminderDenied {
-                Text("Notifications are off for this app — enable them in Settings to use reminders.")
-                    .font(.caption2)
-                    .foregroundStyle(Theme.bad)
-            }
-        }
-        .padding(12)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
-        .onAppear {
-            // The OS permission can be revoked in Settings after the toggle
-            // was turned on — surface that instead of a silently dead toggle.
-            if reminderEnabled {
-                ReminderScheduler.checkAuthorization { authorized in
-                    reminderDenied = !authorized
-                }
-            }
-        }
-    }
-
-    private var reminderBinding: Binding<Bool> {
-        Binding(
-            get: { reminderEnabled },
-            set: { wantsOn in
-                if wantsOn {
-                    reminderEnabled = true
-                    ReminderScheduler.enable(stats: stats) { granted in
-                        reminderDenied = !granted
-                        if !granted { reminderEnabled = false }
-                    }
-                } else {
-                    reminderEnabled = false
-                    reminderDenied = false
-                    ReminderScheduler.disable()
-                }
-            }
-        )
-    }
-
     // MARK: - Daily goal & streak
 
     private var dailyGoalSection: some View {
@@ -263,7 +214,7 @@ struct ProgressStatsView: View {
                     ForEach(Array(leaks.enumerated()), id: \.element.key) { idx, leak in
                         HStack(spacing: 10) {
                             Text("\(Int(leak.stat.accuracy * 100))%")
-                                .font(.system(size: 15, weight: .bold, design: .rounded))
+                                .font(.system(.subheadline, design: .rounded).weight(.bold))
                                 .foregroundStyle(leak.stat.accuracy < 0.5 ? Theme.bad : .orange)
                                 .frame(width: 44, alignment: .leading)
                             VStack(alignment: .leading, spacing: 1) {
@@ -365,20 +316,20 @@ struct ProgressStatsView: View {
 
     private var bankrollChart: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Bankroll").font(.headline)
+            Text("Chip stack").font(.headline)
             let history = stats.data.bankrollHistory
             if history.count < 2 {
-                Text("Play a few hands to see your bankroll curve.")
+                Text("Play a few hands to see your chip stack over time.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, minHeight: 100)
                     .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
             } else {
                 Chart(Array(history.enumerated()), id: \.offset) { idx, value in
-                    LineMark(x: .value("Hand", idx), y: .value("Bankroll", value))
+                    LineMark(x: .value("Hand", idx), y: .value("Chip stack", value))
                         .foregroundStyle(Theme.accent)
                         .interpolationMethod(.monotone)
-                    AreaMark(x: .value("Hand", idx), y: .value("Bankroll", value))
+                    AreaMark(x: .value("Hand", idx), y: .value("Chip stack", value))
                         .foregroundStyle(LinearGradient(colors: [Theme.accent.opacity(0.3), .clear],
                                                         startPoint: .top, endPoint: .bottom))
                         .interpolationMethod(.monotone)
@@ -394,7 +345,7 @@ struct ProgressStatsView: View {
         VStack(alignment: .leading, spacing: 10) {
             Text("Bet Sizing").font(.headline)
             HStack(spacing: 10) {
-                StatTile(label: "Bankroll", value: Money.wholeString(stats.data.bankroll), tint: Theme.accent)
+                StatTile(label: "Chip stack", value: Money.wholeString(stats.data.bankroll), tint: Theme.accent)
                 StatTile(label: "Bets graded", value: "\(stats.data.betDecisions)")
                 StatTile(label: "Bet accuracy",
                          value: stats.data.betDecisions == 0 ? "N/A" : "\(Int(stats.betAccuracy * 100))%",
@@ -441,22 +392,6 @@ struct ProgressStatsView: View {
                          tint: Theme.good)
                 StatTile(label: "Checks right", value: "\(stats.data.countChecksCorrect)")
             }
-        }
-    }
-
-    private var resetButton: some View {
-        Button(role: .destructive) {
-            showResetConfirm = true
-        } label: {
-            Text("Reset all progress")
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-        }
-        .confirmationDialog("Reset all progress?", isPresented: $showResetConfirm, titleVisibility: .visible) {
-            Button("Reset everything", role: .destructive) { stats.resetAll() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("This permanently clears all your stats and history.")
         }
     }
 }

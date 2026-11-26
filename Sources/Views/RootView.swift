@@ -29,6 +29,9 @@ enum Tab: Int, CaseIterable, Identifiable {
 struct RootView: View {
     @State private var selection: Tab = .play
     @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(Stats.self) private var stats
+    @State private var showLoadIssue = false
+    @State private var loadIssueChecked = false
 
     var body: some View {
         ZStack {
@@ -54,6 +57,17 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.25), value: hasCompletedOnboarding)
+        .onAppear {
+            // Once per launch: explain why stats look empty after an unreadable save.
+            guard !loadIssueChecked else { return }
+            loadIssueChecked = true
+            if stats.loadIssue == .unreadableSaveBackedUp { showLoadIssue = true }
+        }
+        .alert("Your progress couldn't be loaded", isPresented: $showLoadIssue) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("Your saved progress couldn't be read, so you're starting fresh. A backup of the old data was kept on this device.")
+        }
     }
 }
 
