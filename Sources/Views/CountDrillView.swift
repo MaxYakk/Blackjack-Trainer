@@ -75,7 +75,7 @@ private struct CountDrillContent: View {
             }
             Toggle("Show live count (hint)", isOn: $engine.showHint)
                 .tint(Theme.accent)
-            Toggle("Show Hi-Lo reference & tips", isOn: $showHints)
+            Toggle("Show Hi Lo reference and tips", isOn: $showHints)
                 .tint(Theme.accent)
         }
         .font(.subheadline)
@@ -116,7 +116,11 @@ private struct CountDrillContent: View {
             Button {
                 lastResultCorrect = nil
                 guess = 0
-                engine.start()
+                if engine.phase == .idle {
+                    engine.start()
+                } else {
+                    engine.reset()
+                }
             } label: {
                 Text(engine.phase == .idle ? "Start Drill" : "Restart Drill")
                     .font(.headline)
@@ -125,8 +129,7 @@ private struct CountDrillContent: View {
                     .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
                     .foregroundStyle(.black)
             }
-            .disabled(engine.phase == .running)
-            .opacity(engine.phase == .running ? 0.5 : 1)
+            .accessibilityIdentifier("countDrillControl")
         }
         .frame(maxWidth: .infinity)
         .padding()
@@ -177,17 +180,19 @@ private struct CountDrillContent: View {
 
     private var hiloReference: some View {
         HStack(spacing: 14) {
-            Text("Hi-Lo:")
-            Text("2–6 = +1").foregroundStyle(Theme.good)
-            Text("7–9 = 0").foregroundStyle(.secondary)
-            Text("10–A = −1").foregroundStyle(Theme.bad)
+            Text("Hi Lo:")
+            Text("2-6 = +1").foregroundStyle(Theme.good)
+            Text("7-9 = 0").foregroundStyle(.secondary)
+            Text("10-A = -1").foregroundStyle(Theme.bad)
         }
         .font(.caption)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
     }
 
     private var explainer: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Counting a multi-deck shoe")
+            Text("Counting a shoe with multiple decks")
                 .font(.subheadline.weight(.bold))
                 .foregroundStyle(Theme.accent)
             Text("The running count means less on its own once several decks are in play. Convert it to a true count for your real edge:")
@@ -196,7 +201,7 @@ private struct CountDrillContent: View {
                 .font(.caption.weight(.bold))
                 .padding(8)
                 .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 8))
-            Text("Estimate decks remaining by eye (nearest ½). Example: +6 running with 3 decks left in a 5-deck shoe → true count +2. Bet and deviate on the true count, not the raw running count.")
+            Text("Estimate the decks remaining by eye to the nearest half deck. For example, a running count of +6 with 3 decks left gives you a true count of +2. Base your bets and strategy changes on the true count, not the running count.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

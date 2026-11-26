@@ -16,16 +16,33 @@ enum HandResult: String, Equatable {
 enum GamePhase {
     case betting     // choosing chips
     case dealing     // cards being dealt (animated)
+    case insurance   // dealer shows an ace: take insurance?
     case countCheck  // "what's the running count?" before acting
     case playing     // player acting
     case dealer      // dealer drawing
     case done        // round settled
 }
 
+/// Receipt for a completed table session, shown on the buy-in screen.
+struct SessionSummary: Equatable {
+    let buyIn: Double
+    let cashedOut: Double
+    let rounds: Int
+    let peak: Double
+    let biggestWin: Double
+    let blackjacks: Int
+    let busted: Bool
+
+    var net: Double { cashedOut - buyIn }
+}
+
 struct PlayerHand: Identifiable {
     let id = UUID()
     var cards: [Card] = []
     var bet: Double = 0
+    /// Which betting spot this hand came from — split hands inherit it, so
+    /// the resplit cap can be enforced per spot rather than table-wide.
+    var spotIndex = 0
     var done = false
     var busted = false
     var isDoubled = false
@@ -34,6 +51,9 @@ struct PlayerHand: Identifiable {
     var result: HandResult?
 
     var value: HandValue { evaluate(cards) }
+
+    /// A natural: 21 on the first two cards of an original (unsplit) hand.
+    var isBlackjack: Bool { cards.count == 2 && !fromSplit && evaluate(cards).total == 21 }
 }
 
 enum Haptics {
@@ -61,11 +81,12 @@ final class PlayEngine {
     var numDecks = 6 { didSet { saveSettings() } }
     var dealerHitsSoft17 = false { didSet { saveSettings() } }
     var showCount = false { didSet { saveSettings() } }
+    var showHandTotals = true { didSet { saveSettings() } }   // off = count your own hands, like a real table
     var betHints = false { didSet { saveSettings() } }
     var useDeviations = false { didSet { saveSettings() } }
     var soundOn = true { didSet { Sound.enabled = soundOn; saveSettings() } }
     var askCountChecks = false { didSet { saveSettings() } }
-    var tableMinimum = 1.0 { didSet { saveSettings() } }
+    var tableMinimum = 5.0 { didSet { saveSettings() } }
     var numHands = 1 {                               // spots played each round (face control)
         didSet {
             saveSettings()
@@ -73,9 +94,24 @@ final class PlayEngine {
         }
     }
 
+    // Session lifecycle — play happens in buy-in sessions: pick a stack, play
+    // until you cash out or go broke, then start fresh at the buy-in screen.
+    private(set) var sessionActive = false
+    private(set) var sessionBuyIn = 0.0
+    private(set) var sessionRounds = 0
+    private(set) var sessionPeak = 0.0
+    private(set) var sessionBiggestWin = 0.0
+    private(set) var sessionBlackjacks = 0
+    /// Receipt from the last completed session. Deliberately not persisted, so
+    /// it only shows right after cashing out, not on every cold launch.
+    private(set) var lastSummary: SessionSummary?
+
     // Mid-hand count check
     var countGuess = 0
     private(set) var countCheckActual = 0
+
+    // Insurance side bet (offered when the dealer shows an ace)
+    private(set) var insuranceBet = 0.0
 
     // Table state
     private(set) var dealer: [Card] = []
@@ -106,14 +142,57 @@ final class PlayEngine {
     private var shoe = Shoe(numDecks: 6)
     private var pendingHoleCard: Card?
     private let stats: Stats
+    private let dealerResultPauseNanoseconds: UInt64 = 450_000_000
+
+    #if DEBUG
+    /// A deterministic hand used only by the UI regression test for the
+    /// dealer-to-result transition: player 17, dealer 16 drawing and busting.
+    private var settlementDelayTestDraws: [Card] =
+        ProcessInfo.processInfo.arguments.contains("-uiTestDealerSettlementDelay")
+        ? [
+            Card(rank: .ten, suit: .spades),
+            Card(rank: .ten, suit: .hearts),
+            Card(rank: .seven, suit: .clubs),
+            Card(rank: .six, suit: .diamonds),
+            Card(rank: .ten, suit: .spades),
+        ]
+        : []
+
+    private var isSettlementDelayUITest: Bool {
+        ProcessInfo.processInfo.arguments.contains("-uiTestDealerSettlementDelay")
+    }
+    #endif
 
     private var settingsLoaded = false
 
     init(stats: Stats) {
         self.stats = stats
         loadSettings()
+        loadSession()
         Sound.enabled = soundOn
         settingsLoaded = true
+    }
+
+    /// Session state loads unconditionally (unlike settings): every key
+    /// defaults to zero/false, which is exactly the "no session" state.
+    private func loadSession() {
+        let d = UserDefaults.standard
+        sessionActive = d.bool(forKey: "pe_sessionActive")
+        sessionBuyIn = d.double(forKey: "pe_sessionBuyIn")
+        sessionRounds = d.integer(forKey: "pe_sessionRounds")
+        sessionPeak = d.double(forKey: "pe_sessionPeak")
+        sessionBiggestWin = d.double(forKey: "pe_sessionBiggestWin")
+        sessionBlackjacks = d.integer(forKey: "pe_sessionBlackjacks")
+    }
+
+    private func saveSession() {
+        let d = UserDefaults.standard
+        d.set(sessionActive, forKey: "pe_sessionActive")
+        d.set(sessionBuyIn, forKey: "pe_sessionBuyIn")
+        d.set(sessionRounds, forKey: "pe_sessionRounds")
+        d.set(sessionPeak, forKey: "pe_sessionPeak")
+        d.set(sessionBiggestWin, forKey: "pe_sessionBiggestWin")
+        d.set(sessionBlackjacks, forKey: "pe_sessionBlackjacks")
     }
 
     private func loadSettings() {
@@ -122,12 +201,13 @@ final class PlayEngine {
         numDecks = d.integer(forKey: "pe_numDecks")
         dealerHitsSoft17 = d.bool(forKey: "pe_h17")
         showCount = d.bool(forKey: "pe_showCount")
+        showHandTotals = d.object(forKey: "pe_showHandTotals") as? Bool ?? true
         betHints = d.bool(forKey: "pe_betHints")
         useDeviations = d.bool(forKey: "pe_deviations")
         soundOn = d.bool(forKey: "pe_sound")
         askCountChecks = d.bool(forKey: "pe_countChecks")
         tableMinimum = d.double(forKey: "pe_tableMin")
-        numHands = min(2, max(1, d.integer(forKey: "pe_numHands")))
+        numHands = min(3, max(1, d.integer(forKey: "pe_numHands")))
     }
 
     private func saveSettings() {
@@ -137,6 +217,7 @@ final class PlayEngine {
         d.set(numDecks, forKey: "pe_numDecks")
         d.set(dealerHitsSoft17, forKey: "pe_h17")
         d.set(showCount, forKey: "pe_showCount")
+        d.set(showHandTotals, forKey: "pe_showHandTotals")
         d.set(betHints, forKey: "pe_betHints")
         d.set(useDeviations, forKey: "pe_deviations")
         d.set(soundOn, forKey: "pe_sound")
@@ -145,9 +226,60 @@ final class PlayEngine {
         d.set(numHands, forKey: "pe_numHands")
     }
 
+    // MARK: - Session lifecycle
+
+    /// Profit or loss since sitting down.
+    var sessionNet: Double { bankroll - sessionBuyIn }
+
+    /// Broke: not enough chips left to place even a table-minimum bet.
+    var isFelted: Bool { sessionActive && bankroll < tableMinimum - 0.001 }
+
+    /// Walking away is only allowed between rounds, like a real table.
+    var canCashOut: Bool { sessionActive && (phase == .betting || phase == .done) }
+
+    /// Sits down with a fresh stack. `buyIn` must cover at least one
+    /// table-minimum bet or the session refuses to start.
+    func startSession(buyIn: Double, minimum: Double, hands: Int) {
+        guard !sessionActive, buyIn >= minimum, minimum > 0 else { return }
+        tableMinimum = minimum
+        numHands = min(3, max(1, hands))
+        stats.setBankroll(buyIn)
+        sessionActive = true
+        sessionBuyIn = buyIn
+        sessionRounds = 0
+        sessionPeak = buyIn
+        sessionBiggestWin = 0
+        sessionBlackjacks = 0
+        lastSummary = nil
+        newRound()
+        saveSession()
+    }
+
+    /// Ends the session between rounds and writes the receipt.
+    func cashOut() {
+        guard canCashOut else { return }
+        lastSummary = SessionSummary(
+            buyIn: sessionBuyIn,
+            cashedOut: bankroll,
+            rounds: sessionRounds,
+            peak: sessionPeak,
+            biggestWin: sessionBiggestWin,
+            blackjacks: sessionBlackjacks,
+            busted: isFelted
+        )
+        sessionActive = false
+        tableMinimum = 5
+        newRound()
+        saveSession()
+    }
+
     // MARK: - Derived
 
     var bankroll: Double { stats.data.bankroll }
+
+    /// The chip tray for the current session — always sized to the buy-in
+    /// and table minimum rather than a fixed set (see ChipSizing).
+    var chipDenominations: [Double] { ChipSizing.denominations(buyIn: sessionBuyIn, tableMinimum: tableMinimum) }
 
     var currentHand: PlayerHand? {
         guard phase == .playing, hands.indices.contains(currentIndex) else { return nil }
@@ -160,11 +292,23 @@ final class PlayEngine {
         (Double(runningCount) / decksRemaining * 2).rounded() / 2
     }
 
-    /// Simplified Hi-Lo bet ramp: bet the true count in units (min 1), capped by the spread.
-    var recommendedUnits: Int {
+    /// Simplified Hi-Lo bet ramp: bet the true count in units (min 1), capped
+    /// by the spread. Ignores the bankroll; see `recommendedUnits`.
+    var countUnits: Int {
         let tc = trueCount
         if tc < 2 { return 1 }
         return min(Int(tc.rounded(.down)), betSpreadCap)
+    }
+
+    /// The most one spot should carry for the current stack (see BetSizingEvaluator).
+    var maxComfortableBet: Double {
+        BetSizingEvaluator.maxBet(bankroll: bankroll, tableMinimum: tableMinimum, spreadCap: betSpreadCap)
+    }
+
+    /// The count ramp trimmed to what the stack can carry.
+    var recommendedUnits: Int {
+        BetSizingEvaluator.recommendedUnits(countUnits: countUnits, maxBet: maxComfortableBet,
+                                            tableMinimum: tableMinimum)
     }
 
     var recommendedBet: Double { Double(recommendedUnits) * tableMinimum }
@@ -191,7 +335,11 @@ final class PlayEngine {
 
     func canSplit(_ h: PlayerHand) -> Bool {
         guard h.cards.count == 2, bankroll >= h.bet else { return false }
-        return h.cards[0].rank.strategyKey == h.cards[1].rank.strategyKey && hands.count < numHands + 3
+        // Resplit cap is per SPOT (four hands each, i.e. three splits), like a
+        // real table — a shared cap would let one busy spot eat the others'
+        // split allowance in a multi-hand round.
+        let handsFromThisSpot = hands.filter { $0.spotIndex == h.spotIndex }.count
+        return h.cards[0].rank.strategyKey == h.cards[1].rank.strategyKey && handsFromThisSpot < 4
     }
 
     // MARK: - Betting phase
@@ -228,10 +376,18 @@ final class PlayEngine {
         spotBets[activeSpot] = 0
     }
 
+    /// Last round's per-spot wagers scaled by `multiplier` and mapped onto the
+    /// current spot count (cycling if the count grew since that round).
+    private func projectedRepeatBets(multiplier: Double) -> [Double] {
+        guard !lastSpotBets.isEmpty else { return [] }
+        return (0..<numHands).map { lastSpotBets[$0 % lastSpotBets.count] * multiplier }
+    }
+
     /// Scales last round's per-spot wagers by `multiplier`, dropping the largest
-    /// spots first if the total would exceed the bankroll.
+    /// spots first if the total would exceed the bankroll. (Safety net only —
+    /// canReplay/canReplayDouble gate callers on the projected total.)
     private func scaledLastBets(multiplier: Double) -> [Double] {
-        var bets = (0..<numHands).map { lastSpotBets[$0 % lastSpotBets.count] * multiplier }
+        var bets = projectedRepeatBets(multiplier: multiplier)
         var total = bets.reduce(0, +)
         while total > bankroll, let maxIdx = bets.indices.max(by: { bets[$0] < bets[$1] }), bets[maxIdx] > 0 {
             bets[maxIdx] = 0
@@ -241,16 +397,21 @@ final class PlayEngine {
     }
 
     func repeatBet() {
-        guard phase == .betting, !lastSpotBets.isEmpty else { return }
+        guard phase == .betting, canReplay else { return }
         spotBets = scaledLastBets(multiplier: 1)
     }
 
+    /// Whether last round's wagers fit the bankroll at the CURRENT spot count —
+    /// checking only the stored bets would let a grown spot count (or a shrunk
+    /// bankroll) zero out spots and leave an un-dealable round.
     var canReplay: Bool {
-        !lastSpotBets.isEmpty && lastSpotBets.reduce(0, +) > 0 && lastSpotBets.reduce(0, +) <= bankroll + 0.001
+        let total = projectedRepeatBets(multiplier: 1).reduce(0, +)
+        return total > 0 && total <= bankroll + 0.001
     }
 
     var canReplayDouble: Bool {
-        !lastSpotBets.isEmpty && lastSpotBets.reduce(0, +) > 0 && lastSpotBets.reduce(0, +) * 2 <= bankroll + 0.001
+        let total = projectedRepeatBets(multiplier: 2).reduce(0, +)
+        return total > 0 && total <= bankroll + 0.001
     }
 
     /// Starts a new round with the same wager as last time and deals immediately.
@@ -277,6 +438,7 @@ final class PlayEngine {
         pendingHoleCard = nil
         feedbackText = ""
         betAdviceText = ""
+        insuranceBet = 0
         spotBets = Array(repeating: 0, count: numHands)
         activeSpot = 0
     }
@@ -284,6 +446,13 @@ final class PlayEngine {
     // MARK: - Drawing
 
     private func draw() -> Card {
+        #if DEBUG
+        if !settlementDelayTestDraws.isEmpty {
+            let card = settlementDelayTestDraws.removeFirst()
+            runningCount += card.rank.hiLo
+            return card
+        }
+        #endif
         if shoe.index >= shoe.cards.count { runningCount = 0 }
         let card = shoe.draw()
         runningCount += card.rank.hiLo
@@ -291,6 +460,11 @@ final class PlayEngine {
     }
 
     private func drawUncounted() -> Card {
+        #if DEBUG
+        if !settlementDelayTestDraws.isEmpty {
+            return settlementDelayTestDraws.removeFirst()
+        }
+        #endif
         if shoe.index >= shoe.cards.count { runningCount = 0 }
         return shoe.draw()
     }
@@ -332,9 +506,11 @@ final class PlayEngine {
         dealer = []
         dealerHoleHidden = true
         pendingHoleCard = nil
-        hands = spotBets.map { bet in
+        insuranceBet = 0
+        hands = spotBets.enumerated().map { idx, bet in
             var h = PlayerHand()
             h.bet = bet
+            h.spotIndex = idx
             return h
         }
         currentIndex = 0
@@ -350,25 +526,79 @@ final class PlayEngine {
             for i in hands.indices { hands[i].cards.append(draw()); cardTick(); await pause() }
             let hole = drawUncounted(); dealer.append(hole); pendingHoleCard = hole; cardTick(); await pause()
 
-            // Dealer natural ends the round for every spot.
-            if evaluate(dealer).total == 21 {
-                finishRound()
+            // Ace up: insurance is offered BEFORE the peek, like a real table.
+            // Skipped when the bankroll can't cover the premium.
+            if dealer[0].rank == .ace && bankroll + 0.001 >= insuranceCost {
+                phase = .insurance
                 return
             }
-            // Any player natural auto-stands that spot.
-            for i in hands.indices where evaluate(hands[i].cards).total == 21 {
-                hands[i].done = true
-            }
-            // Optionally quiz the running count before the player acts (only if a spot still needs playing).
-            let anyToPlay = hands.contains { !$0.done }
-            if anyToPlay && askCountChecks && Int.random(in: 0..<100) < 40 {
-                countCheckActual = runningCount
-                countGuess = 0
-                phase = .countCheck
-            } else {
-                goToHandOrDealer(from: 0)
-            }
+            continueRoundAfterDeal()
         }
+    }
+
+    /// Everything that happens between the last dealt card (or the insurance
+    /// decision) and the first player action: peek for a dealer natural,
+    /// auto-stand player naturals, and optionally quiz the running count.
+    private func continueRoundAfterDeal() {
+        // Dealer natural ends the round for every spot. Move to .dealer first:
+        // arriving here from .insurance would otherwise trip the phase guard
+        // in finishRoundAfterDealerPause and leave the round hanging (and the
+        // insurance buttons answerable twice).
+        if evaluate(dealer).total == 21 {
+            phase = .dealer
+            finishRoundAfterDealerPause()
+            return
+        }
+        // Any player natural auto-stands that spot.
+        for i in hands.indices where evaluate(hands[i].cards).total == 21 {
+            hands[i].done = true
+        }
+        // Optionally quiz the running count before the player acts (only if a spot still needs playing).
+        let anyToPlay = hands.contains { !$0.done }
+        if anyToPlay && askCountChecks && Int.random(in: 0..<100) < 40 {
+            countCheckActual = runningCount
+            countGuess = 0
+            phase = .countCheck
+        } else {
+            goToHandOrDealer(from: 0)
+        }
+    }
+
+    // MARK: - Insurance
+
+    /// The premium: half the round's total wager, the standard maximum.
+    var insuranceCost: Double { ((totalWager / 2) * 100).rounded() / 100 }
+
+    /// Resolves the insurance offer. Graded like any other decision: without
+    /// deviations the correct answer is always no (basic strategy never
+    /// insures); with deviations it flips to yes at true count +3 or higher.
+    /// Not a chart cell, so it stays out of spot stats.
+    func answerInsurance(take: Bool) {
+        guard phase == .insurance else { return }
+        let shouldTake = useDeviations && trueCount >= Deviations.insuranceIndex
+        let ok = take == shouldTake
+        stats.recordDecision(correct: ok, spotKey: nil)
+        feedbackGood = ok
+        if useDeviations {
+            if ok {
+                feedbackText = shouldTake
+                    ? "Right. The count is high enough to insure (true count +3 or more)."
+                    : "Right. Only insure at a true count of +3 or higher."
+            } else {
+                feedbackText = shouldTake
+                    ? "The count says take insurance here (true count +3 or higher)."
+                    : "Insurance is only worth it at a true count of +3 or higher."
+            }
+        } else {
+            feedbackText = ok
+                ? "Right. Basic strategy never takes insurance."
+                : "Not quite. Basic strategy never takes insurance."
+        }
+        if take {
+            insuranceBet = insuranceCost
+            stats.adjustBankroll(-insuranceBet)
+        }
+        continueRoundAfterDeal()
     }
 
     func submitCountCheck() {
@@ -377,7 +607,7 @@ final class PlayEngine {
         stats.recordCountCheck(correct: ok)
         feedbackGood = ok
         feedbackText = ok
-            ? "Right — running count is \(countCheckActual)."
+            ? "Right. The running count is \(countCheckActual)."
             : "Running count was \(countCheckActual) (you said \(countGuess))."
         goToHandOrDealer(from: 0)
     }
@@ -385,36 +615,52 @@ final class PlayEngine {
     private func evaluateBet() {
         let tc = trueCount
         let rec = recommendedUnits
+        let cap = maxComfortableBet
         let averageSpotBet = totalWager / Double(numHands)
-        let betUnits = Int((averageSpotBet / tableMinimum).rounded())
-        let correct: Bool
-        if tc < 2 {
-            correct = betUnits <= 1                       // bet the minimum when the count is neutral/negative
-        } else {
-            correct = abs(betUnits - rec) <= 1 && betUnits >= 2  // ramp up (within a unit) when the count is hot
-        }
+        let verdict = BetSizingEvaluator.verdict(
+            spotBet: averageSpotBet,
+            countUnits: countUnits,
+            tableMinimum: tableMinimum,
+            bankroll: bankroll,
+            spreadCap: betSpreadCap
+        )
+        let correct = verdict == .acceptable
+        // Allowed (the stack can take it) but a counter would still bet the
+        // minimum here. Coached, not scored as a mistake.
+        let bigAtLowCount = correct && tc < 2 && averageSpotBet > tableMinimum * 3 + 0.001
+        // The count wants more than the stack should carry.
+        let stackLimited = countUnits > rec
         stats.recordBet(correct: correct)
-        betAdviceGood = correct
+        // The terse mode never hints at the count, so it only grades.
+        betAdviceGood = correct && !(bigAtLowCount && betHints)
 
         if betHints {
-            // Full coaching — reveals the count and the suggested bet.
+            // Full coaching: reveals the count and the suggested bet.
             let tcStr = String(format: "%+.1f", tc)
-            if tc < 2 {
-                betAdviceText = correct
-                    ? "Good — true count \(tcStr). Flat-bet the minimum here."
-                    : "True count \(tcStr) is low — you should bet the table minimum (\(money(tableMinimum)))."
-            } else {
-                betAdviceText = correct
-                    ? "Nice ramp — true count \(tcStr), about \(rec) units."
-                    : "True count \(tcStr) is hot — bet more, about \(rec) units (\(money(recommendedBet)))."
+            switch verdict {
+            case .tooHigh:
+                betAdviceText = "Too big for your stack. With \(money(bankroll)), keep each bet at \(money(cap)) or less."
+            case .tooLow:
+                betAdviceText = stackLimited
+                    ? "The true count is \(tcStr). Bet more, up to \(money(recommendedBet)), the most your stack should carry."
+                    : "The true count is \(tcStr). Bet more, about \(rec) units (\(money(recommendedBet)))."
+            case .acceptable:
+                if bigAtLowCount {
+                    betAdviceText = "Your stack can take it, but with a true count of \(tcStr) the minimum (\(money(tableMinimum))) is the sharper bet."
+                } else if tc < 2 {
+                    betAdviceText = "Good. The true count is \(tcStr). Keep the bet near the table minimum here."
+                } else {
+                    betAdviceText = "Nice bet. With a true count of \(tcStr), that is close enough to \(rec) units."
+                }
             }
         } else {
-            // Terse verdict only — never reveals the count.
-            if correct {
+            // Terse verdict only, never reveals the count.
+            switch verdict {
+            case .acceptable:
                 betAdviceText = "Good bet."
-            } else if betUnits > rec {
-                betAdviceText = "You bet too much."
-            } else {
+            case .tooHigh:
+                betAdviceText = "Too much for your stack."
+            case .tooLow:
                 betAdviceText = "You bet too little."
             }
         }
@@ -431,38 +677,70 @@ final class PlayEngine {
             cards: h.cards,
             dealerUp: dealerUpRank(),
             canDouble: canDouble(h),
+            canSplit: canSplit(h),
+            dealerHitsSoft17: dealerHitsSoft17
+        )
+
+        // Spot identity must come from the hand's SHAPE, not split legality —
+        // canSplit(h) also checks bankroll and the resplit cap, and letting
+        // those reclassify 8,8 as "hard 16" would corrupt the pair stats that
+        // the heatmap, leaks list, and Smart quiz are built on. When a pair
+        // can't legally be split, the graded question isn't the chart's pair
+        // cell at all, so it stays out of spot stats entirely (spotKey nil).
+        let isPairShape = h.cards.count == 2
+            && h.cards[0].rank.strategyKey == h.cards[1].rank.strategyKey
+        // The chart (and every spot stat built on it) is S17. In the three
+        // cells H17 flips, the graded play no longer matches the chart cell,
+        // so those decisions stay out of spot stats — same reasoning as
+        // count deviations below.
+        let chartAction = BasicStrategy.correctAction(
+            cards: h.cards,
+            dealerUp: dealerUpRank(),
+            canDouble: canDouble(h),
             canSplit: canSplit(h)
         )
+        let spotKey: String? = (isPairShape && !canSplit(h)) || chartAction != basic
+            ? nil
+            : SpotID.key(cards: h.cards, dealerUp: dealerUpRank(), canSplit: canSplit(h))
 
         if useDeviations {
             // Grade against the count-aware play; teach the index when it differs.
             let correct = Deviations.correctAction(
                 cards: h.cards, dealerUp: dealerUpRank(), trueCount: trueCount,
-                canDouble: canDouble(h), canSplit: canSplit(h)
+                canDouble: canDouble(h), canSplit: canSplit(h),
+                dealerHitsSoft17: dealerHitsSoft17
             )
             let dev = Deviations.matching(cards: h.cards, dealerUp: dealerUpRank())
             let isIndexPlay = correct != basic
             let ok = action == correct
-            stats.recordDecision(correct: ok)
+            // When the count overrides the chart, the result says nothing about
+            // the player's basic strategy — keep it out of spot accuracy.
+            stats.recordDecision(correct: ok, spotKey: isIndexPlay ? nil : spotKey)
+            if !ok, !isIndexPlay, let spotKey {
+                stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
+            }
             feedbackGood = ok
             if ok && isIndexPlay {
-                feedbackText = "Index play! \(dev?.note ?? "Deviation") — nice."
+                feedbackText = "Nice index play: \(dev?.note ?? "Deviation")."
             } else if ok {
-                feedbackText = "Correct — \(correct.name)."
+                feedbackText = "Correct. \(correct.name)."
             } else if isIndexPlay {
                 feedbackText = "Deviation: \(dev?.note ?? "index play") says \(correct.name) (you chose \(action.name))."
             } else {
-                feedbackText = "Not quite — basic strategy says \(correct.name) (you chose \(action.name))."
+                feedbackText = "Not quite. Basic strategy says \(correct.name) (you chose \(action.name))."
             }
             return
         }
 
         let ok = action == basic
-        stats.recordDecision(correct: ok)
+        stats.recordDecision(correct: ok, spotKey: spotKey)
+        if !ok, let spotKey {
+            stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: basic.name)
+        }
         feedbackGood = ok
         feedbackText = ok
             ? "Correct! Basic strategy says \(basic.name)."
-            : "Not quite — basic strategy says \(basic.name) (you chose \(action.name))."
+            : "Not quite. Basic strategy says \(basic.name) (you chose \(action.name))."
     }
 
     func hit() {
@@ -474,6 +752,7 @@ final class PlayEngine {
         if total > 21 {
             hands[currentIndex].done = true
             hands[currentIndex].busted = true
+            Haptics.notify(-1)
             advance()
         } else if total == 21 {
             hands[currentIndex].done = true
@@ -499,6 +778,7 @@ final class PlayEngine {
         hands[currentIndex].done = true
         if evaluate(hands[currentIndex].cards).total > 21 {
             hands[currentIndex].busted = true
+            Haptics.notify(-1)
         }
         advance()
     }
@@ -512,6 +792,7 @@ final class PlayEngine {
         var newHand = PlayerHand()
         newHand.cards = [movedCard]
         newHand.bet = hands[currentIndex].bet
+        newHand.spotIndex = hands[currentIndex].spotIndex   // resplit cap is per spot
         newHand.fromSplit = true
         newHand.fromSplitAces = isAces
         stats.adjustBankroll(-newHand.bet)               // second wager
@@ -541,11 +822,15 @@ final class PlayEngine {
             return
         }
         let anyLive = hands.contains { !$0.busted }
+        // The dealer only draws while a live hand can still be outdrawn. If
+        // every live spot is a natural, the round settles now — a natural can
+        // only push against a dealer natural, which the peek already ruled out.
+        let anyContest = hands.contains { !$0.busted && !$0.isBlackjack }
         phase = .dealer
         dealerHoleHidden = false
         revealHole()
-        if !anyLive {
-            finishRound()
+        if !anyLive || !anyContest {
+            finishRoundAfterDealerPause()
             return
         }
         playDealer()
@@ -557,10 +842,25 @@ final class PlayEngine {
                 let hv = evaluate(dealer)
                 let mustHit = hv.total < 17 || (hv.total == 17 && hv.soft && dealerHitsSoft17)
                 if !mustHit { break }
-                try? await Task.sleep(nanoseconds: 450_000_000)
+                #if DEBUG
+                let drawDelay: UInt64 = isSettlementDelayUITest ? 100_000_000 : 330_000_000
+                #else
+                let drawDelay: UInt64 = 330_000_000
+                #endif
+                try? await Task.sleep(nanoseconds: drawDelay)
                 dealer.append(draw())
                 cardTick()
             }
+            finishRoundAfterDealerPause()
+        }
+    }
+
+    /// Leaves the dealer's completed hand unobstructed long enough for the
+    /// final card or hole-card flip to finish before any result effects begin.
+    private func finishRoundAfterDealerPause() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: dealerResultPauseNanoseconds)
+            guard phase == .dealer || phase == .dealing else { return }
             finishRound()
         }
     }
@@ -574,7 +874,7 @@ final class PlayEngine {
 
         for i in hands.indices {
             let pv = evaluate(hands[i].cards)
-            let playerBJ = pv.total == 21 && hands[i].cards.count == 2 && !hands[i].fromSplit
+            let playerBJ = hands[i].isBlackjack
             let result: HandResult
             if pv.total > 21 {
                 result = .bust
@@ -606,16 +906,45 @@ final class PlayEngine {
             net += ret - wagered
         }
 
+        // Insurance settles against the dealer's hand: 2 to 1 on a dealer
+        // natural, lost otherwise. The premium already left the bankroll when
+        // it was taken.
+        if insuranceBet > 0 {
+            if dealerBJ {
+                stats.adjustBankroll(insuranceBet * 3)   // stake back + 2 to 1
+                net += insuranceBet * 2
+            } else {
+                net -= insuranceBet
+            }
+        }
+
         lastRoundNet = net
         phase = .done
         stats.pushBankrollPoint()
-        // Feedback is haptic only — a buzz on a loss, a light tap on a win. No ringtone.
-        if net > 0 { Haptics.notify(1) }
-        else if net < 0 { Haptics.notify(-1) }
-        else { Haptics.notify(0) }
+
+        sessionRounds += 1
+        sessionPeak = max(sessionPeak, bankroll)
+        sessionBiggestWin = max(sessionBiggestWin, net)
+        sessionBlackjacks += hands.filter { $0.result == .blackjack }.count
+        // Durable profit metric for the bankroll achievements: how far above
+        // the buy-in this session has ever been. Unlike the live bankroll, it
+        // can't be inflated by a big buy-in or erased by the next session.
+        stats.recordSessionProfit(sessionPeak - sessionBuyIn)
+        saveSession()
+
+        if net > 0 {
+            Haptics.notify(1)
+            Sound.play(.win)
+        } else if net < 0 {
+            Haptics.notify(-1)
+            Sound.play(.lose)
+        } else {
+            Haptics.notify(0)
+            Sound.play(.push)
+        }
     }
 
     // MARK: - Formatting
 
-    func money(_ v: Double) -> String { String(format: "$%.2f", v) }
+    func money(_ v: Double) -> String { Money.string(v) }
 }

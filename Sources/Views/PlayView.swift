@@ -7,7 +7,11 @@ struct PlayView: View {
     var body: some View {
         Group {
             if let engine {
-                PlayContent(engine: engine)
+                if engine.sessionActive {
+                    PlayContent(engine: engine)
+                } else {
+                    SessionSetupView(engine: engine)
+                }
             } else {
                 Color.clear
             }
@@ -21,30 +25,158 @@ struct PlayView: View {
 private struct PlayContent: View {
     @Bindable var engine: PlayEngine
     @Environment(Stats.self) private var stats
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showSettings = false
+    @State private var showBeginnerTutorial = false
+    @State private var showCashOut = false
 
-    private let chipDenoms: [Double] = [0.10, 1, 5, 25, 100]
+    // Round-result effects, triggered when the round settles.
+    @State private var showWinOverlay = false
+    @State private var confettiSeed = 0
+    @State private var confettiActive = false
+    @State private var lossFlash = false
 
     var body: some View {
         ZStack {
             feltBackground
             VStack(spacing: 0) {
-                PageHeader("Blackjack") {
-                    Button { showSettings = true } label: {
-                        Image(systemName: "gearshape.fill")
-                            .foregroundStyle(Theme.accent)
-                    }
-                    .accessibilityIdentifier("settingsButton")
-                }
+                PageHeader("Blackjack Reps", titleFont: .title3.weight(.bold)) { headerMenu }
                 tableArea
                 controlArea
                 footer
             }
+            effectsLayer
+            cashOutOverlay
         }
+        .animation(.easeOut(duration: 0.22), value: showCashOut)
         .sheet(isPresented: $showSettings) {
             SettingsSheet(engine: engine)
-                .presentationDetents([.medium, .large])
+                .presentationDetents([.large])
         }
+        .fullScreenCover(isPresented: $showBeginnerTutorial) {
+            BeginnerBlackjackTutorial()
+        }
+        .onChange(of: engine.phase) { _, phase in
+            roundSettled(phase)
+        }
+    }
+
+    /// A felt-styled confirmation centered over the table, replacing the
+    /// generic bottom action sheet the system default used to show.
+    @ViewBuilder
+    private var cashOutOverlay: some View {
+        if showCashOut {
+            Color.black.opacity(0.55)
+                .ignoresSafeArea()
+                .transition(.opacity)
+                .onTapGesture { showCashOut = false }
+            CashOutConfirmCard(
+                amount: engine.money(engine.bankroll),
+                onConfirm: {
+                    engine.cashOut()
+                    showCashOut = false
+                },
+                onCancel: { showCashOut = false }
+            )
+            .transition(.scale(scale: 0.9).combined(with: .opacity))
+        }
+    }
+
+    /// Kicks off the win celebration or the loss flash when a round settles,
+    /// and tears both down the moment the next round starts.
+    private func roundSettled(_ phase: GamePhase) {
+        guard phase == .done else {
+            showWinOverlay = false
+            confettiActive = false
+            lossFlash = false
+            return
+        }
+        if engine.lastRoundNet > 0 {
+            let hasBlackjack = engine.hands.contains { $0.result == .blackjack }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: WinCelebrationPolicy.bannerDelayNanoseconds)
+                guard engine.phase == .done, engine.lastRoundNet > 0 else { return }
+
+                showWinOverlay = true
+                confettiActive = WinCelebrationPolicy.showsConfetti(
+                    hasBlackjack: hasBlackjack,
+                    reduceMotion: reduceMotion
+                )
+                if confettiActive { confettiSeed += 1 }
+
+                try? await Task.sleep(nanoseconds: 1_800_000_000)
+                withAnimation(.easeOut(duration: 0.25)) {
+                    showWinOverlay = false
+                    confettiActive = false
+                }
+            }
+        } else if engine.lastRoundNet < 0 {
+            withAnimation(.easeIn(duration: 0.12)) { lossFlash = true }
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 600_000_000)
+                withAnimation(.easeOut(duration: 0.35)) { lossFlash = false }
+            }
+        }
+    }
+
+    /// Celebration and loss effects floating over the table. Everything here
+    /// ignores touches so the controls stay usable mid-animation.
+    @ViewBuilder
+    private var effectsLayer: some View {
+        if lossFlash {
+            LossVignetteView().transition(.opacity)
+        }
+        if confettiActive {
+            ConfettiBurstView(seed: confettiSeed)
+        }
+        if showWinOverlay {
+            WinOverlayView(
+                amount: engine.lastRoundNet,
+                blackjack: engine.hands.contains { $0.result == .blackjack },
+                detail: winDetail
+            )
+            .transition(.opacity)
+        }
+    }
+
+    /// A single top-right menu button replaces three separate header pills —
+    /// "How to Play", "Cash Out", and "Table Options" together didn't fit
+    /// next to the title without wrapping.
+    private var headerMenu: some View {
+        Menu {
+            Button {
+                showBeginnerTutorial = true
+            } label: {
+                Label("How to Play", systemImage: "questionmark.circle")
+            }
+            .accessibilityIdentifier("learnBlackjackHeaderButton")
+
+            Button {
+                showCashOut = true
+            } label: {
+                Label("Cash Out", systemImage: "dollarsign.circle")
+            }
+            .disabled(!engine.canCashOut)
+            .accessibilityIdentifier("cashOutButton")
+
+            Button {
+                showSettings = true
+            } label: {
+                Label("Table Options", systemImage: "slider.horizontal.3")
+            }
+            .accessibilityIdentifier("settingsButton")
+        } label: {
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.92))
+                .frame(width: 46, height: 46)
+                .background(Color.black.opacity(0.24), in: Circle())
+                .overlay {
+                    Circle().strokeBorder(Color.white.opacity(0.16))
+                }
+        }
+        .accessibilityLabel("Settings")
+        .accessibilityIdentifier("headerMenuButton")
     }
 
     // MARK: - Background
@@ -64,19 +196,26 @@ private struct PlayContent: View {
             // Dealer — sized to its own content, never forced into a fixed band,
             // so the count strip below it can't overlap the banner underneath.
             VStack(spacing: 8) {
-                Text("Dealer \(dealerTotalText)")
+                Text(engine.showHandTotals ? "Dealer \(dealerTotalText)" : "Dealer")
                     .font(.title3.weight(.bold))
                     .foregroundStyle(.white.opacity(0.95))
                 HStack(spacing: 8) {
                     ForEach(Array(engine.dealer.enumerated()), id: \.offset) { idx, card in
-                        CardView(card: card, faceDown: engine.dealerHoleHidden && idx == 1, size: 1.35)
-                            .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
-                            .transition(.move(edge: .top).combined(with: .opacity))
+                        Group {
+                            if idx == 1 {
+                                // The hole card turns over with a real flip.
+                                HoleCardView(card: card, faceDown: engine.dealerHoleHidden, size: 1.35)
+                            } else {
+                                CardView(card: card, size: 1.35)
+                            }
+                        }
+                        .shadow(color: .black.opacity(0.35), radius: 4, y: 3)
+                        .transition(.dealtCard)
+                        .accessibilityIdentifier("dealerCard\(idx)")
                     }
                 }
                 .frame(minHeight: 95)
-                .animation(.spring(response: 0.35, dampingFraction: 0.75), value: engine.dealer.count)
-                .animation(.easeInOut, value: engine.dealerHoleHidden)
+                .animation(.spring(response: 0.4, dampingFraction: 0.78), value: engine.dealer.count)
 
                 if engine.showCount && engine.phase != .betting {
                     countStrip.padding(.top, 2)
@@ -123,7 +262,8 @@ private struct PlayContent: View {
         // past 2 cards (hits, resplits) does NOT shrink this further — instead
         // handColumn overlaps that hand's own cards to stay inside columnWidth,
         // so one busy hand in a multi-hand round can't push its neighbors off-screen.
-        let widthCardSize = (columnWidth - 6) / 2 / 48
+        let cardRowHorizontalPadding: CGFloat = 14
+        let widthCardSize = (columnWidth - cardRowHorizontalPadding - 6) / 2 / 48
         let chromeHeight: CGFloat = 18 + 14 + 34 + 20   // label + card padding + chip stack + VStack spacing
         let heightBudget = geo.size.height - chromeHeight - arcDrop
         let heightCardSize = heightBudget / 68
@@ -202,12 +342,13 @@ private struct PlayContent: View {
         // drop itself, then size the circle from whatever height is actually
         // left — never a fixed size that can overflow into the controls below.
         let labelHeight: CGFloat = count > 1 ? 20 : 0
-        let chromeHeight: CGFloat = labelHeight + 36 + 16
+        let chromeHeight: CGFloat = labelHeight + 24 + 16
         let arcDrop = min(geo.size.height * 0.18, 40)
         let heightBudget = geo.size.height - chromeHeight - arcDrop
-        let widthBudget = (geo.size.width - CGFloat(count - 1) * 24) / CGFloat(max(count, 1))
+        let spotSpacing: CGFloat = count == 3 ? 16 : 24
+        let widthBudget = (geo.size.width - CGFloat(count - 1) * spotSpacing) / CGFloat(max(count, 1))
         let spotSize = max(60, min(130, min(heightBudget, widthBudget)))
-        return HStack(alignment: .top, spacing: 24) {
+        return HStack(alignment: .top, spacing: spotSpacing) {
             ForEach(0..<count, id: \.self) { idx in
                 bettingSpot(idx, size: spotSize)
                     .offset(y: count > 1 ? abs(Double(idx) - mid) / max(mid, 1) * arcDrop : 0)
@@ -241,11 +382,19 @@ private struct PlayContent: View {
                             .transition(.scale.combined(with: .opacity))
                     } else {
                         Text("Tap chips\nto bet")
-                            .font(.caption)
+                            .font(.system(size: max(9, min(12, size * 0.11)), weight: .regular, design: .rounded))
+                            .lineLimit(2)
+                            .minimumScaleFactor(0.7)
+                            .allowsTightening(true)
                             .multilineTextAlignment(.center)
                             .foregroundStyle(.white.opacity(0.6))
+                            .frame(width: max(36, size - 24), height: max(32, size - 24))
+                            .accessibilityIdentifier("bettingInstruction\(index)")
                     }
                 }
+                .frame(width: size, height: size)
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("bettingCircle\(index)")
                 .animation(.spring(response: 0.3, dampingFraction: 0.7), value: bet)
                 Text(engine.money(bet))
                     .font(.headline)
@@ -255,6 +404,7 @@ private struct PlayContent: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("spot\(index)")
+        .accessibilityValue(isActive ? "active" : "inactive")
     }
 
     private func handColumn(_ hand: PlayerHand, index: Int, cardSize: CGFloat, columnWidth: CGFloat) -> some View {
@@ -266,12 +416,16 @@ private struct PlayContent: View {
         let n = hand.cards.count
         let cardWidth = 48 * cardSize
         let desiredSpacing: CGFloat = 6
+        let availableCardWidth = max(columnWidth - 14, 0)
         let neededWidth = CGFloat(n) * cardWidth + CGFloat(max(n - 1, 0)) * desiredSpacing
-        let cardSpacing: CGFloat = n > 1 && neededWidth > columnWidth
-            ? (columnWidth - CGFloat(n) * cardWidth) / CGFloat(n - 1)
+        let cardSpacing: CGFloat = n > 1 && neededWidth > availableCardWidth
+            ? (availableCardWidth - CGFloat(n) * cardWidth) / CGFloat(n - 1)
             : desiredSpacing
+        let lost = hand.busted || hand.result == .lose || hand.result == .bust || hand.result == .dealerBlackjack
         return VStack(spacing: 10) {
             Text(handLabel(hand))
+                .opacity(engine.showHandTotals ? 1 : 0)   // keep the slot so the layout doesn't shift
+                .accessibilityHidden(!engine.showHandTotals)
                 .font(.footnote.weight(.semibold))
                 .foregroundStyle(resultColor(hand))
                 .lineLimit(1)
@@ -281,7 +435,7 @@ private struct PlayContent: View {
                 ForEach(hand.cards) { card in
                     CardView(card: card, size: cardSize)
                         .shadow(color: .black.opacity(0.25), radius: 2, y: 2)
-                        .transition(.move(edge: .top).combined(with: .opacity))
+                        .transition(.dealtCard)
                 }
             }
             .padding(7)
@@ -290,9 +444,24 @@ private struct PlayContent: View {
                     .strokeBorder(isActive ? Theme.accent : .clear, lineWidth: 2)
             )
             .animation(.spring(response: 0.35, dampingFraction: 0.75), value: hand.cards.count)
-            // chips riding under the hand
-            ChipStack(amount: hand.bet, size: 34 * min(cardSize, 1))
+            // A beaten hand fades under the table lights.
+            .saturation(lost ? 0.55 : 1)
+            .opacity(lost ? 0.75 : 1)
+            .animation(.easeIn(duration: 0.3).delay(0.1), value: lost)
+            // The result stamps onto the cards. A bust or a natural stamps the
+            // moment it happens; everything else waits for the dealer.
+            .overlay {
+                if let result = hand.result ?? earlyResult(hand) {
+                    ResultStamp(result: result, delay: hand.result == nil ? 0 : Double(index) * 0.06)
+                }
+            }
+            // Chips riding under the hand: swept away on a loss, paid on a win.
+            BetChipsView(hand: hand, settled: engine.phase == .done, size: 34 * min(cardSize, 1))
         }
+        .frame(width: columnWidth)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("playerHand\(index)")
+        .accessibilityValue(isActive ? "active" : "inactive")
     }
 
     // MARK: - Controls
@@ -301,13 +470,19 @@ private struct PlayContent: View {
     private var controlArea: some View {
         switch engine.phase {
         case .betting:
-            bettingControls
+            if engine.isFelted {
+                FeltedControlsView(engine: engine)
+            } else {
+                BettingControlsView(engine: engine)
+            }
         case .dealing:
             Text("Dealing…")
                 .foregroundStyle(.white.opacity(0.7))
                 .padding(.vertical, 20)
+        case .insurance:
+            InsuranceControlsView(engine: engine)
         case .countCheck:
-            countCheckControls
+            CountCheckControlsView(engine: engine)
         case .playing:
             actionControls
         case .dealer:
@@ -319,142 +494,159 @@ private struct PlayContent: View {
         }
     }
 
-    private var bettingControls: some View {
-        VStack(spacing: 12) {
-            // Number of spots to play this round
-            HStack(spacing: 10) {
-                Text("Hands")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white.opacity(0.85))
-                Picker("Hands", selection: $engine.numHands) {
-                    ForEach(1...2, id: \.self) { Text("\($0)").tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .frame(maxWidth: 120)
-                if engine.numHands > 1 && engine.totalWager > 0 {
-                    Spacer()
-                    Text("Total \(engine.money(engine.totalWager))")
-                        .font(.caption)
-                        .foregroundStyle(Theme.accent)
-                }
-            }
-            if engine.numHands > 1 {
-                Text("Tap a spot above, then tap chips to set its bet")
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.55))
-            }
-            // Chip tray
-            HStack(spacing: 10) {
-                ForEach(Array(chipDenoms.enumerated()), id: \.element) { idx, denom in
-                    Button {
-                        engine.addChip(denom)
-                    } label: {
-                        ChipView(value: denom, size: 54)
-                            .opacity(engine.canAddChip(denom) ? 1 : 0.35)
-                    }
-                    .disabled(!engine.canAddChip(denom))
-                    .accessibilityIdentifier("chip\(idx)")
-                }
-            }
-            HStack(spacing: 10) {
-                secondaryButton("Clear", enabled: engine.currentBet > 0) { engine.clearBet() }
-                secondaryButton("Repeat", enabled: engine.lastBet > 0 && engine.lastBet <= engine.bankroll) { engine.repeatBet() }
-                Button {
-                    engine.deal()
-                } label: {
-                    Text("Deal")
-                        .font(.headline)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(engine.canDeal ? Theme.accent : Color.gray.opacity(0.4),
-                                    in: RoundedRectangle(cornerRadius: 10))
-                        .foregroundStyle(.black)
-                }
-                .disabled(!engine.canDeal)
-            }
-            Text("Table minimum \(engine.money(engine.tableMinimum))")
-                .font(.caption2)
-                .foregroundStyle(.white.opacity(0.55))
-        }
-        .padding(.horizontal)
-        .padding(.bottom, 6)
-    }
-
-    private var countCheckControls: some View {
-        VStack(spacing: 12) {
-            Text("What's the running count?")
-                .font(.headline)
-                .foregroundStyle(.white)
-            Stepper(value: $engine.countGuess, in: -60...60) {
-                HStack {
-                    Text("Your count")
-                    Spacer()
-                    Text(signed(engine.countGuess))
-                        .fontWeight(.bold)
-                        .foregroundStyle(Theme.accent)
-                }
-            }
-            .padding(.horizontal, 4)
-            Button {
-                engine.submitCountCheck()
-            } label: {
-                Text("Submit")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.black)
-            }
-        }
-        .padding()
-        .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
-        .padding(.horizontal)
-        .padding(.bottom, 6)
-    }
-
     private var actionControls: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                actionButton("Hit", enabled: engine.canHitOrStand) { engine.hit() }
-                actionButton("Stand", enabled: engine.canHitOrStand) { engine.stand() }
+                TableActionButton(title: "Hit", enabled: engine.canHitOrStand) { engine.hit() }
+                TableActionButton(title: "Stand", enabled: engine.canHitOrStand) { engine.stand() }
             }
             HStack(spacing: 10) {
-                actionButton("Double", enabled: doubleEnabled) { engine.double() }
-                actionButton("Split", enabled: splitEnabled) { engine.split() }
+                TableActionButton(title: "Double", enabled: doubleEnabled) { engine.double() }
+                TableActionButton(title: "Split", enabled: splitEnabled) { engine.split() }
             }
         }
         .padding(.horizontal)
         .padding(.bottom, 6)
     }
 
+    @ViewBuilder
     private var doneControls: some View {
-        VStack(spacing: 10) {
-            Text(roundSummary)
-                .font(.headline)
-                .foregroundStyle(engine.lastRoundNet > 0 ? Theme.mint : (engine.lastRoundNet < 0 ? Theme.bad : .white))
-            Button {
-                engine.newRound()
-            } label: {
-                Text("New Bet")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.black)
+        if engine.isFelted {
+            FeltedControlsView(engine: engine)
+        } else {
+            VStack(spacing: 12) {
+                roundResultCard
+
+                HStack(spacing: 10) {
+                    doneActionButton(
+                        "Replay",
+                        systemImage: "arrow.clockwise",
+                        primary: engine.canReplay,
+                        enabled: engine.canReplay
+                    ) { engine.replay() }
+                    doneActionButton(
+                        "Double & Replay",
+                        systemImage: "2.circle.fill",
+                        primary: false,
+                        enabled: engine.canReplayDouble
+                    ) { engine.replayDouble() }
+                }
+
+                Button {
+                    engine.newRound()
+                } label: {
+                    Label("New Bet", systemImage: "slider.horizontal.3")
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .background(Color.black.opacity(0.24), in: RoundedRectangle(cornerRadius: 11))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 11)
+                                .strokeBorder(Color.white.opacity(0.14))
+                        }
+                }
             }
-            HStack(spacing: 10) {
-                secondaryButton("Replay", enabled: engine.canReplay) { engine.replay() }
-                secondaryButton("Double & Replay", enabled: engine.canReplayDouble) { engine.replayDouble() }
-            }
+            .padding(.horizontal)
+            .padding(.bottom, 6)
+            .animation(.spring(response: 0.48, dampingFraction: 0.72), value: engine.lastRoundNet)
         }
-        .padding(.horizontal)
-        .padding(.bottom, 6)
     }
 
-    private var roundSummary: String {
-        if engine.lastRoundNet > 0 { return "You won \(engine.money(engine.lastRoundNet))" }
-        if engine.lastRoundNet < 0 { return "You lost \(engine.money(-engine.lastRoundNet))" }
-        return "Push"
+    /// The settled-round plaque under the table: outcome word on the left,
+    /// money on the right, one detail line beneath.
+    private var roundResultCard: some View {
+        let net = engine.lastRoundNet
+        let anyHandWon = engine.hands.contains { $0.result == .win || $0.result == .blackjack }
+        // "DEALER WINS" would be a lie in a mixed multi-spot round where one
+        // hand won but the round still lost money overall.
+        let title = net > 0
+            ? (engine.hands.contains { $0.result == .blackjack } ? "BLACKJACK" : "WIN")
+            : (net < 0 ? (anyHandWon ? "DEALER AHEAD" : "DEALER WINS") : "PUSH")
+        let titleColor: Color = net > 0 ? Theme.accent : (net < 0 ? Theme.bad : .white.opacity(0.8))
+        let amountText = net > 0
+            ? "+\(engine.money(net))"
+            : (net < 0 ? "Lost \(engine.money(-net))" : "Bet returned")
+        let amountColor: Color = net > 0 ? .white : (net < 0 ? Theme.bad : .white)
+        return VStack(spacing: 6) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title)
+                    .font(.system(size: 17, weight: .black, design: .rounded))
+                    .tracking(2)
+                    .foregroundStyle(titleColor)
+                Spacer()
+                Text(amountText)
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(amountColor)
+            }
+            HStack {
+                Text(net >= 0 && engine.lastRoundNet > 0 ? winDetail : settleDetail)
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.65))
+                Spacer()
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
+        .background(Color.black.opacity(0.28), in: RoundedRectangle(cornerRadius: 14))
+        .overlay {
+            RoundedRectangle(cornerRadius: 14)
+                .strokeBorder(titleColor.opacity(net == 0 ? 0.2 : 0.5), lineWidth: 1.2)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("roundResultCard")
+    }
+
+    /// Detail line for losses and pushes, anchored on what the dealer made.
+    private var settleDetail: String {
+        let dealerValue = evaluate(engine.dealer)
+        if engine.lastRoundNet == 0 { return "Dealer made \(dealerValue.total). Bets push." }
+        let winning = engine.hands.filter { $0.result == .win || $0.result == .blackjack }.count
+        if winning > 0 {
+            return "\(winning) of \(engine.hands.count) hands won. Dealer made \(dealerValue.total)."
+        }
+        if engine.hands.allSatisfy({ $0.result == .bust }) { return "You went over 21." }
+        if engine.hands.contains(where: { $0.result == .dealerBlackjack }) { return "Dealer had blackjack." }
+        return "Dealer made \(dealerValue.total)."
+    }
+
+    private var winDetail: String {
+        let winningHands = engine.hands.filter { $0.result == .win || $0.result == .blackjack }.count
+        let blackjacks = engine.hands.filter { $0.result == .blackjack }.count
+        if blackjacks == 1 { return "Blackjack • Paid 3 to 2" }
+        if blackjacks > 1 { return "\(blackjacks) blackjacks • Paid 3 to 2" }
+        if evaluate(engine.dealer).total > 21 { return "Dealer went over 21" }
+        if engine.hands.count > 1 { return "\(winningHands) winning \(winningHands == 1 ? "hand" : "hands") • Great round" }
+        return "Dealer beaten • Nice hand"
+    }
+
+    private func doneActionButton(
+        _ title: String,
+        systemImage: String,
+        primary: Bool,
+        enabled: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Label(title, systemImage: systemImage)
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 12)
+                .foregroundStyle(primary ? Color.black.opacity(0.85) : .white)
+                .background(
+                    primary ? AnyShapeStyle(Theme.accent) : AnyShapeStyle(Color.black.opacity(0.28)),
+                    in: RoundedRectangle(cornerRadius: 11)
+                )
+                .overlay {
+                    RoundedRectangle(cornerRadius: 11)
+                        .strokeBorder(primary ? Color.white.opacity(0.25) : Color.white.opacity(0.14))
+                }
+                .opacity(enabled ? 1 : 0.35)
+        }
+        .disabled(!enabled)
     }
 
     // MARK: - Footer
@@ -463,14 +655,23 @@ private struct PlayContent: View {
         HStack {
             footerItem("BALANCE", engine.money(engine.bankroll), Theme.accent)
             Divider().frame(height: 30).overlay(.white.opacity(0.2))
-            footerItem("LAST", engine.money(engine.lastRoundNet),
-                       engine.lastRoundNet > 0 ? Theme.good : (engine.lastRoundNet < 0 ? Theme.bad : .white))
+            footerItem("SESSION", sessionNetText,
+                       engine.sessionNet > 0.005 ? Theme.good : (engine.sessionNet < -0.005 ? Theme.bad : .white))
             Divider().frame(height: 30).overlay(.white.opacity(0.2))
-            footerItem("TRUE COUNT", engine.showCount ? String(format: "%+.1f", engine.trueCount) : "—", .white)
+            footerItem("TRUE COUNT", engine.showCount ? String(format: "%+.1f", engine.trueCount) : "Off", .white)
         }
         .padding(.vertical, 8)
         .padding(.horizontal)
         .background(.ultraThinMaterial)
+    }
+
+    /// Session profit shown with arrows instead of signs, so it reads like a
+    /// scoreboard rather than an accounting line.
+    private var sessionNetText: String {
+        let net = engine.sessionNet
+        if net > 0.005 { return "▲ \(engine.money(net))" }
+        if net < -0.005 { return "▼ \(engine.money(-net))" }
+        return "Even"
     }
 
     private func footerItem(_ label: String, _ value: String, _ tint: Color) -> some View {
@@ -492,47 +693,28 @@ private struct PlayContent: View {
         return engine.canSplit(h)
     }
 
-    private func actionButton(_ title: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 14)
-                .background(enabled ? Theme.felt : Color.gray.opacity(0.25),
-                            in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .gray)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .strokeBorder(Color.white.opacity(enabled ? 0.18 : 0), lineWidth: 1)
-                )
-        }
-        .disabled(!enabled)
-    }
-
-    private func secondaryButton(_ title: String, enabled: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.subheadline.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
-                .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .white.opacity(0.35))
-        }
-        .disabled(!enabled)
-    }
-
     // MARK: - Helpers
 
+    // The result itself is stamped over the cards, so the label stays a
+    // clean total.
     private func handLabel(_ hand: PlayerHand) -> String {
         let v = hand.value
-        var label = v.soft && v.total != 21 ? "soft \(v.total)" : "\(v.total)"
-        if let r = hand.result { label += " · \(r.rawValue)" }
-        return label
+        return v.soft && v.total != 21 ? "soft \(v.total)" : "\(v.total)"
+    }
+
+    /// A result that's already locked in before the round settles: a bust,
+    /// or a natural once the dealer has peeked and doesn't have one too.
+    /// Insurance comes before the peek, so a natural waits until after it.
+    private func earlyResult(_ hand: PlayerHand) -> HandResult? {
+        if hand.busted { return .bust }
+        let afterPeek = [GamePhase.countCheck, .playing, .dealer].contains(engine.phase)
+        let dealerNatural = engine.dealer.count == 2 && evaluate(engine.dealer).total == 21
+        if hand.isBlackjack && afterPeek && !dealerNatural { return .blackjack }
+        return nil
     }
 
     private func resultColor(_ hand: PlayerHand) -> Color {
+        if hand.busted { return Theme.bad }
         switch hand.result {
         case .win, .blackjack: return Theme.good
         case .lose, .bust, .dealerBlackjack: return Theme.bad
@@ -548,82 +730,4 @@ private struct PlayContent: View {
     }
 
     private func signed(_ n: Int) -> String { n > 0 ? "+\(n)" : "\(n)" }
-}
-
-// MARK: - Settings sheet
-
-private struct SettingsSheet: View {
-    @Bindable var engine: PlayEngine
-    @Environment(Stats.self) private var stats
-    @Environment(\.dismiss) private var dismiss
-    @State private var showResetBankroll = false
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Table Rules") {
-                    Picker("Decks", selection: $engine.numDecks) {
-                        ForEach([1, 2, 4, 6, 8], id: \.self) { Text("\($0)").tag($0) }
-                    }
-                    Picker("Dealer", selection: $engine.dealerHitsSoft17) {
-                        Text("Stands soft 17").tag(false)
-                        Text("Hits soft 17").tag(true)
-                    }
-                    Picker("Table minimum", selection: $engine.tableMinimum) {
-                        Text("$0.10").tag(0.10)
-                        Text("$1").tag(1.0)
-                        Text("$5").tag(5.0)
-                        Text("$25").tag(25.0)
-                        Text("$50").tag(50.0)
-                        Text("$100").tag(100.0)
-                    }
-                }
-                Section {
-                    Toggle("Show running / true count", isOn: $engine.showCount)
-                    Toggle("Betting hints", isOn: $engine.betHints)
-                    Toggle("Ask the count mid-hand", isOn: $engine.askCountChecks)
-                } header: {
-                    Text("Counting")
-                } footer: {
-                    Text("With betting hints off, the app only tells you if you bet too much or too little — it won't reveal the count. \"Ask the count mid-hand\" occasionally quizzes your running count before you act.")
-                }
-                Section {
-                    Toggle("Count deviations (Illustrious 18)", isOn: $engine.useDeviations)
-                } header: {
-                    Text("Advanced")
-                } footer: {
-                    Text("Grades your plays against count-based index deviations — e.g. stand 16 vs 10 at true count 0+. See the full list on the Strategy tab.")
-                }
-                Section("Sound") {
-                    Toggle("Sound effects", isOn: $engine.soundOn)
-                }
-                Section("Bankroll") {
-                    HStack {
-                        Text("Balance")
-                        Spacer()
-                        Text(engine.money(engine.bankroll)).foregroundStyle(.secondary)
-                    }
-                    Button("Reset bankroll to $1,000", role: .destructive) {
-                        showResetBankroll = true
-                    }
-                }
-                Section {
-                    Text("Bet-sizing tip: keep bets at the table minimum when the true count is low, and ramp up (about one unit per point of true count) once it climbs to +2 or higher. The app grades each bet against the count.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .navigationTitle("Settings")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .confirmationDialog("Reset bankroll?", isPresented: $showResetBankroll, titleVisibility: .visible) {
-                Button("Reset to $1,000", role: .destructive) { stats.resetBankroll() }
-                Button("Cancel", role: .cancel) {}
-            }
-        }
-    }
 }

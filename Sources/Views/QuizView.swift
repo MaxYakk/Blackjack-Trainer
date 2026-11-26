@@ -19,65 +19,102 @@ struct QuizView: View {
 private struct QuizContent: View {
     @Bindable var engine: QuizEngine
     @Environment(Stats.self) private var stats
+    @State private var showChallenge = false
 
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Quiz")
-            VStack(spacing: 18) {
-                scoreBar
-                difficultyPicker
+            // Scrollable so the challenge card (or any future banner) never
+            // pushes the Hit/Stand/Double/Split buttons off the bottom of
+            // the screen — a fixed VStack with Spacers silently clipped them.
+            ScrollView {
+                VStack(spacing: 18) {
+                    challengeCard
+                    scoreBar
+                    difficultyPicker
 
-                Spacer()
+                    // Dealer up card
+                    VStack(spacing: 6) {
+                        Text("Dealer shows").font(.caption).foregroundStyle(.secondary)
+                        if let up = engine.dealerUp { CardView(card: up, size: 1.4) }
+                    }
 
-                // Dealer up card
-                VStack(spacing: 6) {
-                    Text("Dealer shows").font(.caption).foregroundStyle(.secondary)
-                    if let up = engine.dealerUp { CardView(card: up, size: 1.4) }
-                }
+                    // Player hand
+                    VStack(spacing: 6) {
+                        Text(engine.handText).font(.headline).foregroundStyle(Theme.accent)
+                        HStack(spacing: 8) {
+                            ForEach(engine.player) { CardView(card: $0, size: 1.4) }
+                        }
+                    }
 
-                // Player hand
-                VStack(spacing: 6) {
-                    Text(engine.handText).font(.headline).foregroundStyle(Theme.accent)
-                    HStack(spacing: 8) {
-                        ForEach(engine.player) { CardView(card: $0, size: 1.4) }
+                    // Feedback
+                    Text(engine.feedback)
+                        .font(.headline)
+                        .foregroundStyle(engine.feedbackGood ? Theme.good : Theme.bad)
+                        .frame(height: 26)
+
+                    if engine.answered {
+                        Button {
+                            engine.next()
+                        } label: {
+                            Text("Next")
+                                .font(.headline)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 14)
+                                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
+                                .foregroundStyle(.black)
+                        }
+                        .padding(.horizontal)
+                    } else {
+                        actionGrid
                     }
                 }
-
-                // Feedback
-                Text(engine.feedback)
-                    .font(.headline)
-                    .foregroundStyle(engine.feedbackGood ? Theme.good : Theme.bad)
-                    .frame(height: 26)
-
-                Spacer()
-
-                if engine.answered {
-                    Button {
-                        engine.next()
-                    } label: {
-                        Text("Next")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                            .foregroundStyle(.black)
-                    }
-                    .padding(.horizontal)
-                } else {
-                    actionGrid
-                }
+                .padding()
+                .frame(maxWidth: .infinity)
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(Theme.feltDark.ignoresSafeArea())
+    }
+
+    private var challengeCard: some View {
+        Button {
+            showChallenge = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "calendar.badge.checkmark")
+                    .font(.title3)
+                    .foregroundStyle(Theme.accent)
+                Text("Daily Challenge")
+                    .font(.subheadline.weight(.bold))
+                    .foregroundStyle(.white)
+                Spacer()
+                if let result = stats.todayChallenge {
+                    Text("\(result.score)/\(result.total)")
+                        .font(.headline)
+                        .foregroundStyle(Theme.good)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .padding(12)
+            .background(Color.black.opacity(0.25), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Theme.accent.opacity(stats.todayChallenge == nil ? 0.4 : 0), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .sheet(isPresented: $showChallenge) {
+            DailyChallengeView()
+                .environment(stats)
+        }
     }
 
     private var scoreBar: some View {
         HStack {
             pill("Streak", "\(engine.streak)")
             pill("Best", "\(stats.data.quizBestStreak)")
-            pill("Accuracy", stats.data.quizTotal == 0 ? "–" : "\(Int(stats.quizAccuracy * 100))%")
+            pill("Accuracy", stats.data.quizTotal == 0 ? "N/A" : "\(Int(stats.quizAccuracy * 100))%")
         }
     }
 
@@ -88,10 +125,18 @@ private struct QuizContent: View {
             }
             .pickerStyle(.segmented)
             if engine.difficulty == .hard {
-                Text("Classic gotcha spots — stiffs, soft-hand doubles, and pairs that trick people.")
+                Text("Practice the tricky hands: hard totals, soft doubles, and pairs that often cause mistakes.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            if engine.difficulty == .smart {
+                Text("Trains YOUR game: deals the spots you miss most, plus ones you haven't practiced yet.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }

@@ -28,21 +28,32 @@ enum Tab: Int, CaseIterable, Identifiable {
 
 struct RootView: View {
     @State private var selection: Tab = .play
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            TabView(selection: $selection) {
-                PlayView().tag(Tab.play)
-                QuizView().tag(Tab.quiz)
-                CountDrillView().tag(Tab.count)
-                StrategyChartView().tag(Tab.strategy)
-                ProgressStatsView().tag(Tab.progress)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+        ZStack {
+            VStack(spacing: 0) {
+                TabView(selection: $selection) {
+                    PlayView().tag(Tab.play)
+                    QuizView().tag(Tab.quiz)
+                    CountDrillView().tag(Tab.count)
+                    StrategyChartView().tag(Tab.strategy)
+                    ProgressStatsView().tag(Tab.progress)
+                }
+                .tabViewStyle(.page(indexDisplayMode: .never))
 
-            CustomTabBar(selection: $selection)
+                CustomTabBar(selection: $selection)
+            }
+            .background(Theme.feltDark.ignoresSafeArea())
+
+            if !hasCompletedOnboarding {
+                OnboardingView {
+                    hasCompletedOnboarding = true
+                }
+                .transition(.opacity)
+            }
         }
-        .background(Theme.feltDark.ignoresSafeArea())
+        .animation(.easeInOut(duration: 0.25), value: hasCompletedOnboarding)
     }
 }
 
@@ -66,6 +77,7 @@ private struct CustomTabBar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .accessibilityIdentifier("tab_\(tab.title.lowercased())")
             }
         }
         .padding(.top, 8)

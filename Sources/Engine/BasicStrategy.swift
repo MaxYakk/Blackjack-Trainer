@@ -67,7 +67,10 @@ enum BasicStrategy {
     ]
 
     /// The correct basic-strategy action for the given hand and dealer up-card.
-    static func correctAction(cards: [Card], dealerUp: Rank, canDouble: Bool, canSplit: Bool) -> Action {
+    /// The tables encode S17; `dealerHitsSoft17` applies the three multi-deck
+    /// cells that flip under H17 (11 vs A, soft 18 vs 2, soft 19 vs 6).
+    static func correctAction(cards: [Card], dealerUp: Rank, canDouble: Bool, canSplit: Bool,
+                              dealerHitsSoft17: Bool = false) -> Action {
         let colKey = dealerUp.strategyKey
         guard let col = dealerCols.firstIndex(of: colKey) else { return .stand }
 
@@ -86,6 +89,10 @@ enum BasicStrategy {
 
         if hv.soft, hv.total >= 13, hv.total <= 20, let row = soft[hv.total], col < row.count {
             var a = row[col]
+            if dealerHitsSoft17 {
+                if hv.total == 18 && colKey == "2" { a = "Ds" }
+                if hv.total == 19 && colKey == "6" { a = "Ds" }
+            }
             if a == "D" && !canDouble { a = "H" }
             if a == "Ds" { a = canDouble ? "D" : "S" }
             return Action(rawValue: a) ?? .hit
@@ -98,6 +105,7 @@ enum BasicStrategy {
             return hv.total >= 17 ? .stand : .hit
         }
         var a = row[col]
+        if dealerHitsSoft17 && key == 11 && colKey == "A" { a = "D" }
         if a == "D" && !canDouble { a = "H" }
         return Action(rawValue: a) ?? .hit
     }
@@ -131,11 +139,11 @@ enum Deviations {
         Deviation(handKey: "10", dealerKey: "A",  index: 4,  atOrAbove: .double, below: .hit, note: "10 vs A: double at TC +4"),
         Deviation(handKey: "9",  dealerKey: "7",  index: 3,  atOrAbove: .double, below: .hit, note: "9 vs 7: double at TC +3"),
         Deviation(handKey: "16", dealerKey: "9",  index: 5,  atOrAbove: .stand, below: .hit,  note: "16 vs 9: stand at TC +5"),
-        Deviation(handKey: "13", dealerKey: "2",  index: -1, atOrAbove: .stand, below: .hit,  note: "13 vs 2: hit below TC -1"),
+        Deviation(handKey: "13", dealerKey: "2",  index: -1, atOrAbove: .stand, below: .hit,  note: "13 vs 2: hit below a true count of negative 1"),
         Deviation(handKey: "12", dealerKey: "4",  index: 0,  atOrAbove: .stand, below: .hit,  note: "12 vs 4: hit below TC 0"),
-        Deviation(handKey: "12", dealerKey: "5",  index: -2, atOrAbove: .stand, below: .hit,  note: "12 vs 5: hit below TC -2"),
-        Deviation(handKey: "12", dealerKey: "6",  index: -1, atOrAbove: .stand, below: .hit,  note: "12 vs 6: hit below TC -1"),
-        Deviation(handKey: "13", dealerKey: "3",  index: -2, atOrAbove: .stand, below: .hit,  note: "13 vs 3: hit below TC -2"),
+        Deviation(handKey: "12", dealerKey: "5",  index: -2, atOrAbove: .stand, below: .hit,  note: "12 vs 5: hit below a true count of negative 2"),
+        Deviation(handKey: "12", dealerKey: "6",  index: -1, atOrAbove: .stand, below: .hit,  note: "12 vs 6: hit below a true count of negative 1"),
+        Deviation(handKey: "13", dealerKey: "3",  index: -2, atOrAbove: .stand, below: .hit,  note: "13 vs 3: hit below a true count of negative 2"),
     ]
 
     /// Take insurance at a true count of +3 or higher.
@@ -161,9 +169,11 @@ enum Deviations {
 
     /// The count-aware correct action: basic strategy unless an index play overrides it.
     static func correctAction(cards: [Card], dealerUp: Rank, trueCount: Double,
-                              canDouble: Bool, canSplit: Bool) -> Action {
+                              canDouble: Bool, canSplit: Bool,
+                              dealerHitsSoft17: Bool = false) -> Action {
         let basic = BasicStrategy.correctAction(cards: cards, dealerUp: dealerUp,
-                                                canDouble: canDouble, canSplit: canSplit)
+                                                canDouble: canDouble, canSplit: canSplit,
+                                                dealerHitsSoft17: dealerHitsSoft17)
         guard let dev = matching(cards: cards, dealerUp: dealerUp) else { return basic }
         var action = trueCount >= dev.index ? dev.atOrAbove : dev.below
         // Respect table constraints.

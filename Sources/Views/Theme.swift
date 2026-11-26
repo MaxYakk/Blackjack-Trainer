@@ -17,21 +17,61 @@ enum Theme {
     static let cardBlack = Color(white: 0.13)
 }
 
+/// Comma-grouped dollar formatting shared by every money display in the app —
+/// without it, a big buy-in like $250,000 renders as an unreadable "$250000.00".
+enum Money {
+    private static let cents: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.minimumFractionDigits = 2
+        f.maximumFractionDigits = 2
+        return f
+    }()
+
+    private static let whole: NumberFormatter = {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.maximumFractionDigits = 0
+        return f
+    }()
+
+    /// "$1,234.56", or "$1,234" when the amount is a whole dollar — cents
+    /// only earn their space on screen when there's actually a fraction to
+    /// show, which is most of the time now that chips run in whole dollars.
+    static func string(_ value: Double) -> String {
+        let isWhole = abs(value.rounded() - value) < 0.001
+        let formatter = isWhole ? whole : cents
+        let fallback = isWhole ? String(format: "%.0f", value) : String(format: "%.2f", value)
+        return "$" + (formatter.string(from: NSNumber(value: value)) ?? fallback)
+    }
+
+    /// "$1,234" — for summary tiles that don't need cents.
+    static func wholeString(_ value: Double) -> String {
+        "$" + (whole.string(from: NSNumber(value: value)) ?? String(format: "%.0f", value))
+    }
+}
+
 /// A lightweight inline title bar used in place of a NavigationStack.
 /// (Multiple NavigationStacks inside a paged TabView crash UIKit on swipe.)
 struct PageHeader<Trailing: View>: View {
     let title: String
+    let titleFont: Font
     @ViewBuilder let trailing: Trailing
 
-    init(_ title: String, @ViewBuilder trailing: () -> Trailing = { EmptyView() }) {
+    init(
+        _ title: String,
+        titleFont: Font = .headline.weight(.semibold),
+        @ViewBuilder trailing: () -> Trailing = { EmptyView() }
+    ) {
         self.title = title
+        self.titleFont = titleFont
         self.trailing = trailing()
     }
 
     var body: some View {
         ZStack {
             Text(title)
-                .font(.headline.weight(.semibold))
+                .font(titleFont)
                 .foregroundStyle(.white)
             HStack {
                 Spacer()
@@ -106,28 +146,45 @@ struct CardView: View {
     }
 }
 
-/// Standard casino chip colors by denomination.
+/// Standard casino chip colors by denomination. Every denomination
+/// ChipSizing can hand out gets its own explicit, unique color — falling
+/// through to `default` is what caused $250 and $1,000 chips to render
+/// identically purple.
 enum ChipStyle {
     static func colors(for value: Double) -> (bg: Color, ring: Color, text: Color) {
         switch value {
-        case 0.10: return (Color(white: 0.45), .white, .white)
-        case 0.25: return (Color(red: 0.85, green: 0.45, blue: 0.62), .white, .white)
-        case 1:     return (Color(white: 0.95), Color(white: 0.6), Theme.cardBlack)
-        case 5:     return (Color(red: 0.78, green: 0.18, blue: 0.16), .white, .white)
-        case 25:    return (Color(red: 0.13, green: 0.5, blue: 0.28), .white, .white)
-        case 100:   return (Color(white: 0.12), .white, .white)
-        default:    return (Color(red: 0.42, green: 0.2, blue: 0.6), .white, .white)
+        case 0.10:   return (Color(white: 0.45), .white, .white)
+        case 0.25:   return (Color(red: 0.85, green: 0.45, blue: 0.62), .white, .white)
+        case 1:      return (Color(white: 0.95), Color(white: 0.6), Theme.cardBlack)
+        case 5:      return (Color(red: 0.78, green: 0.18, blue: 0.16), .white, .white)
+        case 10:     return (Color(red: 0.16, green: 0.42, blue: 0.78), .white, .white)
+        case 25:     return (Color(red: 0.13, green: 0.5, blue: 0.28), .white, .white)
+        case 50:     return (Color(red: 0.93, green: 0.55, blue: 0.13), .white, .white)
+        case 100:    return (Color(white: 0.12), .white, .white)
+        case 250:    return (Color(red: 0.55, green: 0.24, blue: 0.78), .white, .white)
+        case 500:    return (Color(red: 0.13, green: 0.62, blue: 0.66), .white, .white)
+        case 1000:   return (Color(red: 0.18, green: 0.24, blue: 0.62), .white, .white)
+        case 2000:   return (Color(red: 0.76, green: 0.13, blue: 0.42), .white, .white)
+        case 5000:   return (Color(red: 0.85, green: 0.72, blue: 0.15), Theme.cardBlack, Theme.cardBlack)
+        case 10000:  return (Color(red: 0.30, green: 0.68, blue: 0.24), .white, .white)
+        case 25000:  return (Color(white: 0.72), Theme.cardBlack, Theme.cardBlack)
+        case 50000:  return (Color(red: 0.05, green: 0.10, blue: 0.30), .white, .white)
+        case 100000: return (Color(red: 0.42, green: 0.06, blue: 0.10), .white, .white)
+        default:     return (Color(red: 0.42, green: 0.2, blue: 0.6), .white, .white)
         }
     }
 
     static func label(_ value: Double) -> String {
         if value < 1 { return String(format: "%.2f", value) }
+        if value >= 1000 { return String(format: "%gK", value / 1000) }
         return String(format: "%g", value)
     }
 
-    /// Greedy breakdown of a bet into stackable chip denominations.
+    /// Greedy breakdown of a bet into stackable chip denominations — covers
+    /// every value ChipSizing can produce so a big bet renders as a short
+    /// stack of large chips instead of a tower of small ones.
     static func breakdown(_ amount: Double) -> [Double] {
-        let denoms = [100.0, 25, 5, 1, 0.25, 0.10]
+        let denoms = [100_000.0, 50_000, 25_000, 10_000, 5_000, 2_000, 1_000, 500, 250, 100, 50, 25, 10, 5, 1, 0.25, 0.10]
         var remaining = (amount * 100).rounded() / 100
         var chips: [Double] = []
         for d in denoms {

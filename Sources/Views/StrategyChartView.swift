@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct StrategyChartView: View {
+    @Environment(Stats.self) private var stats
+    @State private var showHeatmap = false
+
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Strategy")
@@ -10,11 +13,13 @@ struct StrategyChartView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
-                    chartSection("Hard Totals", rowLabel: "Total",
+                    heatmapToggle
+
+                    chartSection("Hard Totals", rowLabel: "Total", category: "H",
                                  keys: hardKeys, table: BasicStrategy.hard.mapKeysToString())
-                    chartSection("Soft Totals", rowLabel: "Hand",
+                    chartSection("Soft Totals", rowLabel: "Hand", category: "S",
                                  keys: softKeys, table: BasicStrategy.soft.mapKeysToString())
-                    chartSection("Pairs", rowLabel: "Pair",
+                    chartSection("Pairs", rowLabel: "Pair", category: "P",
                                  keys: pairKeys, table: BasicStrategy.pairs)
 
                     deviationsSection
@@ -29,10 +34,42 @@ struct StrategyChartView: View {
     private var softKeys: [String] { (13...20).map { String($0) } }
     private var pairKeys: [String] { ["2","3","4","5","6","7","8","9","10","A"] }
 
+    // MARK: - Heatmap mode
+
+    private var heatmapToggle: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Toggle(isOn: $showHeatmap.animation(.easeInOut(duration: 0.2))) {
+                Text("Show my accuracy")
+                    .font(.subheadline.weight(.semibold))
+            }
+            .tint(Theme.accent)
+            if showHeatmap {
+                Text("Each cell is colored by how you actually play it — green is solid, red is a leak, dark cells haven't been practiced yet.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(12)
+        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 12))
+    }
+
+    /// Red (0%) through amber to green (100%) on the hue wheel.
+    private func heatColor(accuracy: Double) -> Color {
+        Color(hue: 0.33 * accuracy, saturation: 0.75, brightness: 0.5)
+    }
+
+    private func heatmapBackground(category: String, row: String, col: String) -> Color {
+        let key = SpotID.key(category: category, row: row, dealerCol: col)
+        guard let spot = stats.data.spots[key], spot.total > 0 else {
+            return Color.white.opacity(0.06)
+        }
+        return heatColor(accuracy: spot.accuracy)
+    }
+
     private var deviationsSection: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Count Deviations — Illustrious 18").font(.headline)
-            Text("Once you've got basic strategy down, these are the highest-value plays that change with the true count (Hi-Lo). Enable \"Count deviations\" in Play settings to be graded on them. Take insurance at true count +3 or higher.")
+            Text("Count Deviations: Illustrious 18").font(.headline)
+            Text("Once you've got basic strategy down, these are the most valuable plays that change with the true count (Hi Lo). Enable \"Count deviations\" in Play settings to be graded on them. Take insurance at true count +3 or higher.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             VStack(spacing: 0) {
@@ -51,7 +88,8 @@ struct StrategyChartView: View {
         }
     }
 
-    private func chartSection(_ title: String, rowLabel: String, keys: [String], table: [String: [String]]) -> some View {
+    private func chartSection(_ title: String, rowLabel: String, category: String,
+                              keys: [String], table: [String: [String]]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             Text(title).font(.headline)
             ScrollView(.horizontal, showsIndicators: false) {
@@ -64,8 +102,10 @@ struct StrategyChartView: View {
                         GridRow {
                             headerCell(key)
                             if let row = table[key] {
-                                ForEach(Array(row.enumerated()), id: \.offset) { _, action in
-                                    actionCell(action)
+                                ForEach(Array(row.enumerated()), id: \.offset) { colIdx, action in
+                                    actionCell(action,
+                                               category: category, row: key,
+                                               col: BasicStrategy.dealerCols[colIdx])
                                 }
                             }
                         }
@@ -86,11 +126,13 @@ struct StrategyChartView: View {
             .foregroundStyle(Theme.accent)
     }
 
-    private func actionCell(_ action: String) -> some View {
+    private func actionCell(_ action: String, category: String, row: String, col: String) -> some View {
         Text(action)
             .font(.caption2.weight(.semibold))
             .frame(width: 30, height: 26)
-            .background(color(for: action))
+            .background(showHeatmap
+                        ? heatmapBackground(category: category, row: row, col: col)
+                        : color(for: action))
             .foregroundStyle(.white)
     }
 

@@ -52,9 +52,11 @@ final class CountDrillEngine {
 
     var totalCards: Int { sequence.count }
 
+    // Floor at a quarter deck (matching Shoe.decksRemaining) so the true-count
+    // division never blows up. The old floor of one full deck's fraction pinned
+    // a 1-deck drill at 1.0 for its whole run, making true count == running count.
     var decksRemaining: Double {
-        let shoeCards = Double(numDecks * 52)
-        return max((shoeCards - Double(dealtCount)) / 52.0, 52.0 / shoeCards)
+        max((Double(numDecks * 52) - Double(dealtCount)) / 52.0, 0.25)
     }
 
     var trueCount: Double {
