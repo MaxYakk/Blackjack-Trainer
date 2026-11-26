@@ -8,6 +8,20 @@ enum QuizDifficulty: String, CaseIterable, Identifiable {
     case smart = "Smart"
 
     var id: String { rawValue }
+
+    /// One line shown under the difficulty picker.
+    var summary: String {
+        switch self {
+        case .easy:
+            return "Clear cut hands only: no pairs, no soft hands, and nothing from 12 to 16."
+        case .normal:
+            return "Any two card hand against any dealer card, like a real shoe."
+        case .hard:
+            return "The tricky spots: hard 9 to 16, soft hands and pairs against every dealer card."
+        case .smart:
+            return "Trains your game: deals the spots you miss most, plus ones you haven't tried yet."
+        }
+    }
 }
 
 @MainActor
@@ -17,6 +31,8 @@ final class QuizEngine {
     private(set) var dealerUp: Card?
     private(set) var feedback = ""
     private(set) var feedbackGood = false
+    /// One short sentence on why the best play is right (empty until answered).
+    private(set) var reason = ""
     private(set) var answered = false
     private(set) var streak = 0
     private(set) var lastCorrect: Action?
@@ -69,6 +85,7 @@ final class QuizEngine {
             dealRandomHand(excluding: { _, _ in false })
         }
         feedback = ""
+        reason = ""
         answered = false
         lastCorrect = nil
     }
@@ -143,9 +160,130 @@ final class QuizEngine {
         }
         feedbackGood = ok
         feedback = ok
-            ? "Correct! \(correct.name)."
-            : "\(correct.name), not \(action.name)."
+            ? "Correct: \(correct.name)"
+            : "Best play is \(correct.name), not \(action.name)"
+        reason = QuizReasons.explain(correct: correct, cards: player,
+                                     dealerUp: up.rank, canSplit: canSplit)
         // Haptic only — a buzz on wrong, a light success tap on right. No ringtone.
         Haptics.notify(ok ? 1 : -1)
+    }
+}
+
+// MARK: - Why the best play is right
+
+/// One short, accurate sentence per hand explaining the basic strategy play.
+/// Written for the app's default rules (4 to 8 decks, dealer stands on soft 17,
+/// double after split), which is what the quiz and the daily challenge grade
+/// against. Kept free of dashes so on screen copy stays clean.
+enum QuizReasons {
+    /// The reason for the correct play on this hand, computing that play itself.
+    static func explain(cards: [Card], dealerUp: Rank, canSplit: Bool) -> String {
+        let correct = BasicStrategy.correctAction(cards: cards, dealerUp: dealerUp,
+                                                  canDouble: true, canSplit: canSplit)
+        return explain(correct: correct, cards: cards, dealerUp: dealerUp, canSplit: canSplit)
+    }
+
+    static func explain(correct: Action, cards: [Card], dealerUp: Rank, canSplit: Bool) -> String {
+        let up = dealerUp == .ace ? "ace" : dealerUp.strategyKey
+        let dealerValue = dealerUp.value               // ace is 11
+        let weakDealer = (2...6).contains(dealerValue)
+        let hv = evaluate(cards)
+        let isPair = cards.count == 2 && cards[0].rank.strategyKey == cards[1].rank.strategyKey
+
+        if isPair && canSplit {
+            let rank = cards[0].rank
+            if correct == .split {
+                if rank == .ace { return "Always split aces: two hands starting from 11 beat one soft 12." }
+                if rank == .eight { return "Always split 8s: 16 is the worst hand, and two starts from 8 are better." }
+                if weakDealer { return "Dealer \(up) is weak, so split and put a second hand to work against it." }
+                return "Against a dealer \(up), two hands starting from \(rank.strategyKey) earn more than one hand of \(hv.total), so split."
+            }
+            if rank.strategyKey == "10" {
+                return "Stand on 20: it wins most hands, and splitting would break up a great hand."
+            }
+            if rank == .nine {
+                return dealerUp == .seven
+                    ? "Stand on 18: a dealer 7 usually ends on 17, so 18 already wins."
+                    : "Stand on 18: splitting 9s against a dealer \(up) earns less than keeping the 18."
+            }
+            // Other pairs the chart doesn't split are played as their total below.
+        }
+
+        if hv.soft && hv.total >= 13 && hv.total <= 20 {
+            let t = hv.total
+            switch correct {
+            case .stand:
+                return t >= 19
+                    ? "Soft \(t) is already strong, so stand and take the win."
+                    : "Soft 18 is good enough to stand on against a dealer \(up)."
+            case .double:
+                return "Dealer \(up) is weak and your ace protects you from busting, so double."
+            case .hit, .split:
+                return t == 18
+                    ? "Dealer \(up) often makes 19 or better, and soft 18 can't bust on a hit, so take a card."
+                    : "Soft \(t) is too weak to stand on, and the ace means one card can't bust you, so hit."
+            }
+        }
+
+        let t = hv.total
+        switch correct {
+        case .stand:
+            if t >= 21 { return "21 is the best total there is, so stand." }
+            if t >= 18 { return "Stand on \(t): it is already a strong hand, so don't risk a bust." }
+            if t == 17 { return "Stand on 17: hitting busts too often to be worth it." }
+            return "Dealer \(up) busts often, so stand on \(t) and let the dealer bust."
+        case .double:
+            switch t {
+            case 9: return "Dealer \(up) is weak and 9 is a strong start, so double."
+            case 10: return "10 is a great total to double: one more 10 makes 20, and a dealer \(up) is beatable."
+            default: return "11 is the best total to double: any 10 makes 21."
+            }
+        case .hit, .split:
+            switch t {
+            case ...8: return "\(t) is too low to stand on, and one card can't bust you, so hit."
+            case 9: return "9 is only worth doubling against a dealer 3 to 6, so against a \(up) just hit."
+            case 10: return "A dealer \(up) is too strong to double into, so just hit."
+            case 11: return "A dealer ace is too strong to double 11 against, so just hit."
+            case 12 where dealerValue <= 3:
+                return "A dealer \(up) busts a little less often, so 12 isn't safe to stand on: hit."
+            default:
+                return "Dealer \(up) is strong and likely to reach 17 or more, so hit even though \(t) can bust."
+            }
+        }
+    }
+}
+
+// MARK: - Strategy chart lookup
+
+/// What the Strategy screen shows for one chart cell, resolved with the same
+/// deck chart and dealer rule the game grades against (so the chart on screen
+/// can never disagree with the grading).
+enum ChartLookup {
+    enum Category: String {
+        case hard = "H", soft = "S", pair = "P"
+    }
+
+    /// The chart code ("H", "S", "D", "Ds", "P") for a cell, or nil for a cell
+    /// the chart doesn't have. `row` and `dealerCol` are the chart's own labels.
+    static func code(category: Category, row: String, dealerCol: String,
+                     numDecks: Int, dealerHitsSoft17: Bool) -> String? {
+        let chart = BasicStrategy.chart(forDecks: numDecks)
+        guard let colIndex = BasicStrategy.dealerCols.firstIndex(of: dealerCol) else { return nil }
+        let codes: [String]?
+        let h17Key: String?
+        switch category {
+        case .hard:
+            codes = Int(row).flatMap { chart.hard[$0] }
+            h17Key = "h\(row)/\(dealerCol)"
+        case .soft:
+            codes = Int(row).flatMap { chart.soft[$0] }
+            h17Key = "s\(row)/\(dealerCol)"
+        case .pair:
+            codes = chart.pairs[row]
+            h17Key = nil
+        }
+        guard let codes, colIndex < codes.count else { return nil }
+        if dealerHitsSoft17, let h17Key, let changed = chart.h17Changes[h17Key] { return changed }
+        return codes[colIndex]
     }
 }

@@ -2,16 +2,25 @@ import SwiftUI
 
 /// The daily challenge: ten date-seeded spots, the same deal for everyone,
 /// presented as a sheet from the Quiz tab.
+///
+/// Opening it after today's run is finished shows that result with an explicit
+/// "Practice again" button; practice runs never change the recorded score.
 struct DailyChallengeView: View {
     @Environment(Stats.self) private var stats
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var engine: DailyChallengeEngine?
+    /// True while the sheet shows today's saved result instead of a run.
+    @State private var showingSavedResult = false
+    @State private var confirmLeave = false
 
     var body: some View {
         Group {
             if let engine {
-                if engine.finished {
-                    resultScreen(engine)
+                if showingSavedResult, let saved = stats.todayChallenge {
+                    resultScreen(score: saved.score, total: saved.total, practice: false)
+                } else if engine.finished {
+                    resultScreen(score: engine.score, total: engine.spots.count, practice: engine.isReplay)
                 } else {
                     challengeScreen(engine)
                 }
@@ -20,112 +29,170 @@ struct DailyChallengeView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Theme.feltDark.ignoresSafeArea())
+        .background(Color.bg.ignoresSafeArea())
         .onAppear {
-            // Also rebuilds when a kept-alive view reappears after midnight,
+            // Also rebuilds when a kept alive view reappears after midnight,
             // so a stale engine can't record under yesterday's key.
             if engine?.dateKey != stats.todayDateKey {
                 engine = DailyChallengeEngine(stats: stats, dateKey: stats.todayDateKey)
+                showingSavedResult = stats.todayChallenge != nil
             }
         }
     }
+
+    /// A fresh run of today's hands. Today's counted run is already used, so
+    /// this one is practice and records nothing.
+    private func startPractice() {
+        Motion.perform(.standard, reduceMotion: reduceMotion) {
+            engine = DailyChallengeEngine(stats: stats, dateKey: stats.todayDateKey)
+            showingSavedResult = false
+        }
+    }
+
+    /// Leaving a counted run partway uses it up, so ask first.
+    private func requestClose(_ engine: DailyChallengeEngine) {
+        if !engine.isReplay && (engine.index > 0 || engine.answered) {
+            confirmLeave = true
+        } else {
+            dismiss()
+        }
+    }
+
+    // MARK: Run
 
     private func challengeScreen(_ engine: DailyChallengeEngine) -> some View {
         VStack(spacing: 0) {
-            HStack {
-                Text(engine.isReplay ? "Daily Challenge · Practice" : "Daily Challenge")
-                    .font(.headline)
-                    .foregroundStyle(.textPrimary)
-                Spacer()
-                Text("\(engine.index + 1) / \(engine.spots.count)")
-                    .font(.subheadline.weight(.bold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .padding(.horizontal)
-            .padding(.top, 18)
+            header(engine)
 
-            ProgressView(value: Double(engine.index), total: Double(engine.spots.count))
-                .tint(Theme.accent)
-                .padding(.horizontal)
-                .padding(.bottom, 8)
-
-            // Scrollable so the action buttons can never get pushed off the
-            // bottom of the sheet, regardless of screen size or feedback length.
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: Space.md) {
+                    if engine.isReplay { practiceNote(engine) }
                     if let spot = engine.current {
-                        VStack(spacing: 6) {
-                            Text("Dealer shows").font(.caption).foregroundStyle(.textSecondary)
-                            CardView(card: Card(rank: spot.dealerRank, suit: .clubs), size: 1.4)
-                        }
-                        VStack(spacing: 6) {
-                            Text(engine.handText).font(.headline).foregroundStyle(Theme.accent)
-                            HStack(spacing: 8) {
-                                ForEach(spot.cards) { CardView(card: $0, size: 1.4) }
-                            }
-                        }
-                    }
-
-                    Text(engine.feedback)
-                        .font(.headline)
-                        .foregroundStyle(engine.feedbackGood ? Theme.mint : Theme.bad)
-                        .frame(height: 26)
-
-                    if engine.answered {
-                        Button {
-                            engine.next()
-                        } label: {
-                            Text(engine.index + 1 >= engine.spots.count ? "See results" : "Next")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                                .foregroundStyle(.onAccent)
-                        }
-                        .padding(.horizontal)
-                    } else if let spot = engine.current {
-                        actionGrid(engine, canSplit: spot.isPair)
+                        DrillHandTable(dealerUp: Card(rank: spot.dealerRank, suit: .clubs),
+                                       player: spot.cards,
+                                       handText: engine.handText)
+                        DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
+                                      good: engine.feedbackGood,
+                                      reason: engine.answered ? reason(for: spot) : "")
                     }
                 }
-                .padding(.vertical, 18)
+                .padding(.horizontal, Space.md)
+                .padding(.bottom, Space.md)
             }
+
+            Group {
+                if engine.answered {
+                    PrimaryButton(engine.index + 1 >= engine.spots.count ? "See results" : "Next") {
+                        engine.next()
+                    }
+                } else if let spot = engine.current {
+                    DecisionPad(canSplit: spot.isPair) { engine.answer($0) }
+                }
+            }
+            .padding(.horizontal, Space.md)
+            .padding(.top, Space.sm)
+            .padding(.bottom, Space.md)
+        }
+        .confirmationDialog("Leave today's challenge?", isPresented: $confirmLeave, titleVisibility: .visible) {
+            Button("Leave challenge", role: .destructive) { dismiss() }
+            Button("Keep playing", role: .cancel) {}
+        } message: {
+            Text("Your counted run for today is already started. If you leave now, the next time is practice and your score won't be saved.")
         }
     }
 
-    private func resultScreen(_ engine: DailyChallengeEngine) -> some View {
-        VStack(spacing: 16) {
-            Spacer()
-            Image(systemName: engine.score >= 8 ? "trophy.fill" : "checkmark.seal.fill")
-                .font(.system(size: 52))
-                .foregroundStyle(Theme.accent)
-            Text("\(engine.score) / \(engine.spots.count)")
-                .font(.system(size: 44, weight: .heavy, design: .rounded))
-                .foregroundStyle(.textPrimary)
-            Text(resultCopy(score: engine.score, total: engine.spots.count))
-                .font(.subheadline)
-                .foregroundStyle(.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Text(engine.isReplay
-                 ? "Practice run — today's recorded score and stats are unchanged."
-                 : "Same ten hands for everyone today — come back tomorrow for a new deal.")
-                .font(.caption)
-                .foregroundStyle(.textSecondary)
-                .multilineTextAlignment(.center)
-                .padding(.horizontal, 32)
-            Spacer()
-            Button {
-                dismiss()
-            } label: {
-                Text("Done")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.onAccent)
+    private func header(_ engine: DailyChallengeEngine) -> some View {
+        VStack(spacing: Space.xs) {
+            HStack(spacing: Space.xs) {
+                Text(engine.isReplay ? "Daily Challenge: Practice" : "Daily Challenge")
+                    .font(.heading)
+                    .foregroundStyle(.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer()
+                Text("\(engine.index + 1) / \(engine.spots.count)")
+                    .font(.numberInline)
+                    .foregroundStyle(.accent)
+                    .accessibilityLabel("Hand \(engine.index + 1) of \(engine.spots.count)")
+                closeButton { requestClose(engine) }
             }
-            .padding(.horizontal)
-            .padding(.bottom, 18)
+            ProgressBar(value: Double(engine.index) / Double(max(engine.spots.count, 1)),
+                        label: "Challenge progress")
+        }
+        .padding(.leading, Space.md)
+        .padding(.trailing, Space.xs)
+        .padding(.top, Space.xs)
+        .padding(.bottom, Space.sm)
+    }
+
+    private func closeButton(_ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: "xmark")
+                .font(.heading)
+                .foregroundStyle(.textSecondary)
+                .frame(width: Metrics.minTapTarget, height: Metrics.minTapTarget)
+                .contentShape(Rectangle())
+        }
+        .accessibilityLabel("Close")
+        .accessibilityIdentifier("dailyChallengeClose")
+    }
+
+    /// Why today's run is practice, in plain words.
+    private func practiceNote(_ engine: DailyChallengeEngine) -> some View {
+        Text(engine.isRestartOfUnfinishedRun
+             ? "Today's counted run was already started, so this one is practice. Your saved stats won't change."
+             : "You've already played today's challenge, so this one is practice. Your saved score won't change.")
+            .font(.detail)
+            .foregroundStyle(.textSecondary)
+            .multilineTextAlignment(.leading)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .panel(.subtle, padding: Space.sm)
+    }
+
+    private func reason(for spot: CatalogSpot) -> String {
+        QuizReasons.explain(cards: spot.cards, dealerUp: spot.dealerRank, canSplit: spot.isPair)
+    }
+
+    // MARK: Result
+
+    private func resultScreen(score: Int, total: Int, practice: Bool) -> some View {
+        VStack(spacing: Space.md) {
+            HStack {
+                Spacer()
+                closeButton { dismiss() }
+            }
+            .padding(.trailing, Space.xs)
+            Spacer(minLength: 0)
+            Image(systemName: score >= total - 2 ? "trophy.fill" : "checkmark.seal.fill")
+                .scaledFont(size: 52, weight: .regular, relativeTo: .largeTitle, maxSize: 90)
+                .foregroundStyle(.accent)
+                .accessibilityHidden(true)
+            Text(practice ? "Practice score" : "Today's score")
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
+            Text("\(score) / \(total)")
+                .font(.numberHero)
+                .foregroundStyle(.textPrimary)
+                .accessibilityLabel("\(score) out of \(total)")
+            Text(resultCopy(score: score, total: total))
+                .font(.bodyText)
+                .foregroundStyle(.textPrimary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Space.lg)
+            Text(practice
+                 ? "Practice run: today's recorded score and stats are unchanged."
+                 : "Same ten hands for everyone today. Come back tomorrow for a new deal.")
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
+                .multilineTextAlignment(.center)
+                .padding(.horizontal, Space.lg)
+            Spacer(minLength: 0)
+            VStack(spacing: Space.xs) {
+                PrimaryButton("Done") { dismiss() }
+                SecondaryButton("Practice again", systemImage: "arrow.clockwise") { startPractice() }
+                    .accessibilityHint("Replays today's ten hands. Nothing is recorded.")
+            }
+            .padding(.horizontal, Space.md)
+            .padding(.bottom, Space.md)
         }
     }
 
@@ -133,13 +200,8 @@ struct DailyChallengeView: View {
         switch score {
         case total: return "Perfect. That's how the chart is supposed to be played."
         case (total - 2)...: return "Strong. The misses are already in your leaks list."
-        case (total / 2)...: return "Decent — check Progress to see which spots got you."
+        case (total / 2)...: return "Decent. Check Progress to see which spots got you."
         default: return "Rough deal. Smart quiz mode will drill exactly these."
         }
-    }
-
-    private func actionGrid(_ engine: DailyChallengeEngine, canSplit: Bool) -> some View {
-        DecisionPad(canSplit: canSplit) { engine.answer($0) }
-            .padding(.horizontal)
     }
 }

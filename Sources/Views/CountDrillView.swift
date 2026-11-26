@@ -20,194 +20,233 @@ struct CountDrillView: View {
 
 private struct CountDrillContent: View {
     @Bindable var engine: CountDrillEngine
-    @Environment(Stats.self) private var stats
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var guess = 0
-    @State private var lastResultCorrect: Bool?
-    @State private var showHints = true
+    @State private var confirmRestart = false
+    @AppStorage("cd_showTips") private var showTips = true
+    @ScaledMetric(relativeTo: .body) private var stageHeight: CGFloat = 150
 
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Count Drill")
             ScrollView {
-                VStack(spacing: 16) {
-                    settings
+                VStack(spacing: Space.md) {
                     stage
                     if engine.phase == .guessing || engine.phase == .revealed {
                         answerCard
                     }
-                    if showHints {
+                    CountDrillSettingsPanel(engine: engine, showTips: $showTips)
+                    if showTips {
                         hiloReference
                         explainer
                     }
                 }
-                .padding()
+                .padding(Space.md)
             }
         }
-        .background(Theme.feltDark.ignoresSafeArea())
+        .background(Color.bg.ignoresSafeArea())
+        .onChange(of: engine.phase) { _, phase in
+            if phase == .guessing {
+                AccessibilityNotification.Announcement("Cards done. What's the count?").post()
+            }
+        }
+        .confirmationDialog("Restart this drill?", isPresented: $confirmRestart, titleVisibility: .visible) {
+            Button("Restart drill", role: .destructive) { restart() }
+            Button("Keep going", role: .cancel) {}
+        } message: {
+            Text("You've seen every card. Restarting throws this drill away without a score.")
+        }
     }
 
-    private var settings: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("Decks in shoe")
-                Spacer()
-                Picker("Decks", selection: $engine.numDecks) {
-                    ForEach([1, 2, 4, 5, 6, 8], id: \.self) { Text("\($0)").tag($0) }
-                }.pickerStyle(.menu)
-            }
-            HStack {
-                Text("Cards")
-                Spacer()
-                Picker("Cards", selection: $engine.cardsPerDrill) {
-                    ForEach([10, 20, 30, 52, 104], id: \.self) { Text("\($0)").tag($0) }
-                }.pickerStyle(.menu)
-            }
-            HStack {
-                Text("Speed")
-                Spacer()
-                Picker("Speed", selection: $engine.speedSeconds) {
-                    Text("Extra Slow 2s").tag(2.0)
-                    Text("Slow 1.5s").tag(1.5)
-                    Text("Medium 1s").tag(1.0)
-                    Text("Fast 0.6s").tag(0.6)
-                    Text("Very Fast 0.35s").tag(0.35)
-                }.pickerStyle(.menu)
-            }
-            Toggle("Show live count (hint)", isOn: $engine.showHint)
-                .tint(Theme.accent)
-            Toggle("Show Hi Lo reference and tips", isOn: $showHints)
-                .tint(Theme.accent)
-        }
-        .font(.subheadline)
-        .padding()
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
-    }
+    // MARK: Stage
 
     private var stage: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                if engine.phase == .running, let card = engine.currentCard {
-                    CardView(card: card, size: 2.0)
-                } else if engine.phase == .guessing || engine.phase == .revealed {
-                    Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 60))
-                        .foregroundStyle(Theme.good)
-                } else {
-                    Text("?")
-                        .font(.system(size: 60, weight: .bold, design: .rounded))
-                        .foregroundStyle(Color.textTertiary)
-                }
-            }
-            .frame(height: 150)
+        VStack(spacing: Space.sm) {
+            stageContent
+                .frame(maxWidth: .infinity, minHeight: stageHeight)
 
             if engine.phase == .running {
-                Text("Card \(engine.dealtCount)/\(engine.totalCards)")
-                    .font(.caption)
-                    .foregroundStyle(.textSecondary)
+                VStack(spacing: Space.xs) {
+                    Text("Card \(engine.dealtCount)/\(engine.totalCards)")
+                        .font(.numberInline)
+                        .foregroundStyle(.textSecondary)
+                    ProgressBar(value: engine.totalCards == 0 ? 0 : Double(engine.dealtCount) / Double(engine.totalCards),
+                                label: "Cards dealt")
+                }
             }
 
             if engine.showHint && engine.phase == .running {
-                Text("Running \(signed(engine.runningCount))  •  \(engine.decksRemaining, specifier: "%.1f") left  •  True \(engine.trueCount, specifier: "%+.1f")")
-                    .font(.caption)
-                    .padding(6)
+                Text("Running \(signed(engine.runningCount))  \u{2022}  \(engine.decksRemaining, specifier: "%.1f") left  \u{2022}  True \(engine.trueCount, specifier: "%+.1f")")
+                    .font(.captionText)
+                    .foregroundStyle(.textPrimary)
+                    .padding(.horizontal, Space.sm)
+                    .padding(.vertical, Space.xs)
                     .background(Color.surfaceRaised, in: Capsule())
             }
 
-            Button {
-                lastResultCorrect = nil
-                guess = 0
-                if engine.phase == .idle {
-                    engine.start()
-                } else {
-                    engine.reset()
-                }
-            } label: {
-                Text(engine.phase == .idle ? "Start Drill" : "Restart Drill")
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                    .foregroundStyle(.onAccent)
-            }
-            .accessibilityIdentifier("countDrillControl")
+            control
         }
         .frame(maxWidth: .infinity)
-        .padding()
-        .background(Theme.felt, in: RoundedRectangle(cornerRadius: 16))
+        .panel()
     }
 
-    private var answerCard: some View {
-        VStack(spacing: 12) {
-            Stepper(value: $guess, in: -50...50) {
-                HStack {
-                    Text("Your running count guess:")
-                    Spacer()
-                    Text(signed(guess)).fontWeight(.bold).foregroundStyle(Theme.accent)
+    @ViewBuilder
+    private var stageContent: some View {
+        switch engine.phase {
+        case .idle:
+            VStack(spacing: Space.sm) {
+                CardView(card: nil, size: 2.0, scalesWithText: true)
+                Text("Cards flash one at a time. Keep a Hi Lo running count in your head.")
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        case .running:
+            // A new identity per card, so even a repeat of the same card
+            // visibly pops in (a quick fade with Reduce Motion).
+            ZStack {
+                if let card = engine.currentCard {
+                    CardView(card: card, size: 2.0, scalesWithText: true)
+                        .id(engine.dealtCount)
+                        .transition(Motion.pop(reduceMotion))
                 }
             }
-            .disabled(engine.phase == .revealed)
+            .animation(Motion.standard.resolved(reduceMotion), value: engine.dealtCount)
+        case .guessing:
+            VStack(spacing: Space.sm) {
+                CardView(card: nil, faceDown: true, size: 1.6, scalesWithText: true)
+                Text("What's the count?")
+                    .font(.sectionTitle)
+                    .foregroundStyle(.textPrimary)
+                Text("All \(engine.totalCards) cards are done. Enter your running count below.")
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
+                    .multilineTextAlignment(.center)
+            }
+        case .revealed:
+            let right = engine.lastGuessCorrect == true
+            VStack(spacing: Space.xs) {
+                Image(systemName: right ? "checkmark.circle.fill" : "xmark.circle.fill")
+                    .scaledFont(size: 56, weight: .regular, relativeTo: .largeTitle, maxSize: 90)
+                    .foregroundStyle(right ? Color.positive : Color.negative)
+                    .accessibilityHidden(true)
+                Text("Running count")
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
+                Text(signed(engine.runningCount))
+                    .font(.numberHero)
+                    .foregroundStyle(.textPrimary)
+            }
+        }
+    }
+
+    // MARK: Control button
+
+    private var controlTitle: String {
+        switch engine.phase {
+        case .idle: return "Start Drill"
+        case .running, .guessing: return "Restart Drill"
+        case .revealed: return "Next Drill"
+        }
+    }
+
+    @ViewBuilder
+    private var control: some View {
+        let button = Button(controlTitle) { controlTapped() }
+            .accessibilityIdentifier("countDrillControl")
+        if engine.phase == .running || engine.phase == .guessing {
+            button.buttonStyle(.secondaryCompact)
+        } else {
+            button.buttonStyle(.primary)
+        }
+    }
+
+    private func controlTapped() {
+        switch engine.phase {
+        case .guessing:
+            // The whole sequence has been watched; make sure it isn't a stray tap.
+            confirmRestart = true
+        case .running:
+            // Losing count mid run is the normal reason to restart: no friction.
+            restart()
+        case .idle:
+            beginDrill()
+        case .revealed:
+            beginDrill()
+        }
+    }
+
+    private func beginDrill() {
+        guess = 0
+        engine.start()
+    }
+
+    private func restart() {
+        guess = 0
+        engine.reset()
+    }
+
+    // MARK: Answer
+
+    private var answerCard: some View {
+        VStack(spacing: Space.sm) {
+            Text(engine.phase == .guessing ? "Your running count" : "Your guess")
+                .font(.heading)
+                .foregroundStyle(.textPrimary)
+            CountGuessControl(guess: $guess, range: engine.guessRange,
+                              enabled: engine.phase == .guessing)
 
             if engine.phase == .guessing {
-                Button {
-                    lastResultCorrect = engine.submitGuess(guess)
-                } label: {
-                    Text("Submit")
-                        .fontWeight(.semibold)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
-                        .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 8))
-                }
+                PrimaryButton("Submit") { engine.submitGuess(guess) }
             }
 
-            if engine.phase == .revealed, let correct = lastResultCorrect {
-                Text(resultText(correct: correct))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(correct ? Theme.good : Theme.bad)
+            if engine.phase == .revealed, let correct = engine.lastGuessCorrect {
+                FeedbackPill(correct
+                             ? "Correct! The running count was \(signed(engine.runningCount))."
+                             : "Not quite. It was \(signed(engine.runningCount)), you said \(signed(engine.lastGuess ?? guess)).",
+                             kind: correct ? .correct : .incorrect)
+                Text(String(format: "True count %+.1f with %.1f decks remaining.",
+                            engine.trueCount, engine.decksRemaining))
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
                     .multilineTextAlignment(.center)
             }
         }
-        .padding()
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
+        .frame(maxWidth: .infinity)
+        .panel()
     }
 
-    private func resultText(correct: Bool) -> String {
-        let tc = engine.trueCount
-        let base = correct
-            ? "Correct! Running count was \(engine.runningCount)."
-            : "Actual running count was \(engine.runningCount) (you guessed \(guess))."
-        return base + String(format: " True count %+.1f with %.1f decks remaining.", tc, engine.decksRemaining)
-    }
+    // MARK: Reference
 
     private var hiloReference: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: Space.sm) {
             Text("Hi Lo:")
-            Text("2-6 = +1").foregroundStyle(Theme.good)
+            Text("2-6 = +1").foregroundStyle(.positive)
             Text("7-9 = 0").foregroundStyle(.textSecondary)
-            Text("10-A = -1").foregroundStyle(Theme.bad)
+            Text("10-A = -1").foregroundStyle(.negative)
         }
-        .font(.caption)
+        .font(.captionText)
         .lineLimit(1)
         .minimumScaleFactor(0.8)
     }
 
     private var explainer: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        Panel(spacing: Space.xs) {
             Text("Counting a shoe with multiple decks")
-                .font(.subheadline.weight(.bold))
-                .foregroundStyle(Theme.accent)
+                .font(.heading)
+                .foregroundStyle(.accent)
             Text("The running count means less on its own once several decks are in play. Convert it to a true count for your real edge:")
-                .font(.caption)
+                .font(.detail)
+                .foregroundStyle(.textPrimary)
             Text("True Count = Running Count ÷ Decks Remaining")
-                .font(.caption.weight(.bold))
-                .padding(8)
-                .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: 8))
+                .font(.detail.weight(.bold))
+                .foregroundStyle(.textPrimary)
+                .padding(Space.xs)
+                .background(Color.surfaceRaised, in: RoundedRectangle(cornerRadius: Radius.small, style: .continuous))
             Text("Estimate the decks remaining by eye to the nearest half deck. For example, a running count of +6 with 3 decks left gives you a true count of +2. Base your bets and strategy changes on the true count, not the running count.")
-                .font(.caption)
+                .font(.detail)
                 .foregroundStyle(.textSecondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding()
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func signed(_ n: Int) -> String { n > 0 ? "+\(n)" : "\(n)" }

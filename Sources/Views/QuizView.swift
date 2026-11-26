@@ -19,140 +19,140 @@ struct QuizView: View {
 private struct QuizContent: View {
     @Bindable var engine: QuizEngine
     @Environment(Stats.self) private var stats
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showChallenge = false
+    /// Moves on by itself shortly after a correct answer. Off by default so
+    /// the "why" line stays readable; the player turns it on when they want pace.
+    @AppStorage("quiz_autoAdvance") private var autoAdvance = false
+
+    private static let autoAdvanceDelay: Duration = .milliseconds(600)
 
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Quiz")
-            // Scrollable so the challenge card (or any future banner) never
-            // pushes the Hit/Stand/Double/Split buttons off the bottom of
-            // the screen — a fixed VStack with Spacers silently clipped them.
+            // Content scrolls; the decision pad stays pinned at the bottom so
+            // the buttons can never be pushed off a small screen.
             ScrollView {
-                VStack(spacing: 18) {
+                VStack(spacing: Space.md) {
                     challengeCard
-                    scoreBar
+                    scoreTiles
                     difficultyPicker
-
-                    // Dealer up card
-                    VStack(spacing: 6) {
-                        Text("Dealer shows").font(.caption).foregroundStyle(.textSecondary)
-                        if let up = engine.dealerUp { CardView(card: up, size: 1.4) }
+                    if let up = engine.dealerUp {
+                        DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
                     }
-
-                    // Player hand
-                    VStack(spacing: 6) {
-                        Text(engine.handText).font(.headline).foregroundStyle(Theme.accent)
-                        HStack(spacing: 8) {
-                            ForEach(engine.player) { CardView(card: $0, size: 1.4) }
-                        }
-                    }
-
-                    // Feedback
-                    Text(engine.feedback)
-                        .font(.headline)
-                        .foregroundStyle(engine.feedbackGood ? Theme.good : Theme.bad)
-                        .frame(height: 26)
-
-                    if engine.answered {
-                        Button {
-                            engine.next()
-                        } label: {
-                            Text("Next")
-                                .font(.headline)
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 14)
-                                .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                                .foregroundStyle(.onAccent)
-                        }
-                        .padding(.horizontal)
-                    } else {
-                        actionGrid
-                    }
+                    DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
+                                  good: engine.feedbackGood,
+                                  reason: engine.reason)
+                    autoAdvanceToggle
                 }
-                .padding()
-                .frame(maxWidth: .infinity)
+                .padding(.horizontal, Space.md)
+                .padding(.bottom, Space.md)
             }
+            bottomBar
         }
-        .background(Theme.feltDark.ignoresSafeArea())
+        .background(Color.bg.ignoresSafeArea())
+        // Correct answers can move on by themselves; cancelled automatically
+        // when the player taps Next first (`answered` flips back to false).
+        .task(id: engine.answered) {
+            guard engine.answered, engine.feedbackGood, autoAdvance,
+                  !UIAccessibility.isVoiceOverRunning else { return }
+            try? await Task.sleep(for: Self.autoAdvanceDelay)
+            guard !Task.isCancelled else { return }
+            Motion.perform(.quick, reduceMotion: reduceMotion) { engine.next() }
+        }
     }
+
+    // MARK: Sections
 
     private var challengeCard: some View {
         Button {
             showChallenge = true
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: Space.sm) {
                 Image(systemName: "calendar.badge.checkmark")
                     .font(.title3)
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(.accent)
+                    .accessibilityHidden(true)
                 Text("Daily Challenge")
-                    .font(.subheadline.weight(.bold))
+                    .font(.heading)
                     .foregroundStyle(.textPrimary)
                 Spacer()
                 if let result = stats.todayChallenge {
                     Text("\(result.score)/\(result.total)")
-                        .font(.headline)
-                        .foregroundStyle(Theme.good)
+                        .font(.numberInline)
+                        .foregroundStyle(.positive)
                 } else {
                     Image(systemName: "chevron.right")
-                        .font(.caption)
+                        .font(.captionText)
                         .foregroundStyle(.textSecondary)
+                        .accessibilityHidden(true)
                 }
             }
-            .padding(12)
-            .background(Color.surface, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(RoundedRectangle(cornerRadius: 12)
-                .strokeBorder(Theme.accent.opacity(stats.todayChallenge == nil ? 0.4 : 0), lineWidth: 1))
+            .frame(minHeight: Metrics.minTapTarget - 2 * Space.sm)
+            .panel(padding: Space.sm)
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+                    .strokeBorder(stats.todayChallenge == nil ? Color.accent : Color.clear,
+                                  lineWidth: Metrics.hairline)
+            )
         }
         .buttonStyle(.plain)
+        .accessibilityValue(stats.todayChallenge.map { "Scored \($0.score) of \($0.total) today" }
+                            ?? "Not played today")
         .sheet(isPresented: $showChallenge) {
             DailyChallengeView()
                 .environment(stats)
         }
     }
 
-    private var scoreBar: some View {
-        HStack {
-            pill("Streak", "\(engine.streak)")
-            pill("Best", "\(stats.data.quizBestStreak)")
-            pill("Accuracy", stats.data.quizTotal == 0 ? "N/A" : "\(Int(stats.quizAccuracy * 100))%")
+    private var scoreTiles: some View {
+        HStack(spacing: Space.xs) {
+            StatTile(label: "Streak", value: "\(engine.streak)", tint: .warm)
+            StatTile(label: "Best", value: "\(stats.data.quizBestStreak)")
+            StatTile(label: "Accuracy",
+                     value: stats.data.quizTotal == 0 ? "N/A" : "\(Int(stats.quizAccuracy * 100))%")
         }
     }
 
     private var difficultyPicker: some View {
-        VStack(spacing: 4) {
+        VStack(spacing: Space.xs) {
             Picker("Difficulty", selection: $engine.difficulty) {
                 ForEach(QuizDifficulty.allCases) { d in Text(d.rawValue).tag(d) }
             }
             .pickerStyle(.segmented)
-            if engine.difficulty == .hard {
-                Text("Practice the tricky hands: hard totals, soft doubles, and pairs that often cause mistakes.")
-                    .font(.caption2)
-                    .foregroundStyle(.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            if engine.difficulty == .smart {
-                Text("Trains YOUR game: deals the spots you miss most, plus ones you haven't practiced yet.")
-                    .font(.caption2)
-                    .foregroundStyle(.textSecondary)
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
+            Text(engine.difficulty.summary)
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
         }
     }
 
-    private func pill(_ label: String, _ value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value).font(.headline).foregroundStyle(Theme.accent)
-            Text(label).font(.caption2).foregroundStyle(.textSecondary)
+    private var autoAdvanceToggle: some View {
+        Toggle(isOn: $autoAdvance) {
+            Text("Move on after a correct answer")
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
         }
+        .tint(.accent)
+    }
+
+    @ViewBuilder
+    private var bottomBar: some View {
+        Group {
+            if engine.answered {
+                PrimaryButton("Next") { engine.next() }
+                    .transition(Motion.slide(reduceMotion))
+            } else {
+                DecisionPad(canSplit: engine.canSplit) { engine.answer($0) }
+            }
+        }
+        .padding(.horizontal, Space.md)
+        .padding(.top, Space.sm)
+        .padding(.bottom, Space.xs)
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color.surface, in: RoundedRectangle(cornerRadius: 10))
-    }
-
-    private var actionGrid: some View {
-        DecisionPad(canSplit: engine.canSplit) { engine.answer($0) }
-            .padding(.horizontal)
+        .background(Color.bg)
+        .motion(.quick, value: engine.answered)
     }
 }
