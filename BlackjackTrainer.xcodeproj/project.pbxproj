@@ -35,6 +35,7 @@
 		75914786EF7E6311C4719273 /* Achievements.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5109A6282816ECCAEFADC01D /* Achievements.swift */; };
 		7749B0D841F9CBE43EF06888 /* SpotTrackingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3273C7CAE673145B1F7F597A /* SpotTrackingTests.swift */; };
 		801B444C9B9E4BCB5523F6E0 /* SessionSetupView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF6270EA27D0348BD529008 /* SessionSetupView.swift */; };
+		86CB3B879484B183F1E9B782 /* GradingFixTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2184B11A696C4332A503FB2F /* GradingFixTests.swift */; };
 		99BA97D5F5377E94F54DE371 /* BlackjackTrainerApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABAD3BD7FCACBCF235F57879 /* BlackjackTrainerApp.swift */; };
 		9C94094BD5DA3A42CBC82081 /* ChipSizingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B91EE46DC3CB54471E47094 /* ChipSizingTests.swift */; };
 		BD2AA590A18B960097425517 /* CountDrillView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7303F286D0CA52970F9A6FA3 /* CountDrillView.swift */; };
@@ -72,6 +73,7 @@
 		0B91EE46DC3CB54471E47094 /* ChipSizingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChipSizingTests.swift; sourceTree = "<group>"; };
 		1DF6270EA27D0348BD529008 /* SessionSetupView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionSetupView.swift; sourceTree = "<group>"; };
 		1E86ADE4AE7058F41B7B2D69 /* Sound.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Sound.swift; sourceTree = "<group>"; };
+		2184B11A696C4332A503FB2F /* GradingFixTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GradingFixTests.swift; sourceTree = "<group>"; };
 		2D5A601395D52929FCB693F7 /* PlayEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayEngine.swift; sourceTree = "<group>"; };
 		3273C7CAE673145B1F7F597A /* SpotTrackingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotTrackingTests.swift; sourceTree = "<group>"; };
 		461898B2030570F545533E97 /* PlayControls.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayControls.swift; sourceTree = "<group>"; };
@@ -149,6 +151,7 @@
 			children = (
 				66182A423001FB5CA1CAD0E5 /* BetSizingToleranceTests.swift */,
 				0B91EE46DC3CB54471E47094 /* ChipSizingTests.swift */,
+				2184B11A696C4332A503FB2F /* GradingFixTests.swift */,
 				EB8636CFA1811073656E6953 /* SessionFlowTests.swift */,
 				3273C7CAE673145B1F7F597A /* SpotTrackingTests.swift */,
 				D9176EEF3B56EEE9E7E12A1F /* WinCelebrationPolicyTests.swift */,
@@ -398,6 +401,7 @@
 			files = (
 				FC315DFB63FEA61F9C534DE3 /* BetSizingToleranceTests.swift in Sources */,
 				9C94094BD5DA3A42CBC82081 /* ChipSizingTests.swift in Sources */,
+				86CB3B879484B183F1E9B782 /* GradingFixTests.swift in Sources */,
 				61B90D5F75B427600DB98BAE /* SessionFlowTests.swift in Sources */,
 				7749B0D841F9CBE43EF06888 /* SpotTrackingTests.swift in Sources */,
 				209A1607E71C524B1960396B /* WinCelebrationPolicyTests.swift in Sources */,
