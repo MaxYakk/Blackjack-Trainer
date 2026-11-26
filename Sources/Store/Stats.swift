@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import os
 
 /// One day's aggregated strategy performance, used for the progress chart.
 struct DayStat: Codable, Identifiable {
@@ -11,13 +12,41 @@ struct DayStat: Codable, Identifiable {
     var accuracy: Double { strategyTotal == 0 ? 0 : Double(strategyCorrect) / Double(strategyTotal) }
 }
 
+extension DayStat {
+    private enum CodingKeys: String, CodingKey { case date, strategyCorrect, strategyTotal }
+
+    /// Field by field, so one damaged value can't drop the whole day.
+    /// (A missing date is repaired from its dictionary key on load.)
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        date = c.tolerant(String.self, forKey: .date) ?? ""
+        strategyTotal = max(0, c.tolerant(Int.self, forKey: .strategyTotal) ?? 0)
+        strategyCorrect = min(strategyTotal, max(0, c.tolerant(Int.self, forKey: .strategyCorrect) ?? 0))
+    }
+}
+
 /// One day's daily-challenge outcome.
 struct ChallengeResult: Codable {
     var score: Int
     var total: Int
 }
 
+extension ChallengeResult {
+    private enum CodingKeys: String, CodingKey { case score, total }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        total = max(0, c.tolerant(Int.self, forKey: .total) ?? 0)
+        score = min(total, max(0, c.tolerant(Int.self, forKey: .score) ?? 0))
+    }
+}
+
 struct StatsData: Codable {
+    /// Bumped whenever the saved shape changes meaningfully. Saves written
+    /// before versioning existed read as version 1.
+    static let currentSchemaVersion = 2
+    var schemaVersion = StatsData.currentSchemaVersion
+
     var strategyCorrect = 0
     var strategyTotal = 0
 
@@ -36,6 +65,11 @@ struct StatsData: Codable {
     var bankroll: Double = 1000
     var betDecisions = 0
     var betCorrect = 0
+
+    // Chips on the felt in a round that hasn't settled yet. Saved in the same
+    // blob as the bankroll so the two can never disagree; if the app closes
+    // mid-hand, the next launch hands these chips back.
+    var inPlayWager: Double = 0
 
     // The most any single session has ever been up over its buy-in. Feeds the
     // bankroll achievements — the live bankroll can't, because buying in big
@@ -70,17 +104,24 @@ struct StatsData: Codable {
 
     // Daily-challenge results, keyed "yyyy-MM-dd".
     var challenges: [String: ChallengeResult] = [:]
+
+    // Days whose counted challenge run was started but never finished. A
+    // restarted run on one of these days is practice, so quitting halfway
+    // can't buy a second "first" run with known answers.
+    var challengesStarted: Set<String> = []
 }
 
-// Tolerant decoding: any key missing from older saved data falls back to its default,
-// so adding new fields never wipes a user's existing progress on upgrade.
+// Tolerant decoding: any key missing from older saved data — or holding a value
+// that can't be read — falls back to its default on its own, so adding fields
+// or one damaged value never wipes a user's existing progress.
 // (Declared in an extension so the memberwise / no-argument initializers are preserved.)
 extension StatsData {
     enum CodingKeys: String, CodingKey {
+        case schemaVersion
         case strategyCorrect, strategyTotal
         case handsPlayed, handsWon, handsLost, handsPushed, blackjacks
         case drillsCompleted, drillsCorrect, bestStreak, currentStreak
-        case bankroll, betDecisions, betCorrect, bestSessionNet
+        case bankroll, betDecisions, betCorrect, inPlayWager, bestSessionNet
         case quizTotal, quizCorrect, quizBestStreak
         case countChecks, countChecksCorrect
         case bankrollHistory
@@ -89,37 +130,55 @@ extension StatsData {
         case mistakeChoices
         case dailyGoal
         case challenges
+        case challengesStarted
     }
 
     init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        strategyCorrect = try c.decodeIfPresent(Int.self, forKey: .strategyCorrect) ?? strategyCorrect
-        strategyTotal   = try c.decodeIfPresent(Int.self, forKey: .strategyTotal) ?? strategyTotal
-        handsPlayed     = try c.decodeIfPresent(Int.self, forKey: .handsPlayed) ?? handsPlayed
-        handsWon        = try c.decodeIfPresent(Int.self, forKey: .handsWon) ?? handsWon
-        handsLost       = try c.decodeIfPresent(Int.self, forKey: .handsLost) ?? handsLost
-        handsPushed     = try c.decodeIfPresent(Int.self, forKey: .handsPushed) ?? handsPushed
-        blackjacks      = try c.decodeIfPresent(Int.self, forKey: .blackjacks) ?? blackjacks
-        drillsCompleted = try c.decodeIfPresent(Int.self, forKey: .drillsCompleted) ?? drillsCompleted
-        drillsCorrect   = try c.decodeIfPresent(Int.self, forKey: .drillsCorrect) ?? drillsCorrect
-        bestStreak      = try c.decodeIfPresent(Int.self, forKey: .bestStreak) ?? bestStreak
-        currentStreak   = try c.decodeIfPresent(Int.self, forKey: .currentStreak) ?? currentStreak
-        bankroll        = try c.decodeIfPresent(Double.self, forKey: .bankroll) ?? bankroll
-        betDecisions    = try c.decodeIfPresent(Int.self, forKey: .betDecisions) ?? betDecisions
-        betCorrect      = try c.decodeIfPresent(Int.self, forKey: .betCorrect) ?? betCorrect
-        bestSessionNet  = try c.decodeIfPresent(Double.self, forKey: .bestSessionNet) ?? bestSessionNet
-        quizTotal       = try c.decodeIfPresent(Int.self, forKey: .quizTotal) ?? quizTotal
-        quizCorrect     = try c.decodeIfPresent(Int.self, forKey: .quizCorrect) ?? quizCorrect
-        quizBestStreak  = try c.decodeIfPresent(Int.self, forKey: .quizBestStreak) ?? quizBestStreak
-        countChecks     = try c.decodeIfPresent(Int.self, forKey: .countChecks) ?? countChecks
-        countChecksCorrect = try c.decodeIfPresent(Int.self, forKey: .countChecksCorrect) ?? countChecksCorrect
-        bankrollHistory = try c.decodeIfPresent([Double].self, forKey: .bankrollHistory) ?? bankrollHistory
-        days            = try c.decodeIfPresent([String: DayStat].self, forKey: .days) ?? days
-        spots           = try c.decodeIfPresent([String: SpotStat].self, forKey: .spots) ?? spots
-        mistakeChoices  = try c.decodeIfPresent([String: [String: Int]].self, forKey: .mistakeChoices) ?? mistakeChoices
-        dailyGoal       = try c.decodeIfPresent(Int.self, forKey: .dailyGoal) ?? dailyGoal
-        challenges      = try c.decodeIfPresent([String: ChallengeResult].self, forKey: .challenges) ?? challenges
+        schemaVersion   = c.tolerant(Int.self, forKey: .schemaVersion) ?? 1
+        strategyCorrect = c.tolerant(Int.self, forKey: .strategyCorrect) ?? strategyCorrect
+        strategyTotal   = c.tolerant(Int.self, forKey: .strategyTotal) ?? strategyTotal
+        handsPlayed     = c.tolerant(Int.self, forKey: .handsPlayed) ?? handsPlayed
+        handsWon        = c.tolerant(Int.self, forKey: .handsWon) ?? handsWon
+        handsLost       = c.tolerant(Int.self, forKey: .handsLost) ?? handsLost
+        handsPushed     = c.tolerant(Int.self, forKey: .handsPushed) ?? handsPushed
+        blackjacks      = c.tolerant(Int.self, forKey: .blackjacks) ?? blackjacks
+        drillsCompleted = c.tolerant(Int.self, forKey: .drillsCompleted) ?? drillsCompleted
+        drillsCorrect   = c.tolerant(Int.self, forKey: .drillsCorrect) ?? drillsCorrect
+        bestStreak      = c.tolerant(Int.self, forKey: .bestStreak) ?? bestStreak
+        currentStreak   = c.tolerant(Int.self, forKey: .currentStreak) ?? currentStreak
+        bankroll        = Self.finite(c.tolerant(Double.self, forKey: .bankroll)) ?? bankroll
+        betDecisions    = c.tolerant(Int.self, forKey: .betDecisions) ?? betDecisions
+        betCorrect      = c.tolerant(Int.self, forKey: .betCorrect) ?? betCorrect
+        inPlayWager     = max(0, Self.finite(c.tolerant(Double.self, forKey: .inPlayWager)) ?? 0)
+        bestSessionNet  = Self.finite(c.tolerant(Double.self, forKey: .bestSessionNet)) ?? bestSessionNet
+        quizTotal       = c.tolerant(Int.self, forKey: .quizTotal) ?? quizTotal
+        quizCorrect     = c.tolerant(Int.self, forKey: .quizCorrect) ?? quizCorrect
+        quizBestStreak  = c.tolerant(Int.self, forKey: .quizBestStreak) ?? quizBestStreak
+        countChecks     = c.tolerant(Int.self, forKey: .countChecks) ?? countChecks
+        countChecksCorrect = c.tolerant(Int.self, forKey: .countChecksCorrect) ?? countChecksCorrect
+        bankrollHistory = (c.lossyArray(Double.self, forKey: .bankrollHistory) ?? bankrollHistory)
+            .filter(\.isFinite)
+        if let loadedDays = c.lossyDictionary(DayStat.self, forKey: .days) {
+            days = Dictionary(uniqueKeysWithValues: loadedDays.map { key, day in
+                var repaired = day
+                if repaired.date.isEmpty { repaired.date = key }
+                return (key, repaired)
+            })
+        }
+        spots = c.lossyDictionary(TolerantSpotStat.self, forKey: .spots)?.mapValues(\.value) ?? spots
+        mistakeChoices = c.lossyDictionary(TolerantIntMap.self, forKey: .mistakeChoices)?
+            .mapValues(\.value) ?? mistakeChoices
+        let goal = c.tolerant(Int.self, forKey: .dailyGoal) ?? dailyGoal
+        dailyGoal       = goal > 0 ? goal : StatsData().dailyGoal
+        challenges      = c.lossyDictionary(ChallengeResult.self, forKey: .challenges) ?? challenges
+        challengesStarted = Set(c.lossyArray(String.self, forKey: .challengesStarted) ?? [])
+    }
+
+    private static func finite(_ value: Double?) -> Double? {
+        guard let value, value.isFinite else { return nil }
+        return value
     }
 }
 
@@ -131,10 +190,23 @@ struct SessionMistake: Identifiable {
     let correctPlay: String
 }
 
+/// What happened when saved progress couldn't be read as-is on launch.
+/// Transient: lets the UI explain it once, without persisting a flag.
+enum StatsLoadIssue: Equatable {
+    /// The saved progress couldn't be read. The original bytes were copied
+    /// to `Stats.backupKey` before starting over, so nothing is destroyed.
+    case unreadableSaveBackedUp
+}
+
 @MainActor
 @Observable
 final class Stats {
-    private let key = "blackjack_stats_v1"
+    static let storageKey = "blackjack_stats_v1"
+    /// Raw copy of a save that couldn't be read, kept for recovery.
+    static let backupKey = "blackjack_stats_v1_unreadable_backup"
+
+    private let defaults: UserDefaults
+    private static let log = Logger(subsystem: "BlackjackTrainer", category: "Stats")
 
     var data: StatsData {
         didSet { scheduleSave() }
@@ -151,7 +223,19 @@ final class Stats {
     private(set) var sessionCorrect = 0
     private(set) var sessionMistakes: [SessionMistake] = []
 
-    init() {
+    /// Set on launch if the saved progress couldn't be read (see StatsLoadIssue).
+    private(set) var loadIssue: StatsLoadIssue?
+
+    /// Chips returned on this launch from a round the app closed before it
+    /// settled (0 if none). Transient, so the UI can mention it once.
+    private(set) var refundedWagerOnLaunch = 0.0
+
+    /// Called after `resetAll()`, so live engines (the play table) can drop
+    /// state that no longer matches the wiped progress.
+    private var resetHandlers: [@MainActor () -> Void] = []
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("-uiTestMistakeReview") {
             var seeded = StatsData()
@@ -167,12 +251,30 @@ final class Stats {
             return
         }
 #endif
-        if let stored = UserDefaults.standard.data(forKey: key),
-           let decoded = try? JSONDecoder().decode(StatsData.self, from: stored) {
-            data = decoded
-        } else {
-            data = StatsData()
+        var loaded = StatsData()
+        if let stored = defaults.data(forKey: Self.storageKey) {
+            do {
+                loaded = try JSONDecoder().decode(StatsData.self, from: stored)
+            } catch {
+                // Never let the next save silently overwrite progress we
+                // couldn't read: keep the raw bytes first. An earlier backup
+                // is never replaced — it holds the oldest (likely fullest) copy.
+                Self.log.error("Saved stats unreadable, backing up: \(String(describing: error), privacy: .public)")
+                if defaults.data(forKey: Self.backupKey) == nil {
+                    defaults.set(stored, forKey: Self.backupKey)
+                }
+                loadIssue = .unreadableSaveBackedUp
+            }
         }
+        // A wager still on the felt means the app closed mid-round. No
+        // round can be in progress at launch, so hand the chips back.
+        if loaded.inPlayWager > 0 {
+            refundedWagerOnLaunch = loaded.inPlayWager
+            loaded.bankroll += loaded.inPlayWager
+            loaded.inPlayWager = 0
+        }
+        loaded.schemaVersion = StatsData.currentSchemaVersion
+        data = loaded
     }
 
     private func scheduleSave() {
@@ -193,9 +295,18 @@ final class Stats {
     }
 
     private func save() {
-        if let encoded = try? JSONEncoder().encode(data) {
-            UserDefaults.standard.set(encoded, forKey: key)
+        do {
+            let encoded = try JSONEncoder().encode(data)
+            defaults.set(encoded, forKey: Self.storageKey)
+        } catch {
+            // Keep the last good save rather than writing something partial.
+            Self.log.error("Could not save stats: \(String(describing: error), privacy: .public)")
         }
+    }
+
+    /// Registers work to run after progress is reset.
+    func onReset(_ handler: @escaping @MainActor () -> Void) {
+        resetHandlers.append(handler)
     }
 
     // MARK: - Derived values
@@ -219,6 +330,26 @@ final class Stats {
 
     func adjustBankroll(_ delta: Double) {
         data.bankroll += delta
+    }
+
+    /// Moves chips from the stack onto the felt for the current round.
+    /// They're tracked until `settleRound` so a closed app can refund them.
+    func placeWager(_ amount: Double) {
+        guard amount > 0 else { return }
+        data.bankroll -= amount
+        data.inPlayWager += amount
+    }
+
+    /// Pays out a settled round and clears the chips that were on the felt.
+    func settleRound(payout: Double) {
+        data.bankroll += payout
+        data.inPlayWager = 0
+    }
+
+    /// Drops an unsettled round's chips without paying them back (used when
+    /// a reset has already replaced the stack).
+    func abandonWager() {
+        data.inPlayWager = 0
     }
 
     /// Sets the table stack outright — used when a play session buys in.
@@ -381,6 +512,18 @@ final class Stats {
         if existing == nil || score > (existing?.score ?? 0) {
             data.challenges[dateKey] = ChallengeResult(score: score, total: total)
         }
+        data.challengesStarted.remove(dateKey)   // finished; the result now marks the day
+    }
+
+    /// Marks the day's counted run as begun, so quitting and relaunching
+    /// can't offer a fresh "first" run with answers already seen.
+    func markChallengeStarted(dateKey: String) {
+        data.challengesStarted.insert(dateKey)
+    }
+
+    /// True once the day's counted run has begun or finished; later runs are practice.
+    func challengeRunUsed(dateKey: String) -> Bool {
+        data.challenges[dateKey] != nil || data.challengesStarted.contains(dateKey)
     }
 
     func recordHandResult(_ result: HandResult) {
@@ -448,6 +591,12 @@ final class Stats {
         sessionDecisions = 0
         sessionCorrect = 0
         sessionMistakes = []
+        refundedWagerOnLaunch = 0
+        // The play session's buy-in lives outside `data`. Leaving it would
+        // compare the fresh 1,000 stack against the old buy-in and record
+        // fake profit (and unlock bankroll trophies) on the next round.
+        PlaySessionStore.clear(in: defaults)
+        for handler in resetHandlers { handler() }
         flush()   // a reset should never sit in the debounce window
     }
 }

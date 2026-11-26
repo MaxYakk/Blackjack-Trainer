@@ -1,84 +1,27 @@
 import Foundation
 import Observation
-#if canImport(UIKit)
-import UIKit
-#endif
-
-enum HandResult: String, Equatable {
-    case win = "Win"
-    case lose = "Lose"
-    case push = "Push"
-    case bust = "Bust"
-    case blackjack = "Blackjack!"
-    case dealerBlackjack = "Dealer BJ"
-}
-
-enum GamePhase {
-    case betting     // choosing chips
-    case dealing     // cards being dealt (animated)
-    case insurance   // dealer shows an ace: take insurance?
-    case countCheck  // "what's the running count?" before acting
-    case playing     // player acting
-    case dealer      // dealer drawing
-    case done        // round settled
-}
-
-/// Receipt for a completed table session, shown on the buy-in screen.
-struct SessionSummary: Equatable {
-    let buyIn: Double
-    let cashedOut: Double
-    let rounds: Int
-    let peak: Double
-    let biggestWin: Double
-    let blackjacks: Int
-    let busted: Bool
-
-    var net: Double { cashedOut - buyIn }
-}
-
-struct PlayerHand: Identifiable {
-    let id = UUID()
-    var cards: [Card] = []
-    var bet: Double = 0
-    /// Which betting spot this hand came from — split hands inherit it, so
-    /// the resplit cap can be enforced per spot rather than table-wide.
-    var spotIndex = 0
-    var done = false
-    var busted = false
-    var isDoubled = false
-    var fromSplit = false
-    var fromSplitAces = false
-    var result: HandResult?
-
-    var value: HandValue { evaluate(cards) }
-
-    /// A natural: 21 on the first two cards of an original (unsplit) hand.
-    var isBlackjack: Bool { cards.count == 2 && !fromSplit && evaluate(cards).total == 21 }
-}
-
-enum Haptics {
-    static func tap() {
-        #if canImport(UIKit)
-        UIImpactFeedbackGenerator(style: .light).impactOccurred()
-        #endif
-    }
-    static func notify(_ type: Int) {
-        #if canImport(UIKit)
-        let gen = UINotificationFeedbackGenerator()
-        switch type {
-        case 1: gen.notificationOccurred(.success)
-        case -1: gen.notificationOccurred(.error)
-        default: gen.notificationOccurred(.warning)
-        }
-        #endif
-    }
-}
 
 @MainActor
 @Observable
 final class PlayEngine {
+    /// Valid table shapes. Saved values outside these are pulled back in on
+    /// load, and settings are clamped when changed.
+    static let allowedDeckCounts = [2, 4, 6, 8]
+    static let defaultDeckCount = 6
+    static let spotRange = 1...3
+    static let defaultTableMinimum = 5.0
+
     // Settings (persisted across launches via UserDefaults)
-    var numDecks = 6 { didSet { saveSettings() } }
+    var numDecks = 6 {
+        didSet {
+            let clamped = Self.clampDecks(numDecks)
+            if clamped != numDecks { numDecks = clamped }   // re-entry doesn't re-fire didSet
+            saveSettings()
+            // Between rounds a new deck count takes effect now; mid-round it
+            // waits for the round to finish (see reshuffleIfNeededBetweenRounds).
+            if settingsLoaded && phase == .betting { reshuffleIfNeededBetweenRounds() }
+        }
+    }
     var dealerHitsSoft17 = false { didSet { saveSettings() } }
     var showCount = false { didSet { saveSettings() } }
     var showHandTotals = true { didSet { saveSettings() } }   // off = count your own hands, like a real table
@@ -86,11 +29,20 @@ final class PlayEngine {
     var useDeviations = false { didSet { saveSettings() } }
     var soundOn = true { didSet { Sound.enabled = soundOn; saveSettings() } }
     var askCountChecks = false { didSet { saveSettings() } }
-    var tableMinimum = 5.0 { didSet { saveSettings() } }
+    var tableMinimum = PlayEngine.defaultTableMinimum {
+        didSet {
+            if !(tableMinimum.isFinite && tableMinimum > 0) { tableMinimum = Self.defaultTableMinimum }
+            saveSettings()
+        }
+    }
     var numHands = 1 {                               // spots played each round (face control)
         didSet {
+            let clamped = min(Self.spotRange.upperBound, max(Self.spotRange.lowerBound, numHands))
+            if clamped != numHands { numHands = clamped }
             saveSettings()
             resizeSpots()
+            // More spots need more cards behind the cut card.
+            if settingsLoaded && phase == .betting { reshuffleIfNeededBetweenRounds() }
         }
     }
 
@@ -139,10 +91,34 @@ final class PlayEngine {
     private(set) var runningCount = 0
     private let betSpreadCap = 6
 
-    private var shoe = Shoe(numDecks: 6)
+    /// True when the shoe was shuffled after the last round (cut card reached
+    /// or deck count changed), so this round's bets start from a count of 0.
+    /// Cleared when the next round is dealt. For a "Shuffling" notice.
+    private(set) var shuffledForNextRound = false
+    /// True if the shoe ran dry during the current round and the discards
+    /// were reshuffled to finish it (very rare; the cut card reserves room
+    /// for a heavy round). The count then restarts from the cards on the table.
+    private(set) var shuffledMidRound = false
+
+    private(set) var shoe = Shoe(numDecks: 6)
     private var pendingHoleCard: Card?
     private let stats: Stats
-    private let dealerResultPauseNanoseconds: UInt64 = 450_000_000
+    private let defaults: UserDefaults
+
+    /// Animation timing. Tests use `.instant` so rounds finish immediately.
+    struct Pacing {
+        var cardNanoseconds: UInt64 = 260_000_000
+        var dealerDrawNanoseconds: UInt64 = 330_000_000
+        var dealerResultNanoseconds: UInt64 = 450_000_000
+
+        static let standard = Pacing()
+        static let instant = Pacing(cardNanoseconds: 0, dealerDrawNanoseconds: 0, dealerResultNanoseconds: 0)
+    }
+    var pacing = Pacing.standard
+
+    /// Bumped whenever a round is abandoned or replaced, so animation tasks
+    /// still in flight from the old round stop instead of touching the new one.
+    private var roundToken = 0
 
     #if DEBUG
     /// A deterministic hand used only by the UI regression test for the
@@ -165,40 +141,55 @@ final class PlayEngine {
 
     private var settingsLoaded = false
 
-    init(stats: Stats) {
+    init(stats: Stats, defaults: UserDefaults = .standard) {
         self.stats = stats
+        self.defaults = defaults
         loadSettings()
         loadSession()
+        shoe = Shoe(numDecks: numDecks)
         Sound.enabled = soundOn
         settingsLoaded = true
+        stats.onReset { [weak self] in self?.endSessionAfterProgressReset() }
     }
 
     /// Session state loads unconditionally (unlike settings): every key
     /// defaults to zero/false, which is exactly the "no session" state.
     private func loadSession() {
-        let d = UserDefaults.standard
-        sessionActive = d.bool(forKey: "pe_sessionActive")
-        sessionBuyIn = d.double(forKey: "pe_sessionBuyIn")
-        sessionRounds = d.integer(forKey: "pe_sessionRounds")
-        sessionPeak = d.double(forKey: "pe_sessionPeak")
-        sessionBiggestWin = d.double(forKey: "pe_sessionBiggestWin")
-        sessionBlackjacks = d.integer(forKey: "pe_sessionBlackjacks")
+        let d = defaults
+        sessionActive = d.bool(forKey: PlaySessionStore.activeKey)
+        sessionBuyIn = d.double(forKey: PlaySessionStore.buyInKey)
+        sessionRounds = d.integer(forKey: PlaySessionStore.roundsKey)
+        sessionPeak = d.double(forKey: PlaySessionStore.peakKey)
+        sessionBiggestWin = d.double(forKey: PlaySessionStore.biggestWinKey)
+        sessionBlackjacks = d.integer(forKey: PlaySessionStore.blackjacksKey)
+        // A session with no real buy-in can't be scored; treat it as none.
+        if sessionActive && !(sessionBuyIn.isFinite && sessionBuyIn > 0) {
+            sessionActive = false
+        }
     }
 
     private func saveSession() {
-        let d = UserDefaults.standard
-        d.set(sessionActive, forKey: "pe_sessionActive")
-        d.set(sessionBuyIn, forKey: "pe_sessionBuyIn")
-        d.set(sessionRounds, forKey: "pe_sessionRounds")
-        d.set(sessionPeak, forKey: "pe_sessionPeak")
-        d.set(sessionBiggestWin, forKey: "pe_sessionBiggestWin")
-        d.set(sessionBlackjacks, forKey: "pe_sessionBlackjacks")
+        let d = defaults
+        d.set(sessionActive, forKey: PlaySessionStore.activeKey)
+        d.set(sessionBuyIn, forKey: PlaySessionStore.buyInKey)
+        d.set(sessionRounds, forKey: PlaySessionStore.roundsKey)
+        d.set(sessionPeak, forKey: PlaySessionStore.peakKey)
+        d.set(sessionBiggestWin, forKey: PlaySessionStore.biggestWinKey)
+        d.set(sessionBlackjacks, forKey: PlaySessionStore.blackjacksKey)
+    }
+
+    /// Keeps the deck count to a shoe the table offers: a single deck
+    /// becomes double deck (the nearest offered), anything else invalid
+    /// goes back to the 6-deck default.
+    static func clampDecks(_ n: Int) -> Int {
+        if allowedDeckCounts.contains(n) { return n }
+        return n == 1 ? 2 : defaultDeckCount
     }
 
     private func loadSettings() {
-        let d = UserDefaults.standard
+        let d = defaults
         guard d.object(forKey: "pe_saved") != nil else { return }  // keep defaults on first ever launch
-        numDecks = d.integer(forKey: "pe_numDecks")
+        numDecks = Self.clampDecks(d.integer(forKey: "pe_numDecks"))
         dealerHitsSoft17 = d.bool(forKey: "pe_h17")
         showCount = d.bool(forKey: "pe_showCount")
         showHandTotals = d.object(forKey: "pe_showHandTotals") as? Bool ?? true
@@ -206,13 +197,14 @@ final class PlayEngine {
         useDeviations = d.bool(forKey: "pe_deviations")
         soundOn = d.bool(forKey: "pe_sound")
         askCountChecks = d.bool(forKey: "pe_countChecks")
-        tableMinimum = d.double(forKey: "pe_tableMin")
-        numHands = min(3, max(1, d.integer(forKey: "pe_numHands")))
+        let savedMinimum = d.double(forKey: "pe_tableMin")
+        tableMinimum = savedMinimum.isFinite && savedMinimum > 0 ? savedMinimum : Self.defaultTableMinimum
+        numHands = min(Self.spotRange.upperBound, max(Self.spotRange.lowerBound, d.integer(forKey: "pe_numHands")))
     }
 
     private func saveSettings() {
         guard settingsLoaded else { return }   // don't write while loading
-        let d = UserDefaults.standard
+        let d = defaults
         d.set(true, forKey: "pe_saved")
         d.set(numDecks, forKey: "pe_numDecks")
         d.set(dealerHitsSoft17, forKey: "pe_h17")
@@ -242,7 +234,7 @@ final class PlayEngine {
     func startSession(buyIn: Double, minimum: Double, hands: Int) {
         guard !sessionActive, buyIn >= minimum, minimum > 0 else { return }
         tableMinimum = minimum
-        numHands = min(3, max(1, hands))
+        numHands = hands   // clamped by its didSet
         stats.setBankroll(buyIn)
         sessionActive = true
         sessionBuyIn = buyIn
@@ -268,9 +260,28 @@ final class PlayEngine {
             busted: isFelted
         )
         sessionActive = false
-        tableMinimum = 5
+        tableMinimum = Self.defaultTableMinimum
         newRound()
         saveSession()
+    }
+
+    /// Progress was reset: the old buy-in no longer matches the fresh stack,
+    /// so end the session with no receipt and drop any round in progress
+    /// (its chips went with the old stack).
+    private func endSessionAfterProgressReset() {
+        sessionActive = false
+        sessionBuyIn = 0
+        sessionRounds = 0
+        sessionPeak = 0
+        sessionBiggestWin = 0
+        sessionBlackjacks = 0
+        lastSummary = nil
+        lastSpotBets = []
+        lastRoundNet = 0
+        tableMinimum = Self.defaultTableMinimum
+        stats.abandonWager()
+        newRound()
+        PlaySessionStore.clear(in: defaults)
     }
 
     // MARK: - Derived
@@ -431,6 +442,7 @@ final class PlayEngine {
     }
 
     func newRound() {
+        roundToken += 1      // any animation still running belongs to the old round
         phase = .betting
         dealer = []
         hands = []
@@ -441,6 +453,50 @@ final class PlayEngine {
         insuranceBet = 0
         spotBets = Array(repeating: 0, count: numHands)
         activeSpot = 0
+        shuffledMidRound = false
+        // Normally already done when the last round settled; this catches a
+        // deck-count change or a round that was abandoned instead.
+        reshuffleIfNeededBetweenRounds()
+    }
+
+    // MARK: - Shoe
+
+    /// Cards this table shape should keep behind the cut card.
+    private var roundReserve: Int { Shoe.heavyRoundCards(spots: numHands) }
+
+    /// The between-rounds shuffle: when the cut card has come out (or the deck
+    /// count changed), shuffle BEFORE the next bets, like a real dealer, so
+    /// the player bets knowing the count restarted at 0.
+    private func reshuffleIfNeededBetweenRounds() {
+        if shoe.numDecks != numDecks {
+            shoe = Shoe(numDecks: numDecks)
+        } else if shoe.needsReshuffle(reserving: roundReserve) {
+            shoe.reshuffle()
+        } else {
+            return
+        }
+        runningCount = 0
+        shuffledForNextRound = true
+    }
+
+    /// Swaps in a specific shoe and starts its count at 0. Tests use it to
+    /// stack exact hands; call it between rounds.
+    func installShoe(_ newShoe: Shoe) {
+        shoe = newShoe
+        runningCount = 0
+    }
+
+    /// The shoe ran dry mid-round. Shuffle the discards (every card not on
+    /// the table) and keep dealing. The count restarts from the cards still
+    /// on the table, because they're the only ones missing from the new
+    /// shoe; the hole card joins the count when it's flipped, as usual.
+    private func reshuffleDiscardsMidRound() {
+        let onTable = hands.flatMap(\.cards) + dealer
+        shoe.reshuffle(excluding: onTable)
+        runningCount = onTable
+            .filter { $0.id != pendingHoleCard?.id }
+            .reduce(0) { $0 + $1.rank.hiLo }
+        shuffledMidRound = true
     }
 
     // MARK: - Drawing
@@ -453,7 +509,7 @@ final class PlayEngine {
             return card
         }
         #endif
-        if shoe.index >= shoe.cards.count { runningCount = 0 }
+        if shoe.cardsRemaining <= 0 { reshuffleDiscardsMidRound() }
         let card = shoe.draw()
         runningCount += card.rank.hiLo
         return card
@@ -465,7 +521,7 @@ final class PlayEngine {
             return settlementDelayTestDraws.removeFirst()
         }
         #endif
-        if shoe.index >= shoe.cards.count { runningCount = 0 }
+        if shoe.cardsRemaining <= 0 { reshuffleDiscardsMidRound() }
         return shoe.draw()
     }
 
@@ -476,7 +532,7 @@ final class PlayEngine {
     }
 
     private func pause() async {
-        try? await Task.sleep(nanoseconds: 260_000_000)
+        try? await Task.sleep(nanoseconds: pacing.cardNanoseconds)
     }
 
     private func cardTick() {
@@ -489,19 +545,15 @@ final class PlayEngine {
     func deal() {
         guard canDeal else { return }
 
-        if shoe.numDecks != numDecks {
-            shoe = Shoe(numDecks: numDecks)
-            runningCount = 0
-        } else if shoe.needsReshuffle {
-            shoe.reshuffle()
-            runningCount = 0
-        }
-
+        // No shuffle here: it happens between rounds, before betting, so the
+        // bet is graded against the same count the player saw.
         // Grade the bet against the count BEFORE any new cards come out.
         evaluateBet()
 
         lastSpotBets = spotBets
-        stats.adjustBankroll(-totalWager)   // each spot's own wager
+        shuffledForNextRound = false
+        shuffledMidRound = false
+        stats.placeWager(totalWager)   // each spot's own wager, tracked until settled
 
         dealer = []
         dealerHoleHidden = true
@@ -517,14 +569,25 @@ final class PlayEngine {
         feedbackText = ""
         lastRoundNet = 0
         phase = .dealing
+        let token = roundToken
 
         Task { @MainActor in
+            // Each step re-checks the round: a progress reset can abandon it mid-deal.
             // First card to each spot, then the dealer's up-card...
-            for i in hands.indices { hands[i].cards.append(draw()); cardTick(); await pause() }
+            for i in hands.indices {
+                guard token == roundToken else { return }
+                hands[i].cards.append(draw()); cardTick(); await pause()
+            }
+            guard token == roundToken else { return }
             dealer.append(draw()); cardTick(); await pause()                    // up-card (counted)
             // ...second card to each spot, then the dealer's hole card.
-            for i in hands.indices { hands[i].cards.append(draw()); cardTick(); await pause() }
+            for i in hands.indices {
+                guard token == roundToken else { return }
+                hands[i].cards.append(draw()); cardTick(); await pause()
+            }
+            guard token == roundToken else { return }
             let hole = drawUncounted(); dealer.append(hole); pendingHoleCard = hole; cardTick(); await pause()
+            guard token == roundToken else { return }
 
             // Ace up: insurance is offered BEFORE the peek, like a real table.
             // Skipped when the bankroll can't cover the premium.
@@ -596,7 +659,7 @@ final class PlayEngine {
         }
         if take {
             insuranceBet = insuranceCost
-            stats.adjustBankroll(-insuranceBet)
+            stats.placeWager(insuranceBet)
         }
         continueRoundAfterDeal()
     }
@@ -770,7 +833,7 @@ final class PlayEngine {
     func double() {
         guard phase == .playing, canDouble(hands[currentIndex]) else { return }
         judge(.double)
-        stats.adjustBankroll(-hands[currentIndex].bet)   // matching wager
+        stats.placeWager(hands[currentIndex].bet)   // matching wager
         hands[currentIndex].bet *= 2
         hands[currentIndex].isDoubled = true
         hands[currentIndex].cards.append(draw())
@@ -795,7 +858,7 @@ final class PlayEngine {
         newHand.spotIndex = hands[currentIndex].spotIndex   // resplit cap is per spot
         newHand.fromSplit = true
         newHand.fromSplitAces = isAces
-        stats.adjustBankroll(-newHand.bet)               // second wager
+        stats.placeWager(newHand.bet)                    // second wager
 
         hands[currentIndex].fromSplit = true
         hands[currentIndex].fromSplitAces = isAces
@@ -808,7 +871,14 @@ final class PlayEngine {
             hands[currentIndex].done = true
             hands[currentIndex + 1].done = true
             advance()
+            return
         }
+        // A split hand that reaches 21 has nothing left to decide: stand it,
+        // just like a hit that lands on 21. (Not a blackjack — it's from a split.)
+        for i in [currentIndex, currentIndex + 1] where evaluate(hands[i].cards).total == 21 {
+            hands[i].done = true
+        }
+        if hands[currentIndex].done { advance() }
     }
 
     private func advance() {
@@ -837,17 +907,19 @@ final class PlayEngine {
     }
 
     private func playDealer() {
+        let token = roundToken
         Task { @MainActor in
             while true {
                 let hv = evaluate(dealer)
                 let mustHit = hv.total < 17 || (hv.total == 17 && hv.soft && dealerHitsSoft17)
                 if !mustHit { break }
                 #if DEBUG
-                let drawDelay: UInt64 = isSettlementDelayUITest ? 100_000_000 : 330_000_000
+                let drawDelay: UInt64 = isSettlementDelayUITest ? 100_000_000 : pacing.dealerDrawNanoseconds
                 #else
-                let drawDelay: UInt64 = 330_000_000
+                let drawDelay: UInt64 = pacing.dealerDrawNanoseconds
                 #endif
                 try? await Task.sleep(nanoseconds: drawDelay)
+                guard token == roundToken else { return }
                 dealer.append(draw())
                 cardTick()
             }
@@ -858,9 +930,10 @@ final class PlayEngine {
     /// Leaves the dealer's completed hand unobstructed long enough for the
     /// final card or hole-card flip to finish before any result effects begin.
     private func finishRoundAfterDealerPause() {
+        let token = roundToken
         Task { @MainActor in
-            try? await Task.sleep(nanoseconds: dealerResultPauseNanoseconds)
-            guard phase == .dealer || phase == .dealing else { return }
+            try? await Task.sleep(nanoseconds: pacing.dealerResultNanoseconds)
+            guard token == roundToken, phase == .dealer || phase == .dealing else { return }
             finishRound()
         }
     }
@@ -871,6 +944,7 @@ final class PlayEngine {
         let dv = evaluate(dealer)
         let dealerBJ = dv.total == 21 && dealer.count == 2
         var net = 0.0
+        var payout = 0.0
 
         for i in hands.indices {
             let pv = evaluate(hands[i].cards)
@@ -902,7 +976,7 @@ final class PlayEngine {
             case .push: ret = wagered
             case .lose, .bust, .dealerBlackjack: ret = 0
             }
-            stats.adjustBankroll(ret)
+            payout += ret
             net += ret - wagered
         }
 
@@ -911,13 +985,16 @@ final class PlayEngine {
         // it was taken.
         if insuranceBet > 0 {
             if dealerBJ {
-                stats.adjustBankroll(insuranceBet * 3)   // stake back + 2 to 1
+                payout += insuranceBet * 3   // stake back + 2 to 1
                 net += insuranceBet * 2
             } else {
                 net -= insuranceBet
             }
         }
 
+        // One step: pay out and clear the chips on the felt together, so a
+        // closed app can never both pay a round and refund it.
+        stats.settleRound(payout: payout)
         lastRoundNet = net
         phase = .done
         stats.pushBankrollPoint()
@@ -931,6 +1008,9 @@ final class PlayEngine {
         // can't be inflated by a big buy-in or erased by the next session.
         stats.recordSessionProfit(sessionPeak - sessionBuyIn)
         saveSession()
+        // Cut card reached? Shuffle now, before the next bets (and before a
+        // Rebet), so the next round's bet is graded on the count you see.
+        reshuffleIfNeededBetweenRounds()
 
         if net > 0 {
             Haptics.notify(1)
