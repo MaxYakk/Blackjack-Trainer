@@ -17,14 +17,16 @@ import SwiftUI
 // it never reads one screen's controls on top of another's.
 
 struct MainTabsView: View {
-    /// The page the scroll view is on. Optional because that is what
-    /// `scrollPosition(id:)` binds to; it is never nil once laid out.
-    @State private var position: Tab? = .play
+    /// The page the scroll view is on, as a `Tab.id`. It must be the same type
+    /// as the pages' identity (`Tab.id`, an Int): `scrollPosition(id:)` only
+    /// follows swipes when the types match. Optional because that is what the
+    /// binding wants; it is never nil once laid out.
+    @State private var position: Tab.ID? = Tab.play.id
     /// Tabs whose screens have been built (they stay built).
     @State private var loaded: Set<Tab> = MainTabsView.pagesToLoad(around: .play)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private var selection: Tab { position ?? .play }
+    private var selection: Tab { position.flatMap(Tab.init(rawValue:)) ?? .play }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -90,7 +92,7 @@ struct MainTabsView: View {
         let isNeighbour = abs(tab.rawValue - selection.rawValue) == 1
         let animation = (isNeighbour && !reduceMotion) ? Motion.standard.animation : nil
         withTransaction(Transaction(animation: animation)) {
-            position = tab
+            position = tab.id
         }
     }
 
