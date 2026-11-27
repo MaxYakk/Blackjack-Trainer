@@ -57,17 +57,13 @@ private struct QuizContent: View {
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Quiz")
-            // The settings scroll and take every spare point of height. The
-            // hand and the decision pad below are pinned, so the cards and
-            // Hit / Stand never move; the result floats over the bottom of
-            // the settings instead of reserving a blank gap above the pad.
+            // The settings scroll. The hand, the result and the decision pad
+            // below are pinned, so the cards and Hit / Stand never move.
             ScrollView {
                 VStack(spacing: Space.md) {
                     // What you pick before answering comes first (challenge, review,
                     // difficulty), so it is visible without scrolling; stats follow.
-                    // While reviewing, the Daily Challenge card steps aside so the
-                    // review controls fit on screen.
-                    if !engine.isReviewing { challengeCard }
+                    challengeCard
                     if engine.isReviewing {
                         reviewPanel
                     } else {
@@ -81,24 +77,17 @@ private struct QuizContent: View {
                     }
                 }
                 .padding(.horizontal, Space.md)
-                // Room to scroll the last card clear of the floating result.
-                .padding(.bottom, engine.feedback.isEmpty ? Space.md : Space.xl * 3)
-            }
-            // Switching Review on or off starts the settings back at the top.
-            .id(engine.isReviewing)
-            .overlay(alignment: .bottom) {
-                if let message = engine.feedback.isEmpty ? nil : engine.feedback {
-                    DrillFeedback(message: message, grade: engine.grade, reason: engine.reason)
-                        .padding(.horizontal, Space.md)
-                        .padding(.vertical, Space.xs)
-                        .frame(maxWidth: .infinity)
-                        .background(Color.bg)
-                }
+                .padding(.bottom, Space.md)
             }
             if let up = engine.dealerUp {
-                DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
-                    .padding(.horizontal, Space.md)
-                    .padding(.top, Space.xs)
+                VStack(spacing: Space.xs) {
+                    DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
+                    DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
+                                  grade: engine.grade,
+                                  reason: engine.reason)
+                }
+                .padding(.horizontal, Space.md)
+                .padding(.top, Space.xs)
             }
             bottomBar
         }
