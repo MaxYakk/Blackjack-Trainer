@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Swipeable main tabs
 //
@@ -24,6 +25,10 @@ struct MainTabsView: View {
     @State private var position: Tab.ID? = Tab.play.id
     /// Tabs whose screens have been built (they stay built).
     @State private var loaded: Set<Tab> = MainTabsView.pagesToLoad(around: .play)
+    /// True while the keyboard is up. The tab bar steps aside then, instead of
+    /// riding on top of the keyboard and eating space (e.g. the starting
+    /// money prompt).
+    @State private var keyboardVisible = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var selection: Tab { position.flatMap(Tab.init(rawValue:)) ?? .play }
@@ -31,7 +36,15 @@ struct MainTabsView: View {
     var body: some View {
         VStack(spacing: 0) {
             pager
-            AppTabBar(selection: selection, onSelect: go(to:))
+            if !keyboardVisible {
+                AppTabBar(selection: selection, onSelect: go(to:))
+            }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardVisible = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardVisible = false
         }
         .background { Color.bg.ignoresSafeArea() }
         .environment(\.selectTab, { go(to: $0) })
