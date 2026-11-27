@@ -57,6 +57,46 @@ struct SavedDataTests {
         #expect(stats.data.schemaVersion == StatsData.currentSchemaVersion, "Upgraded on load")
     }
 
+    /// A save from before green / yellow / red grading has no "close" counts
+    /// anywhere. It must load with zero close calls, keep every number, show
+    /// the same accuracy as before, and not change on the next save and load.
+    @Test func saveFromBeforeCloseGradingLoadsUnchanged() throws {
+        let store = TestDefaults()
+        let json = """
+        {
+          "strategyTotal": 40, "strategyCorrect": 30,
+          "quizTotal": 20, "quizCorrect": 15,
+          "betDecisions": 10, "betCorrect": 6,
+          "spots": {"H16v10": {"correct": 3, "total": 5}},
+          "days": {"2026-01-01": {"strategyCorrect": 3, "strategyTotal": 4}},
+          "challenges": {"2026-01-02": {"score": 7, "total": 10}, "2026-01-03": {"score": 9, "total": 10}}
+        }
+        """
+        store.defaults.set(Data(json.utf8), forKey: Stats.storageKey)
+
+        let stats = Stats(defaults: store.defaults)
+        #expect(stats.loadIssue == nil)
+        #expect(stats.data.strategyClose == 0 && stats.data.quizClose == 0 && stats.data.betClose == 0)
+        #expect(stats.data.spots["H16v10"]?.close == 0 && stats.data.spots["H16v10"]?.correct == 3)
+        #expect(stats.data.days["2026-01-01"]?.strategyClose == 0)
+        #expect(stats.data.challenges["2026-01-02"]?.close == 0)
+        #expect(stats.data.challenges["2026-01-02"]?.points == 7, "Old challenge points equal the old score")
+        // Challenge answers are backfilled once from the finished challenges.
+        #expect(stats.data.challengeAnswersTotal == 20)
+        #expect(stats.data.challengeAnswersCorrect == 16)
+        #expect(stats.data.challengeAnswersClose == 0)
+        #expect(stats.strategyAccuracy == 0.75 && stats.quizAccuracy == 0.75, "Same as the old right / total")
+        #expect(stats.overallStrategyCorrect == 61 && stats.overallStrategyTotal == 80)
+        #expect(stats.overallStrategyClose == 0)
+
+        // Saving and loading again keeps the same numbers (no second backfill).
+        stats.flush()
+        let reloaded = Stats(defaults: store.defaults)
+        #expect(reloaded.data.challengeAnswersTotal == 20 && reloaded.data.challengeAnswersCorrect == 16)
+        #expect(reloaded.overallStrategyCorrect == 61 && reloaded.overallStrategyTotal == 80)
+        #expect(reloaded.data.strategyClose == 0 && reloaded.data.quizClose == 0)
+    }
+
     @Test func unreadableSaveIsBackedUpBeforeStartingOver() throws {
         let store = TestDefaults()
         let garbage = Data("not json at all".utf8)

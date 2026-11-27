@@ -13,4 +13,14 @@ extension EnvironmentValues {
         get { self[SelectTabKey.self] }
         set { self[SelectTabKey.self] = newValue }
     }
+
+    /// False while this screen's tab is not the one showing. The tab pages
+    /// stay alive side by side, so onAppear / onDisappear don't fire when the
+    /// player switches tabs; screens watch this instead. True by default.
+    var isCurrentTab: Bool {
+        get { self[IsCurrentTabKey.self] }
+        set { self[IsCurrentTabKey.self] = newValue }
+    }
 }
+
+private struct IsCurrentTabKey: EnvironmentKey { static let defaultValue = true }

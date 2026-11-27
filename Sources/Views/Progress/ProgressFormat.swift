@@ -2,10 +2,11 @@ import Foundation
 
 /// Small formatting helpers shared by the Progress screens.
 enum ProgressFormat {
-    /// "82%", or nil when nothing has been recorded yet.
-    static func percent(correct: Int, total: Int) -> String? {
-        guard total > 0 else { return nil }
-        return "\(Int((Double(correct) / Double(total) * 100).rounded()))%"
+    /// "82%", or nil when nothing has been recorded yet. A close call
+    /// (yellow) is half credit.
+    static func percent(correct: Int, close: Int = 0, total: Int) -> String? {
+        guard let fraction = Accuracy.fraction(correct: correct, close: close, total: total) else { return nil }
+        return "\(Int((fraction * 100).rounded()))%"
     }
 
     static func days(_ count: Int) -> String {

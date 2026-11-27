@@ -58,6 +58,7 @@ struct ProgressHero: View {
 
     private var tiles: some View {
         let accuracy = ProgressFormat.percent(correct: stats.overallStrategyCorrect,
+                                              close: stats.overallStrategyClose,
                                               total: stats.overallStrategyTotal)
         let streak = stats.dailyStreak
         return HStack(spacing: Space.xs) {
@@ -110,8 +111,9 @@ struct ProgressHero: View {
                      fraction: counting.total == 0 ? nil : Double(counting.correct) / Double(counting.total),
                      valueText: ProgressFormat.percent(correct: counting.correct, total: counting.total))
             SkillRow(title: "Bet Sizing",
-                     fraction: d.betDecisions == 0 ? nil : Double(d.betCorrect) / Double(d.betDecisions),
-                     valueText: ProgressFormat.percent(correct: d.betCorrect, total: d.betDecisions))
+                     fraction: Accuracy.fraction(correct: d.betCorrect, close: d.betClose, total: d.betDecisions),
+                     valueText: ProgressFormat.percent(correct: d.betCorrect, close: d.betClose,
+                                                       total: d.betDecisions))
         }
     }
 }

@@ -30,13 +30,13 @@ struct TableMessage {
         }
         if !engine.feedbackText.isEmpty {
             return TableMessage(text: engine.feedbackText,
-                                kind: engine.feedbackGood ? .correct : .incorrect,
+                                kind: FeedbackPill.Kind(grade: engine.feedbackGrade),
                                 announces: true, identifier: "moveFeedback",
                                 serial: engine.feedbackSerial)
         }
         if !engine.betAdviceText.isEmpty && phase != .betting {
             return TableMessage(text: engine.betAdviceText,
-                                kind: engine.betAdviceGood ? .correct : .warning,
+                                kind: FeedbackPill.Kind(grade: engine.betGrade),
                                 announces: true, identifier: "betAdvice")
         }
         if refundedChips > 0 && phase == .betting {
@@ -67,6 +67,8 @@ struct TableMessageSlot: View {
 
     @ScaledMetric(relativeTo: .footnote) private var slotHeight: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Tab pages stay alive: don't speak table messages while Play is hidden.
+    @Environment(\.isCurrentTab) private var isCurrentTab
 
     private var message: TableMessage? {
         TableMessage.current(engine: engine, refundedChips: refundedChips)
@@ -90,7 +92,7 @@ struct TableMessageSlot: View {
             // Breathing room under the dealer's cards.
             .padding(.top, Space.xs)
             .onChange(of: message?.key) { _, newKey in
-                guard newKey != nil, let current = self.message, current.announces else { return }
+                guard isCurrentTab, newKey != nil, let current = self.message, current.announces else { return }
                 AccessibilityNotification.Announcement(spoken(current.text, kind: current.kind)).post()
             }
     }

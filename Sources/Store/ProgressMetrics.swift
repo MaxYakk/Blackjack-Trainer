@@ -4,8 +4,20 @@ import Foundation
 struct SpotStat: Codable {
     var correct = 0
     var total = 0
+    /// Close calls (yellow): half credit. Older saves have none.
+    var close = 0
 
-    var accuracy: Double { total == 0 ? 0 : Double(correct) / Double(total) }
+    var accuracy: Double { Accuracy.fraction(correct: correct, close: close, total: total) ?? 0 }
+}
+
+/// Accuracy with half credit for a close call (yellow).
+enum Accuracy {
+    /// (green + ½ yellow) ÷ total, or nil when nothing was graded.
+    static func fraction(correct: Int, close: Int = 0, total: Int) -> Double? {
+        guard total > 0 else { return nil }
+        let credit = Double(correct) + 0.5 * Double(close)
+        return min(1, max(0, credit / Double(total)))
+    }
 }
 
 struct RecurringMistake: Identifiable {

@@ -63,7 +63,7 @@ struct DesignSystemPreview: View {
                 ("textTertiary", .textTertiary), ("accent", .accent), ("onAccent", .onAccent),
                 ("positive", .positive), ("positiveBg", .positiveBg), ("negative", .negative),
                 ("negativeBg", .negativeBg), ("warm", .warm), ("warmBg", .warmBg),
-                ("warning", .warning), ("disabledFill", .disabledFill),
+                ("warning", .warning), ("warningBg", .warningBg), ("disabledFill", .disabledFill),
                 ("disabledText", .disabledText), ("cardBack", .cardBack),
             ])
             SectionHeader("Strategy chart")

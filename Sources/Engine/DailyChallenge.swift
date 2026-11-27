@@ -8,10 +8,18 @@ import Observation
 final class DailyChallengeEngine {
     private(set) var spots: [CatalogSpot]
     private(set) var index = 0
+    /// Hands played exactly right (green).
     private(set) var score = 0
+    /// Close calls (yellow), worth half a point each.
+    private(set) var closeCount = 0
     private(set) var answered = false
     private(set) var feedback = ""
-    private(set) var feedbackGood = false
+    /// Green / yellow / red for the last answer.
+    private(set) var grade: Grade = .wrong
+    var feedbackGood: Bool { grade == .correct }
+
+    /// Green hands plus half a point per close call.
+    var points: Double { Double(score) + 0.5 * Double(closeCount) }
     private(set) var finished = false
 
     private let stats: Stats
@@ -58,14 +66,21 @@ final class DailyChallengeEngine {
 
     func answer(_ action: Action) {
         guard !answered, !isStale, let spot = current else { return }
-        let correct = BasicStrategy.correctAction(
-            cards: spot.cards, dealerUp: spot.dealerRank, canDouble: true, canSplit: spot.isPair
-        )
+        let verdict = MoveGrader.grade(action, cards: spot.cards, dealerUp: spot.dealerRank,
+                                       canDouble: true, canSplit: spot.isPair)
+        let correct = verdict.best
         answered = true
-        let ok = action == correct
-        if ok { score += 1 }
-        feedbackGood = ok
-        feedback = ok ? "Correct! \(correct.name)." : "\(correct.name), not \(action.name)."
+        grade = verdict.grade
+        switch grade {
+        case .correct:
+            score += 1
+            feedback = "Correct! \(correct.name)."
+        case .close:
+            closeCount += 1
+            feedback = MoveGrader.closeText(verdict)
+        case .wrong:
+            feedback = "\(correct.name), not \(action.name)."
+        }
 
         // Challenge reps feed the same personalization data as quiz reps —
         // but only on the day's first run.
@@ -74,17 +89,18 @@ final class DailyChallengeEngine {
             // stats), so closing the app now can't reopen a fresh "first" run.
             stats.markChallengeStarted(dateKey: dateKey)
             let spotKey = SpotID.key(cards: spot.cards, dealerUp: spot.dealerRank, canSplit: spot.isPair)
-            stats.recordChallengeAnswer(correct: ok, spotKey: spotKey)
-            if !ok {
+            stats.recordChallengeAnswer(grade: grade, spotKey: spotKey)
+            if grade == .wrong {
                 stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
             }
             // Save the score as soon as the last answer counts, so closing the
             // app or crossing midnight before "See results" can't lose it.
             if index + 1 >= spots.count {
-                stats.recordChallengeResult(score: score, total: spots.count, dateKey: dateKey)
+                stats.recordChallengeResult(score: score, close: closeCount,
+                                            total: spots.count, dateKey: dateKey)
             }
         }
-        Haptics.notify(ok ? 1 : -1)
+        Haptics.notify(grade == .correct ? 1 : grade == .close ? 0 : -1)
     }
 
     func next() {

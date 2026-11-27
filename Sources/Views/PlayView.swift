@@ -33,6 +33,8 @@ private struct PlayContent: View {
     @Bindable var engine: PlayEngine
     @Binding var refundedChips: Double
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Tab pages stay alive: a round that settles after a swipe away is not spoken over another tab.
+    @Environment(\.isCurrentTab) private var isCurrentTab
     @State private var showOptions = false
     @State private var showTutorial = false
     @State private var showEndSession = false
@@ -138,7 +140,7 @@ private struct PlayContent: View {
         Task { @MainActor in
             // Let any move feedback be spoken first.
             try? await Task.sleep(nanoseconds: 700_000_000)
-            guard isCurrent(round) else { return }
+            guard isCurrent(round), isCurrentTab else { return }
             AccessibilityNotification.Announcement(outcome.announcement).post()
         }
         switch outcome.kind {

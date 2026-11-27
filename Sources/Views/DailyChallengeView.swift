@@ -19,9 +19,11 @@ struct DailyChallengeView: View {
         Group {
             if let engine {
                 if showingSavedResult, let saved = stats.todayChallenge {
-                    resultScreen(score: saved.score, total: saved.total, practice: false)
+                    resultScreen(saved, practice: false)
                 } else if engine.finished {
-                    resultScreen(score: engine.score, total: engine.spots.count, practice: engine.isReplay)
+                    resultScreen(ChallengeResult(score: engine.score, total: engine.spots.count,
+                                                 close: engine.closeCount),
+                                 practice: engine.isReplay)
                 } else {
                     challengeScreen(engine)
                 }
@@ -96,7 +98,7 @@ struct DailyChallengeView: View {
                                        player: spot.cards,
                                        handText: engine.handText)
                         DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
-                                      good: engine.feedbackGood,
+                                      grade: engine.grade,
                                       reason: engine.answered ? reason(for: spot) : "")
                     }
                 }
@@ -176,26 +178,36 @@ struct DailyChallengeView: View {
 
     // MARK: Result
 
-    private func resultScreen(score: Int, total: Int, practice: Bool) -> some View {
-        VStack(spacing: Space.md) {
+    /// Score is green hands plus half a point for each close call (yellow).
+    private func resultScreen(_ result: ChallengeResult, practice: Bool) -> some View {
+        let total = result.total
+        return VStack(spacing: Space.md) {
             HStack {
                 Spacer()
                 closeButton { dismiss() }
             }
             .padding(.trailing, Space.xs)
             Spacer(minLength: 0)
-            Image(systemName: score >= total - 2 ? "trophy.fill" : "checkmark.seal.fill")
+            Image(systemName: result.points >= Double(total - 2) ? "trophy.fill" : "checkmark.seal.fill")
                 .scaledFont(size: 52, weight: .regular, relativeTo: .largeTitle, maxSize: 90)
                 .foregroundStyle(.accent)
                 .accessibilityHidden(true)
             Text(practice ? "Practice score" : "Today's score")
                 .font(.detail)
                 .foregroundStyle(.textSecondary)
-            Text("\(score) / \(total)")
+            Text("\(result.pointsText) / \(total)")
                 .font(.numberHero)
                 .foregroundStyle(.textPrimary)
-                .accessibilityLabel("\(score) out of \(total)")
-            Text(resultCopy(score: score, total: total))
+                .accessibilityLabel("\(result.pointsSpoken) out of \(total)")
+            if result.close > 0 {
+                Text(result.close == 1
+                     ? "1 close call counted as half a point."
+                     : "\(result.close) close calls counted as half a point each.")
+                    .font(.detail)
+                    .foregroundStyle(.warning)
+                    .multilineTextAlignment(.center)
+            }
+            Text(resultCopy(result))
                 .font(.bodyText)
                 .foregroundStyle(.textPrimary)
                 .multilineTextAlignment(.center)
@@ -218,12 +230,11 @@ struct DailyChallengeView: View {
         }
     }
 
-    private func resultCopy(score: Int, total: Int) -> String {
-        switch score {
-        case total: return "Perfect. That's how the chart is supposed to be played."
-        case (total - 2)...: return "Strong. The misses are already in your leaks list."
-        case (total / 2)...: return "Decent. Check Progress to see which spots got you."
-        default: return "Rough deal. Review missed hands in the Quiz will drill exactly these."
-        }
+    private func resultCopy(_ result: ChallengeResult) -> String {
+        let total = Double(result.total)
+        if result.isPerfect { return "Perfect. That's how the chart is supposed to be played." }
+        if result.points >= total - 2 { return "Strong. The misses are already in your leaks list." }
+        if result.points >= total / 2 { return "Decent. Check Progress to see which spots got you." }
+        return "Rough deal. Review missed hands in the Quiz will drill exactly these."
     }
 }

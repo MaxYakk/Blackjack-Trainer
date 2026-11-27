@@ -7,7 +7,8 @@ struct ProgressSessionPanel: View {
 
     var body: some View {
         if stats.sessionDecisions > 0 {
-            let accuracy = Double(stats.sessionCorrect) / Double(max(stats.sessionDecisions, 1))
+            // A close call (yellow) is half credit.
+            let accuracy = stats.sessionAccuracy ?? 0
             let tint: Color = accuracy >= 0.9 ? .positive : accuracy >= 0.7 ? .warning : .negative
             Panel(spacing: Space.xs) {
                 HStack {
@@ -16,7 +17,9 @@ struct ProgressSessionPanel: View {
                         .foregroundStyle(.textPrimary)
                         .accessibilityAddTraits(.isHeader)
                     Spacer(minLength: Space.xs)
-                    Text("\(stats.sessionCorrect) of \(stats.sessionDecisions) correct")
+                    Text(stats.sessionClose > 0
+                         ? "\(stats.sessionCorrect) of \(stats.sessionDecisions) correct, \(stats.sessionClose) close"
+                         : "\(stats.sessionCorrect) of \(stats.sessionDecisions) correct")
                         .font(.calloutText.weight(.bold))
                         .foregroundStyle(tint)
                 }

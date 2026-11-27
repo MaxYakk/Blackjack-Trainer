@@ -7,13 +7,17 @@ struct DayStat: Codable, Identifiable {
     var date: String   // "yyyy-MM-dd"
     var strategyCorrect: Int
     var strategyTotal: Int
+    /// Close calls (yellow): half credit. Missing in older saves, so 0.
+    var strategyClose = 0
 
     var id: String { date }
-    var accuracy: Double { strategyTotal == 0 ? 0 : Double(strategyCorrect) / Double(strategyTotal) }
+    var accuracy: Double {
+        Accuracy.fraction(correct: strategyCorrect, close: strategyClose, total: strategyTotal) ?? 0
+    }
 }
 
 extension DayStat {
-    private enum CodingKeys: String, CodingKey { case date, strategyCorrect, strategyTotal }
+    private enum CodingKeys: String, CodingKey { case date, strategyCorrect, strategyTotal, strategyClose }
 
     /// Field by field, so one damaged value can't drop the whole day.
     /// (A missing date is repaired from its dictionary key on load.)
@@ -22,22 +26,44 @@ extension DayStat {
         date = c.tolerant(String.self, forKey: .date) ?? ""
         strategyTotal = max(0, c.tolerant(Int.self, forKey: .strategyTotal) ?? 0)
         strategyCorrect = min(strategyTotal, max(0, c.tolerant(Int.self, forKey: .strategyCorrect) ?? 0))
+        strategyClose = min(strategyTotal - strategyCorrect,
+                            max(0, c.tolerant(Int.self, forKey: .strategyClose) ?? 0))
     }
 }
 
 /// One day's daily-challenge outcome.
 struct ChallengeResult: Codable {
+    /// Hands played exactly right (green).
     var score: Int
     var total: Int
+    /// Close calls (yellow), worth half a point. Missing in older saves, so 0.
+    var close = 0
+
+    /// Green hands plus half a point per close call.
+    var points: Double { Double(score) + 0.5 * Double(close) }
+    var isPerfect: Bool { total > 0 && score == total }
+
+    /// "8" or "8½".
+    var pointsText: String {
+        let whole = Int(points.rounded(.down))
+        return points > Double(whole) ? "\(whole)½" : "\(whole)"
+    }
+
+    /// "8" or "8 and a half", for VoiceOver.
+    var pointsSpoken: String {
+        let whole = Int(points.rounded(.down))
+        return points > Double(whole) ? "\(whole) and a half" : "\(whole)"
+    }
 }
 
 extension ChallengeResult {
-    private enum CodingKeys: String, CodingKey { case score, total }
+    private enum CodingKeys: String, CodingKey { case score, total, close }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         total = max(0, c.tolerant(Int.self, forKey: .total) ?? 0)
         score = min(total, max(0, c.tolerant(Int.self, forKey: .score) ?? 0))
+        close = min(total - score, max(0, c.tolerant(Int.self, forKey: .close) ?? 0))
     }
 }
 
@@ -49,6 +75,9 @@ struct StatsData: Codable {
 
     var strategyCorrect = 0
     var strategyTotal = 0
+    /// Close calls (yellow) in Play: half credit in accuracy. Saves written
+    /// before three-tier grading have none, which reads as 0.
+    var strategyClose = 0
 
     var handsPlayed = 0
     var handsWon = 0
@@ -65,6 +94,8 @@ struct StatsData: Codable {
     var bankroll: Double = 1000
     var betDecisions = 0
     var betCorrect = 0
+    /// Bets graded yellow ("a bit risky", a little off the count): half credit.
+    var betClose = 0
 
     // Chips on the felt in a round that hasn't settled yet. Saved in the same
     // blob as the bankroll so the two can never disagree; if the app closes
@@ -79,12 +110,14 @@ struct StatsData: Codable {
     // Rapid-fire strategy quiz
     var quizTotal = 0
     var quizCorrect = 0
+    var quizClose = 0
     var quizBestStreak = 0
 
     // Counted Daily Challenge answers (the day's first run only; practice
     // replays never count). Part of overall strategy accuracy.
     var challengeAnswersTotal = 0
     var challengeAnswersCorrect = 0
+    var challengeAnswersClose = 0
 
     // Mid-session "what's the count?" checks
     var countChecks = 0
@@ -132,12 +165,12 @@ struct StatsData: Codable {
 extension StatsData {
     enum CodingKeys: String, CodingKey {
         case schemaVersion
-        case strategyCorrect, strategyTotal
+        case strategyCorrect, strategyTotal, strategyClose
         case handsPlayed, handsWon, handsLost, handsPushed, blackjacks
         case drillsCompleted, drillsCorrect, bestStreak, currentStreak
-        case bankroll, betDecisions, betCorrect, inPlayWager, bestSessionNet
-        case quizTotal, quizCorrect, quizBestStreak
-        case challengeAnswersTotal, challengeAnswersCorrect
+        case bankroll, betDecisions, betCorrect, betClose, inPlayWager, bestSessionNet
+        case quizTotal, quizCorrect, quizClose, quizBestStreak
+        case challengeAnswersTotal, challengeAnswersCorrect, challengeAnswersClose
         case countChecks, countChecksCorrect
         case bankrollHistory
         case days
@@ -156,6 +189,7 @@ extension StatsData {
         schemaVersion   = c.tolerant(Int.self, forKey: .schemaVersion) ?? 1
         strategyCorrect = c.tolerant(Int.self, forKey: .strategyCorrect) ?? strategyCorrect
         strategyTotal   = c.tolerant(Int.self, forKey: .strategyTotal) ?? strategyTotal
+        strategyClose   = max(0, c.tolerant(Int.self, forKey: .strategyClose) ?? 0)
         handsPlayed     = c.tolerant(Int.self, forKey: .handsPlayed) ?? handsPlayed
         handsWon        = c.tolerant(Int.self, forKey: .handsWon) ?? handsWon
         handsLost       = c.tolerant(Int.self, forKey: .handsLost) ?? handsLost
@@ -168,10 +202,12 @@ extension StatsData {
         bankroll        = Self.finite(c.tolerant(Double.self, forKey: .bankroll)) ?? bankroll
         betDecisions    = c.tolerant(Int.self, forKey: .betDecisions) ?? betDecisions
         betCorrect      = c.tolerant(Int.self, forKey: .betCorrect) ?? betCorrect
+        betClose        = max(0, c.tolerant(Int.self, forKey: .betClose) ?? 0)
         inPlayWager     = max(0, Self.finite(c.tolerant(Double.self, forKey: .inPlayWager)) ?? 0)
         bestSessionNet  = Self.finite(c.tolerant(Double.self, forKey: .bestSessionNet)) ?? bestSessionNet
         quizTotal       = c.tolerant(Int.self, forKey: .quizTotal) ?? quizTotal
         quizCorrect     = c.tolerant(Int.self, forKey: .quizCorrect) ?? quizCorrect
+        quizClose       = max(0, c.tolerant(Int.self, forKey: .quizClose) ?? 0)
         quizBestStreak  = c.tolerant(Int.self, forKey: .quizBestStreak) ?? quizBestStreak
         countChecks     = c.tolerant(Int.self, forKey: .countChecks) ?? countChecks
         countChecksCorrect = c.tolerant(Int.self, forKey: .countChecksCorrect) ?? countChecksCorrect
@@ -199,12 +235,17 @@ extension StatsData {
             challengeAnswersTotal = max(0, total)
             challengeAnswersCorrect = min(challengeAnswersTotal,
                                           max(0, c.tolerant(Int.self, forKey: .challengeAnswersCorrect) ?? 0))
+            challengeAnswersClose = min(challengeAnswersTotal - challengeAnswersCorrect,
+                                        max(0, c.tolerant(Int.self, forKey: .challengeAnswersClose) ?? 0))
         } else {
             // Saved before these were tracked: start from the finished
             // challenges, so earlier counted runs aren't lost from accuracy.
             let finished = challenges.values.filter { $0.total > 0 }
             challengeAnswersTotal = finished.reduce(0) { $0 + $1.total }
             challengeAnswersCorrect = finished.reduce(0) { $0 + min(max($1.score, 0), $1.total) }
+            challengeAnswersClose = finished.reduce(0) {
+                $0 + min(max($1.close, 0), max($1.total - max($1.score, 0), 0))
+            }
         }
     }
 
@@ -256,6 +297,8 @@ final class Stats {
     // Transient per-launch session recap — deliberately not persisted.
     private(set) var sessionDecisions = 0
     private(set) var sessionCorrect = 0
+    /// Close calls (yellow) this app session: half credit.
+    private(set) var sessionClose = 0
     private(set) var sessionMistakes: [SessionMistake] = []
 
     /// Set on launch if the saved progress couldn't be read (see StatsLoadIssue).
@@ -348,8 +391,16 @@ final class Stats {
 
     // MARK: - Derived values
 
+    // Accuracy everywhere gives a close call (yellow) half credit.
+
     var strategyAccuracy: Double {
-        data.strategyTotal == 0 ? 0 : Double(data.strategyCorrect) / Double(data.strategyTotal)
+        Accuracy.fraction(correct: data.strategyCorrect, close: data.strategyClose,
+                          total: data.strategyTotal) ?? 0
+    }
+
+    /// Session accuracy (the report card), half credit for close calls.
+    var sessionAccuracy: Double? {
+        Accuracy.fraction(correct: sessionCorrect, close: sessionClose, total: sessionDecisions)
     }
 
     var drillAccuracy: Double {
@@ -357,14 +408,21 @@ final class Stats {
     }
 
     var betAccuracy: Double {
-        data.betDecisions == 0 ? 0 : Double(data.betCorrect) / Double(data.betDecisions)
+        Accuracy.fraction(correct: data.betCorrect, close: data.betClose, total: data.betDecisions) ?? 0
     }
 
-    func recordBet(correct: Bool) {
+    /// A yellow bet ("a bit risky", a little off the count) is half credit.
+    func recordBet(grade: Grade) {
         data.betDecisions += 1
-        if correct { data.betCorrect += 1 }
+        switch grade {
+        case .correct: data.betCorrect += 1
+        case .close: data.betClose += 1
+        case .wrong: break
+        }
         didRecord()
     }
+
+    func recordBet(correct: Bool) { recordBet(grade: Grade(correct: correct)) }
 
     func adjustBankroll(_ delta: Double) {
         data.bankroll += delta
@@ -427,23 +485,39 @@ final class Stats {
     /// spotKey is the SpotID for the graded hand; pass nil when the decision
     /// shouldn't feed spot accuracy (e.g. count-deviation spots, where the
     /// "correct" play differs from the basic-strategy chart).
-    func recordDecision(correct: Bool, spotKey: String?) {
+    /// A close call (yellow) is half credit and still counts toward the daily goal.
+    func recordDecision(grade: Grade, spotKey: String?) {
         data.strategyTotal += 1
-        if correct { data.strategyCorrect += 1 }
-        bumpDay(correct: correct)
-        bumpSpot(spotKey, correct: correct)
+        switch grade {
+        case .correct: data.strategyCorrect += 1
+        case .close: data.strategyClose += 1
+        case .wrong: break
+        }
+        bumpDay(grade: grade)
+        bumpSpot(spotKey, grade: grade)
         didRecord()
     }
 
-    private func bumpDay(correct: Bool) {
+    func recordDecision(correct: Bool, spotKey: String?) {
+        recordDecision(grade: Grade(correct: correct), spotKey: spotKey)
+    }
+
+    private func bumpDay(grade: Grade) {
         let k = todayKey()
         var day = data.days[k] ?? DayStat(date: k, strategyCorrect: 0, strategyTotal: 0)
         day.strategyTotal += 1
-        if correct { day.strategyCorrect += 1 }
-        data.days[k] = day
-
         sessionDecisions += 1
-        if correct { sessionCorrect += 1 }
+        switch grade {
+        case .correct:
+            day.strategyCorrect += 1
+            sessionCorrect += 1
+        case .close:
+            day.strategyClose += 1
+            sessionClose += 1
+        case .wrong:
+            break
+        }
+        data.days[k] = day
     }
 
     /// Remember a wrong play for this session's report card (capped so a
@@ -458,21 +532,25 @@ final class Stats {
         data.mistakeChoices[spotKey] = choices
     }
 
-    private func bumpSpot(_ key: String?, correct: Bool) {
+    private func bumpSpot(_ key: String?, grade: Grade) {
         guard let key else { return }
         var spot = data.spots[key] ?? SpotStat()
         spot.total += 1
-        if correct { spot.correct += 1 }
-        data.spots[key] = spot
         // Only spots that were ever missed need a streak (it clears them from
-        // the review list), which keeps this table small.
-        if correct {
+        // the review list), which keeps this table small. A close call
+        // neither clears a missed hand nor puts it back.
+        switch grade {
+        case .correct:
+            spot.correct += 1
             if data.mistakeChoices[key] != nil || data.spotStreaks[key] != nil {
                 data.spotStreaks[key] = min((data.spotStreaks[key] ?? 0) + 1, ProgressMetrics.reviewClearStreak)
             }
-        } else {
+        case .close:
+            spot.close += 1
+        case .wrong:
             data.spotStreaks[key] = 0
         }
+        data.spots[key] = spot
     }
 
     // MARK: - Personalization
@@ -521,12 +599,17 @@ final class Stats {
     var overallStrategyTotal: Int {
         data.strategyTotal + data.quizTotal + data.challengeAnswersTotal
     }
+    /// Close calls (yellow) across the same three: half credit.
+    var overallStrategyClose: Int {
+        data.strategyClose + data.quizClose + data.challengeAnswersClose
+    }
 
     /// Composite player level across strategy, coverage, counting, and betting.
     var skillRating: SkillRating {
         SkillRating.compute(from: SkillRating.Inputs(
             strategyCorrect: overallStrategyCorrect,
             strategyTotal: overallStrategyTotal,
+            strategyClose: overallStrategyClose,
             spotsPracticed: data.spots.count,
             chartCells: SpotCatalog.chartCellCount,
             drillsCorrect: data.drillsCorrect,
@@ -534,7 +617,8 @@ final class Stats {
             countChecksCorrect: data.countChecksCorrect,
             countChecks: data.countChecks,
             betCorrect: data.betCorrect,
-            betDecisions: data.betDecisions
+            betDecisions: data.betDecisions,
+            betClose: data.betClose
         ))
     }
 
@@ -549,6 +633,7 @@ final class Stats {
         Achievements.all(from: Achievements.Inputs(
             decisions: overallStrategyTotal,
             decisionsCorrect: overallStrategyCorrect,
+            decisionsClose: overallStrategyClose,
             spotsPracticed: data.spots.count,
             masteredSpots: data.spots.values.filter { $0.total >= 5 && $0.accuracy >= 0.9 }.count,
             quizBestStreak: data.quizBestStreak,
@@ -559,8 +644,9 @@ final class Stats {
             countChecksCorrect: data.countChecksCorrect,
             betDecisions: data.betDecisions,
             betCorrect: data.betCorrect,
+            betClose: data.betClose,
             challengesPlayed: data.challenges.count,
-            perfectChallenges: data.challenges.values.filter { $0.total > 0 && $0.score == $0.total }.count,
+            perfectChallenges: data.challenges.values.filter(\.isPerfect).count,
             longestDailyStreak: ProgressMetrics.longestStreak(
                 dayTotals: data.days.mapValues(\.strategyTotal), goal: data.dailyGoal)
         ))
@@ -607,19 +693,29 @@ final class Stats {
 
     /// A counted challenge rep counts toward overall accuracy, day totals and
     /// spot accuracy like any other graded decision, without inflating quiz stats.
-    func recordChallengeAnswer(correct: Bool, spotKey: String?) {
+    func recordChallengeAnswer(grade: Grade, spotKey: String?) {
         data.challengeAnswersTotal += 1
-        if correct { data.challengeAnswersCorrect += 1 }
-        bumpDay(correct: correct)
-        bumpSpot(spotKey, correct: correct)
+        switch grade {
+        case .correct: data.challengeAnswersCorrect += 1
+        case .close: data.challengeAnswersClose += 1
+        case .wrong: break
+        }
+        bumpDay(grade: grade)
+        bumpSpot(spotKey, grade: grade)
         didRecord()
     }
 
+    func recordChallengeAnswer(correct: Bool, spotKey: String?) {
+        recordChallengeAnswer(grade: Grade(correct: correct), spotKey: spotKey)
+    }
+
     /// Keep the best score if the challenge is somehow replayed the same day.
-    func recordChallengeResult(score: Int, total: Int, dateKey: String) {
+    /// `score` is the green hands; each close call adds half a point.
+    func recordChallengeResult(score: Int, close: Int = 0, total: Int, dateKey: String) {
+        let result = ChallengeResult(score: score, total: total, close: close)
         let existing = data.challenges[dateKey]
-        if existing == nil || score > (existing?.score ?? 0) {
-            data.challenges[dateKey] = ChallengeResult(score: score, total: total)
+        if existing == nil || result.points > (existing?.points ?? 0) {
+            data.challenges[dateKey] = result
         }
         data.challengesStarted.remove(dateKey)   // finished; the result now marks the day
         didRecord()
@@ -665,18 +761,26 @@ final class Stats {
     // MARK: - Strategy quiz
 
     var quizAccuracy: Double {
-        data.quizTotal == 0 ? 0 : Double(data.quizCorrect) / Double(data.quizTotal)
+        Accuracy.fraction(correct: data.quizCorrect, close: data.quizClose, total: data.quizTotal) ?? 0
     }
 
     /// Quiz answers count toward the same day totals and spot accuracy as
     /// Play decisions — a rep is a rep, wherever it happens.
-    func recordQuiz(correct: Bool, streak: Int, spotKey: String?) {
+    func recordQuiz(grade: Grade, streak: Int, spotKey: String?) {
         data.quizTotal += 1
-        if correct { data.quizCorrect += 1 }
+        switch grade {
+        case .correct: data.quizCorrect += 1
+        case .close: data.quizClose += 1
+        case .wrong: break
+        }
         data.quizBestStreak = max(data.quizBestStreak, streak)
-        bumpDay(correct: correct)
-        bumpSpot(spotKey, correct: correct)
+        bumpDay(grade: grade)
+        bumpSpot(spotKey, grade: grade)
         didRecord()
+    }
+
+    func recordQuiz(correct: Bool, streak: Int, spotKey: String?) {
+        recordQuiz(grade: Grade(correct: correct), streak: streak, spotKey: spotKey)
     }
 
     // MARK: - Mid-hand count checks
@@ -705,6 +809,7 @@ final class Stats {
         data.achievementsSeeded = true   // nothing earned yet; new trophies get real dates
         sessionDecisions = 0
         sessionCorrect = 0
+        sessionClose = 0
         sessionMistakes = []
         refundedWagerOnLaunch = 0
         // The play session's buy-in lives outside `data`. Leaving it would

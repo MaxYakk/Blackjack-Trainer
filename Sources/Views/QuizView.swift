@@ -50,7 +50,10 @@ private struct QuizContent: View {
 
     /// False while another tab is showing; tab views stay alive, so the
     /// auto-advance below must check it before dealing.
-    @State private var isOnScreen = true
+    @Environment(\.isCurrentTab) private var isCurrentTab
+    /// Set when the player swipes away during the auto-advance wait, so the
+    /// answered hand is still there (waiting for Next) when they come back.
+    @State private var leftTabSinceAnswer = false
 
     private static let autoAdvanceDelay: Duration = .milliseconds(600)
 
@@ -83,7 +86,7 @@ private struct QuizContent: View {
                 VStack(spacing: Space.xs) {
                     DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
                     DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
-                                  good: engine.feedbackGood,
+                                  grade: engine.grade,
                                   reason: engine.reason)
                 }
                 .padding(.horizontal, Space.md)
@@ -92,16 +95,20 @@ private struct QuizContent: View {
             bottomBar
         }
         .background(Color.bg.ignoresSafeArea())
-        .onAppear { isOnScreen = true }
-        .onDisappear { isOnScreen = false }
         // Correct answers can move on by themselves; cancelled automatically
         // when the player taps Next first (`answered` flips back to false).
+        // Keyed on the answer only: leaving the tab mid-wait skips the move,
+        // and coming back never deals a fresh hand by itself.
         .task(id: engine.answered) {
-            guard isOnScreen, engine.answered, engine.feedbackGood, autoAdvance,
+            leftTabSinceAnswer = false
+            guard isCurrentTab, engine.answered, engine.feedbackGood, autoAdvance,
                   !UIAccessibility.isVoiceOverRunning else { return }
             try? await Task.sleep(for: Self.autoAdvanceDelay)
-            guard !Task.isCancelled, isOnScreen else { return }
+            guard !Task.isCancelled, !leftTabSinceAnswer else { return }
             Motion.perform(.quick, reduceMotion: reduceMotion) { engine.next() }
+        }
+        .onChange(of: isCurrentTab) { _, current in
+            if !current { leftTabSinceAnswer = true }
         }
     }
 
@@ -121,7 +128,7 @@ private struct QuizContent: View {
                     .foregroundStyle(.textPrimary)
                 Spacer()
                 if let result = stats.todayChallenge {
-                    Text("\(result.score)/\(result.total)")
+                    Text("\(result.pointsText)/\(result.total)")
                         .font(.numberInline)
                         .foregroundStyle(.positive)
                 } else {
@@ -140,7 +147,7 @@ private struct QuizContent: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityValue(stats.todayChallenge.map { "Scored \($0.score) of \($0.total) today" }
+        .accessibilityValue(stats.todayChallenge.map { "Scored \($0.pointsSpoken) of \($0.total) today" }
                             ?? "Not played today")
         .sheet(isPresented: $showChallenge) {
             DailyChallengeView()
