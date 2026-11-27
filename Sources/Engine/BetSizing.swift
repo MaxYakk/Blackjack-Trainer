@@ -37,7 +37,8 @@ enum BetSizingEvaluator {
 
     /// Bet-size coaching forgives small misses but must still test the count:
     /// at a low count only the minimum (or one unit over) passes, and once the
-    /// count calls for a raise, flat-betting the minimum fails.
+    /// count calls for a raise, flat-betting the minimum is never green (yellow
+    /// while the miss is one or two units, red from three: see `countGrade`).
     /// Window around the recommended units: ±1 up to a 2-unit ramp, ±2 above.
     private static func toleranceUnits(recommended: Int) -> Int {
         recommended <= 2 ? 1 : 2

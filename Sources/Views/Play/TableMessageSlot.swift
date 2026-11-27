@@ -67,6 +67,8 @@ struct TableMessageSlot: View {
 
     @ScaledMetric(relativeTo: .footnote) private var slotHeight: CGFloat = 36
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Tab pages stay alive: don't speak table messages while Play is hidden.
+    @Environment(\.isCurrentTab) private var isCurrentTab
 
     private var message: TableMessage? {
         TableMessage.current(engine: engine, refundedChips: refundedChips)
@@ -90,7 +92,7 @@ struct TableMessageSlot: View {
             // Breathing room under the dealer's cards.
             .padding(.top, Space.xs)
             .onChange(of: message?.key) { _, newKey in
-                guard newKey != nil, let current = self.message, current.announces else { return }
+                guard isCurrentTab, newKey != nil, let current = self.message, current.announces else { return }
                 AccessibilityNotification.Announcement(spoken(current.text, kind: current.kind)).post()
             }
     }

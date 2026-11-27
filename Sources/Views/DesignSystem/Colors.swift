@@ -78,6 +78,8 @@ extension ShapeStyle where Self == Color {
     static var warmBg: Color { Color(hex: 0x2E1C14) }
     /// Amber: "needs work" (between right and wrong). 9.7:1 on surface. #F5B94A
     static var warning: Color { Color(hex: 0xF5B94A) }
+    /// Tinted background behind amber "close" / note feedback. #2D2412
+    static var warningBg: Color { Color(hex: 0x2D2412) }
 
     // MARK: Disabled
 

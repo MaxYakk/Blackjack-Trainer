@@ -51,6 +51,9 @@ private struct QuizContent: View {
     /// False while another tab is showing; tab views stay alive, so the
     /// auto-advance below must check it before dealing.
     @Environment(\.isCurrentTab) private var isCurrentTab
+    /// Set when the player swipes away during the auto-advance wait, so the
+    /// answered hand is still there (waiting for Next) when they come back.
+    @State private var leftTabSinceAnswer = false
 
     private static let autoAdvanceDelay: Duration = .milliseconds(600)
 
@@ -93,14 +96,19 @@ private struct QuizContent: View {
         }
         .background(Color.bg.ignoresSafeArea())
         // Correct answers can move on by themselves; cancelled automatically
-        // when the player taps Next first (`answered` flips back to false)
-        // or switches to another tab.
-        .task(id: AutoAdvanceTrigger(answered: engine.answered, isCurrentTab: isCurrentTab)) {
+        // when the player taps Next first (`answered` flips back to false).
+        // Keyed on the answer only: leaving the tab mid-wait skips the move,
+        // and coming back never deals a fresh hand by itself.
+        .task(id: engine.answered) {
+            leftTabSinceAnswer = false
             guard isCurrentTab, engine.answered, engine.feedbackGood, autoAdvance,
                   !UIAccessibility.isVoiceOverRunning else { return }
             try? await Task.sleep(for: Self.autoAdvanceDelay)
-            guard !Task.isCancelled, isCurrentTab else { return }
+            guard !Task.isCancelled, !leftTabSinceAnswer else { return }
             Motion.perform(.quick, reduceMotion: reduceMotion) { engine.next() }
+        }
+        .onChange(of: isCurrentTab) { _, current in
+            if !current { leftTabSinceAnswer = true }
         }
     }
 
@@ -296,10 +304,4 @@ private struct QuizContent: View {
         .background(Color.bg)
         .motion(.quick, value: engine.answered)
     }
-}
-
-/// Restarts the quiz's auto-advance wait when the answer or the tab changes.
-private struct AutoAdvanceTrigger: Equatable {
-    let answered: Bool
-    let isCurrentTab: Bool
 }

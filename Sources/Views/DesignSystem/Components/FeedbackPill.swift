@@ -41,10 +41,10 @@ struct FeedbackPill: View {
         var fill: Color {
             switch self {
             case .correct: return .positiveBg
-            case .close: return .warmBg
+            case .close: return .warningBg
             case .incorrect: return .negativeBg
             case .info: return .surfaceRaised
-            case .warning: return .warmBg
+            case .warning: return .warningBg
             }
         }
 
