@@ -1,7 +1,9 @@
 import SwiftUI
 
-/// The table settings players can tune, shown in two groups: "Table rules"
-/// and "Training help". One view feeds both the Play setup screen and the
+/// The table settings players can tune, shown in three groups: "Table rules",
+/// "Hints" (real help while playing) and "Card counting" (the counting
+/// practice: showing the count, count checks, count-based plays). One view
+/// feeds both the Play setup screen and the
 /// mid-session Table Options sheet, so the two always list the same things.
 ///
 /// Settings that can't change during play (starting money, minimum bet and
@@ -10,7 +12,7 @@ import SwiftUI
 /// starts); the sheet leaves it out.
 struct TableSettingsSections: View {
     enum Context {
-        /// Before a session starts. Training help starts collapsed.
+        /// Before a session starts. Card counting starts collapsed.
         case setup
         /// During play (Table Options sheet). Everything is shown.
         case table
@@ -23,7 +25,7 @@ struct TableSettingsSections: View {
     /// Decks and dealer rule are frozen while a round is in progress.
     var rulesLocked = false
 
-    @State private var trainingExpanded: Bool
+    @State private var countingExpanded: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(engine: PlayEngine, context: Context, hands: Binding<Int>? = nil, rulesLocked: Bool = false) {
@@ -31,7 +33,7 @@ struct TableSettingsSections: View {
         self.context = context
         self.hands = hands
         self.rulesLocked = rulesLocked
-        _trainingExpanded = State(initialValue: context == .table)
+        _countingExpanded = State(initialValue: context == .table)
     }
 
     private var idPrefix: String { context == .setup ? "buyIn" : "tableOptions" }
@@ -39,7 +41,8 @@ struct TableSettingsSections: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Space.lg) {
             tableRulesGroup
-            trainingHelpGroup
+            hintsGroup
+            cardCountingGroup
         }
     }
 
@@ -71,8 +74,6 @@ struct TableSettingsSections: View {
                     .accessibilityValue(engine.dealerHitsSoft17 ? "Hits soft 17" : "Stands soft 17")
                     .disabled(rulesLocked)
                 rowDivider
-                toggleRow("Show hand totals", "Off: add up the cards yourself.",
-                          $engine.showHandTotals, id: "showHandTotalsToggle")
                 toggleRow("Sound effects", nil, $engine.soundOn, id: "soundEffectsToggle")
             }
             .panel()
@@ -86,22 +87,35 @@ struct TableSettingsSections: View {
         }
     }
 
-    // MARK: - Training help
+    // MARK: - Hints
 
-    private var trainingHelpGroup: some View {
+    private var hintsGroup: some View {
+        VStack(alignment: .leading, spacing: Space.xs) {
+            groupHeader("Hints")
+            VStack(alignment: .leading, spacing: Space.sm) {
+                toggleRow("Show hand totals", "Off: add up the cards yourself.",
+                          $engine.showHandTotals, id: "showHandTotalsToggle")
+                rowDivider
+                toggleRow("Betting hints", "Off: only told if a bet is too high or low.",
+                          $engine.betHints, id: "betHintsToggle")
+            }
+            .panel()
+        }
+    }
+
+    // MARK: - Card counting
+
+    private var cardCountingGroup: some View {
         VStack(alignment: .leading, spacing: Space.xs) {
             if context == .setup {
-                trainingDisclosureRow
+                countingDisclosureRow
             } else {
-                groupHeader("Training help")
+                groupHeader("Card counting")
             }
-            if trainingExpanded {
+            if countingExpanded {
                 VStack(alignment: .leading, spacing: Space.sm) {
                     toggleRow("Show running / true count", nil,
                               $engine.showCount, id: "showCountToggle")
-                    rowDivider
-                    toggleRow("Betting hints", "Off: only told if a bet is too high or low.",
-                              $engine.betHints, id: "betHintsToggle")
                     rowDivider
                     toggleRow("Ask for count checks during play", "Now and then, asks for your running count.",
                               $engine.askCountChecks, id: "countChecksToggle")
@@ -114,29 +128,29 @@ struct TableSettingsSections: View {
         }
     }
 
-    /// Setup only: a tappable header that opens the four coaching toggles and
+    /// Setup only: a tappable header that opens the three counting toggles and
     /// says what is on while they are hidden.
-    private var trainingDisclosureRow: some View {
+    private var countingDisclosureRow: some View {
         Button {
-            Motion.perform(.standard, reduceMotion: reduceMotion) { trainingExpanded.toggle() }
+            Motion.perform(.standard, reduceMotion: reduceMotion) { countingExpanded.toggle() }
         } label: {
             HStack(spacing: Space.sm) {
                 VStack(alignment: .leading, spacing: Space.xxs / 2) {
-                    Text("TRAINING HELP")
+                    Text("CARD COUNTING")
                         .font(.overline)
                         .tracking(1.6)
                         .foregroundStyle(.textTertiary)
-                    Text(trainingSummary)
+                    Text(countingSummary)
                         .font(.calloutText)
                         .foregroundStyle(.textPrimary)
                         .multilineTextAlignment(.leading)
-                        .accessibilityIdentifier("trainingHelpSummary")
+                        .accessibilityIdentifier("cardCountingSummary")
                 }
                 Spacer(minLength: Space.xs)
                 Image(systemName: "chevron.down")
                     .font(.detail.weight(.semibold))
                     .foregroundStyle(.textTertiary)
-                    .rotationEffect(.degrees(trainingExpanded ? 180 : 0))
+                    .rotationEffect(.degrees(countingExpanded ? 180 : 0))
             }
             .frame(minHeight: Metrics.minTapTarget)
             .padding(.horizontal, Space.md)
@@ -147,17 +161,16 @@ struct TableSettingsSections: View {
         }
         .buttonStyle(.plain)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Training help. \(trainingSummary)")
-        .accessibilityHint(trainingExpanded ? "Collapses the training help options" : "Shows the training help options")
+        .accessibilityLabel("Card counting. \(countingSummary)")
+        .accessibilityHint(countingExpanded ? "Collapses the card counting options" : "Shows the card counting options")
         .accessibilityAddTraits(.isButton)
-        .accessibilityIdentifier("trainingHelpDisclosure")
+        .accessibilityIdentifier("cardCountingDisclosure")
     }
 
-    /// What is switched on, e.g. "Count shown · Bet hints"; "All off" if nothing.
-    private var trainingSummary: String {
+    /// What is switched on, e.g. "Count shown · Count checks"; "All off" if nothing.
+    private var countingSummary: String {
         let active = [
             engine.showCount ? "Count shown" : nil,
-            engine.betHints ? "Bet hints" : nil,
             engine.askCountChecks ? "Count checks" : nil,
             engine.useDeviations ? "Strategy changes" : nil,
         ].compactMap { $0 }

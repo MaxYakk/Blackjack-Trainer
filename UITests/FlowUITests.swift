@@ -234,7 +234,7 @@ final class FlowUITests: XCTestCase {
         tableOptions.tap()
         XCTAssertTrue(optionsNavigation.waitForExistence(timeout: 4))
         // Section headers may render upper-cased, so match ignoring case.
-        for header in ["Table rules", "Training help"] {
+        for header in ["Table rules", "Hints", "Card counting"] {
             let match = app.staticTexts.matching(NSPredicate(format: "label ==[c] %@", header))
             XCTAssertTrue(match.firstMatch.exists, "Table Options should have a \(header) section")
         }
