@@ -61,15 +61,15 @@ enum BetSizingEvaluator {
         return .acceptable
     }
 
-    /// Count ramp grade: inside the window is green, one unit outside is
-    /// yellow, further is red.
+    /// Count ramp grade: inside the window is green, up to two units outside
+    /// is yellow (a $20 bet at a $5 table at a flat count), further is red.
     static func countGrade(actualUnits: Int, recommendedUnits: Int) -> Grade {
         let range = acceptableUnits(recommended: recommendedUnits)
         let miss = actualUnits < range.lowerBound ? range.lowerBound - actualUnits
             : actualUnits > range.upperBound ? actualUnits - range.upperBound : 0
         switch miss {
         case 0: return .correct
-        case 1: return .close
+        case 1, 2: return .close
         default: return .wrong
         }
     }

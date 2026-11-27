@@ -94,7 +94,7 @@ struct StatsData: Codable {
     var bankroll: Double = 1000
     var betDecisions = 0
     var betCorrect = 0
-    /// Bets graded yellow ("a bit risky", one unit off the count): half credit.
+    /// Bets graded yellow ("a bit risky", a little off the count): half credit.
     var betClose = 0
 
     // Chips on the felt in a round that hasn't settled yet. Saved in the same
@@ -411,7 +411,7 @@ final class Stats {
         Accuracy.fraction(correct: data.betCorrect, close: data.betClose, total: data.betDecisions) ?? 0
     }
 
-    /// A yellow bet ("a bit risky", one unit off the count) is half credit.
+    /// A yellow bet ("a bit risky", a little off the count) is half credit.
     func recordBet(grade: Grade) {
         data.betDecisions += 1
         switch grade {

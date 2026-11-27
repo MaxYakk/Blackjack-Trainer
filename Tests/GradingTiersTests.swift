@@ -328,16 +328,30 @@ struct GradedFlowTests {
         #expect(engine.betAdviceText == "Too much for your balance.")
     }
 
-    /// Phone check: one $20 hand on $130 (5% table minimum steps) is only
-    /// yellow on balance (15%), but at a flat count the ramp wants the minimum,
-    /// so it is red and the message names the COUNT, not the balance.
-    @Test func twentyOnOneThirtyAtAFlatCountIsRedForTheCount() async {
+    /// Phone check: one $20 hand on $130 at a $5 table and a flat count is 4
+    /// units against a 1 to 2 unit window. That used to be red; two units out
+    /// is now yellow, and the balance (15%) is yellow too, so it speaks first.
+    @Test func twentyOnOneThirtyAtAFlatCountIsYellow() async {
         let store = TestDefaults()
         let (_, engine) = makeTable(store, buyIn: 130, minimum: 5)
         engine.askCountChecks = false
         engine.betHints = false
         engine.installShoe(Shoe(numDecks: 6))
         betEverySpot(engine, 20)
+        await dealAndWait(engine)
+        #expect(engine.betGrade == .close)
+        #expect(engine.betAdviceText == "A bit risky for your balance.")
+    }
+
+    /// Far past the count ramp is still red and names the count: $30 (6 units)
+    /// at a flat count on $130.
+    @Test func sixUnitsAtAFlatCountIsStillRedForTheCount() async {
+        let store = TestDefaults()
+        let (_, engine) = makeTable(store, buyIn: 130, minimum: 5)
+        engine.askCountChecks = false
+        engine.betHints = false
+        engine.installShoe(Shoe(numDecks: 6))
+        betEverySpot(engine, 30)
         await dealAndWait(engine)
         #expect(engine.betGrade == .wrong)
         #expect(engine.betAdviceText == "Too big for the count.")

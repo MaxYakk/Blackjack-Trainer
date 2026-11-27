@@ -32,24 +32,28 @@ struct BetSizingToleranceTests {
         #expect(BetSizingEvaluator.maxBet(bankroll: 100_000, tableMinimum: 5, spreadCap: 6) == 30)
     }
 
-    // MARK: Three-tier count ramp: in the window green, one unit out yellow, more red.
+    // MARK: Three-tier count ramp: in the window green, up to two units out yellow, more red.
 
     @Test static func countRampGrades() {
         let g = BetSizingEvaluator.countGrade
         #expect(g(1, 1) == .correct)
         #expect(g(2, 1) == .correct)
         #expect(g(3, 1) == .close)
-        #expect(g(4, 1) == .wrong)
+        #expect(g(4, 1) == .close)
+        #expect(g(5, 1) == .wrong)
         #expect(g(2, 3) == .correct)   // window 2...5
         #expect(g(1, 3) == .close)
         #expect(g(5, 3) == .correct)
         #expect(g(6, 3) == .close)
-        #expect(g(7, 3) == .wrong)
+        #expect(g(7, 3) == .close)
+        #expect(g(8, 3) == .wrong)
         #expect(g(4, 6) == .correct)   // window 4...8
         #expect(g(3, 6) == .close)
-        #expect(g(2, 6) == .wrong)
+        #expect(g(2, 6) == .close)
+        #expect(g(1, 6) == .wrong)
         #expect(g(9, 6) == .close)
-        #expect(g(10, 6) == .wrong)
+        #expect(g(10, 6) == .close)
+        #expect(g(11, 6) == .wrong)
     }
 
     // MARK: The balance limit is checked on the TOTAL across all hands.
