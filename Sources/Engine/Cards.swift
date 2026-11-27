@@ -80,18 +80,42 @@ struct Shoe {
     private(set) var index = 0
     let numDecks: Int
 
+    /// Share of the shoe kept behind the cut card (75% penetration).
+    static let cutCardFraction = 0.25
+
     init(numDecks: Int) {
-        self.numDecks = numDecks
+        self.numDecks = max(1, numDecks)   // a 0-deck shoe would have nothing to draw
         reshuffle()
     }
 
+    /// A shoe dealt in exactly this order (tests use it to stack a hand).
+    /// `numDecks` still sets the composition used by later reshuffles.
+    init(numDecks: Int, stackedCards: [Card]) {
+        self.numDecks = max(1, numDecks)
+        cards = stackedCards
+        index = 0
+    }
+
     mutating func reshuffle() {
+        reshuffle(excluding: [])
+    }
+
+    /// Rebuilds and shuffles the shoe without the cards still on the table,
+    /// the way a dealer shuffles the discards when the shoe runs dry mid-round.
+    mutating func reshuffle(excluding inPlay: [Card]) {
+        var held: [String: Int] = [:]
+        for card in inPlay { held[card.label, default: 0] += 1 }
         var built: [Card] = []
         built.reserveCapacity(numDecks * 52)
         for _ in 0..<numDecks {
             for suit in Suit.allCases {
                 for rank in Rank.allCases {
-                    built.append(Card(rank: rank, suit: suit))
+                    let card = Card(rank: rank, suit: suit)
+                    if let n = held[card.label], n > 0 {
+                        held[card.label] = n - 1
+                        continue
+                    }
+                    built.append(card)
                 }
             }
         }
@@ -102,7 +126,25 @@ struct Shoe {
 
     var cardsRemaining: Int { cards.count - index }
     var decksRemaining: Double { max(Double(cardsRemaining) / 52.0, 0.25) }
-    var needsReshuffle: Bool { cardsRemaining < Int(Double(numDecks * 52) * 0.25) }
+    var needsReshuffle: Bool { needsReshuffle(reserving: 0) }
+
+    /// Cut-card check made between rounds. The cut card sits at 75%
+    /// penetration, or earlier if a heavy round at this many spots could
+    /// otherwise run the shoe dry before it finishes.
+    func needsReshuffle(reserving roundCards: Int) -> Bool {
+        let cutCard = Int(Double(numDecks * 52) * Self.cutCardFraction)
+        return cardsRemaining < max(cutCard, roundCards)
+    }
+
+    /// Cards a busy round can use: about eight per spot (room for a split or
+    /// a few hits) plus a long dealer hand. Reserving the true worst case
+    /// (every spot split four times) would reshuffle a 2-deck, 3-spot shoe
+    /// after a third of it, so the count rarely gets high enough to practice
+    /// on. The rare bigger round is covered by `reshuffle(excluding:)`, which
+    /// keeps the table's cards out of the new shoe and flags the shuffle.
+    static func heavyRoundCards(spots: Int) -> Int {
+        max(1, spots) * 8 + 6
+    }
 
     mutating func draw() -> Card {
         if index >= cards.count { reshuffle() }

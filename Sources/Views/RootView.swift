@@ -18,61 +18,89 @@ enum Tab: Int, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .play: return "suit.spade.fill"
-        case .quiz: return "bolt.fill"
-        case .count: return "eye.fill"
-        case .strategy: return "tablecells.fill"
-        case .progress: return "chart.line.uptrend.xyaxis"
+        case .quiz: return "questionmark.circle.fill"
+        case .count: return "plusminus.circle.fill"
+        case .strategy: return "square.grid.3x3.fill"
+        case .progress: return "trophy.fill"
         }
     }
 }
 
 struct RootView: View {
     @State private var selection: Tab = .play
+    @AppStorage("hasCompletedOnboarding") private var hasCompletedOnboarding = false
+    @Environment(Stats.self) private var stats
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var showLoadIssue = false
+    @State private var loadIssuePending = false
+    @State private var loadIssueChecked = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            TabView(selection: $selection) {
-                PlayView().tag(Tab.play)
-                QuizView().tag(Tab.quiz)
-                CountDrillView().tag(Tab.count)
-                StrategyChartView().tag(Tab.strategy)
-                ProgressStatsView().tag(Tab.progress)
-            }
-            .tabViewStyle(.page(indexDisplayMode: .never))
+        ZStack {
+            Color.bg.ignoresSafeArea()
 
-            CustomTabBar(selection: $selection)
+            // Nothing is built behind the welcome screen: the first thing a
+            // new player sees is the launch color, then the welcome cover.
+            if hasCompletedOnboarding {
+                tabs
+            }
         }
-        .background(Theme.feltDark.ignoresSafeArea())
+        .fullScreenCover(isPresented: showOnboarding, onDismiss: presentPendingLoadIssue) {
+            OnboardingView {
+                hasCompletedOnboarding = true
+            }
+        }
+        .onAppear {
+            // Once per launch: explain why stats look empty after an unreadable save.
+            guard !loadIssueChecked else { return }
+            loadIssueChecked = true
+            if stats.loadIssue == .unreadableSaveBackedUp { loadIssuePending = true }
+            // With the welcome cover up, wait for it to close (onDismiss).
+            if hasCompletedOnboarding { presentPendingLoadIssue() }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { stats.refreshDay() }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in
+            stats.refreshDay()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .NSCalendarDayChanged)) { _ in
+            stats.refreshDay()
+        }
+        .themedConfirm("Your progress couldn't be loaded", isPresented: $showLoadIssue,
+                       message: "Your saved progress couldn't be read, so you're starting fresh. A backup of the old data was kept on this device.",
+                       actions: [.primary("OK")])
     }
-}
 
-private struct CustomTabBar: View {
-    @Binding var selection: Tab
+    private var tabs: some View {
+        TabView(selection: $selection) {
+            tabContent(.play) { PlayView() }
+            tabContent(.quiz) { QuizView() }
+            tabContent(.count) { CountDrillView() }
+            tabContent(.strategy) { StrategyChartView() }
+            tabContent(.progress) { ProgressStatsView() }
+        }
+        .tint(.accent)
+        .environment(\.selectTab, { selection = $0 })
+    }
 
-    var body: some View {
-        HStack(spacing: 0) {
-            ForEach(Tab.allCases) { tab in
-                Button {
-                    withAnimation(.easeInOut(duration: 0.22)) { selection = tab }
-                } label: {
-                    VStack(spacing: 4) {
-                        Image(systemName: tab.icon)
-                            .font(.system(size: 18))
-                        Text(tab.title)
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(selection == tab ? Theme.accent : Color.secondary)
-                    .frame(maxWidth: .infinity)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(.top, 8)
-        .padding(.bottom, 2)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .top) {
-            Divider().opacity(0.3)
-        }
+    private func tabContent<Content: View>(_ tab: Tab, @ViewBuilder content: () -> Content) -> some View {
+        content()
+            .tabItem { Label(tab.title, systemImage: tab.icon) }
+            .tag(tab)
+    }
+
+    /// The welcome screen is a full-screen cover shown until it is completed.
+    private var showOnboarding: Binding<Bool> {
+        Binding(
+            get: { !hasCompletedOnboarding },
+            set: { if !$0 { hasCompletedOnboarding = true } }
+        )
+    }
+
+    private func presentPendingLoadIssue() {
+        guard loadIssuePending else { return }
+        loadIssuePending = false
+        showLoadIssue = true
     }
 }

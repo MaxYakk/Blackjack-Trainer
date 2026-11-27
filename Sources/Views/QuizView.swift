@@ -3,6 +3,11 @@ import SwiftUI
 struct QuizView: View {
     @Environment(Stats.self) private var stats
     @State private var engine: QuizEngine?
+    /// Mirrors the engine's saved difficulty so a mode chosen elsewhere
+    /// (Progress "Drill these") applies when the tab opens.
+    @AppStorage(QuizEngine.difficultyKey) private var storedDifficulty = QuizDifficulty.normal.rawValue
+    /// Set by Progress "Drill these" to drill the weak spots.
+    @AppStorage(QuizEngine.drillRequestKey) private var drillRequested = false
 
     var body: some View {
         Group {
@@ -12,126 +17,284 @@ struct QuizView: View {
                 Color.clear
             }
         }
-        .onAppear { if engine == nil { engine = QuizEngine(stats: stats) } }
+        .onAppear {
+            if engine == nil { engine = QuizEngine(stats: stats) }
+            applyDrillRequest()
+            engine?.refreshReview()
+        }
+        .onChange(of: drillRequested) { _, _ in applyDrillRequest() }
+        // New misses from Play or the Daily Challenge refill an emptied review.
+        .onChange(of: engine?.reviewRemaining) { _, _ in engine?.refreshReview() }
+        .onChange(of: storedDifficulty) { _, raw in
+            guard let engine, let mode = QuizDifficulty(rawValue: raw), mode != .review,
+                  engine.difficulty != mode else { return }
+            engine.difficulty = mode
+        }
+    }
+
+    private func applyDrillRequest() {
+        guard drillRequested, let engine else { return }
+        drillRequested = false
+        engine.drillWeakSpots()
     }
 }
 
 private struct QuizContent: View {
     @Bindable var engine: QuizEngine
     @Environment(Stats.self) private var stats
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var showChallenge = false
+    /// "Next hand on its own after a right answer": moves on by itself shortly after a
+    /// correct answer. Off by default so the "why" line stays readable.
+    @AppStorage("quiz_autoAdvance") private var autoAdvance = false
+
+    /// False while another tab is showing; tab views stay alive, so the
+    /// auto-advance below must check it before dealing.
+    @State private var isOnScreen = true
+
+    private static let autoAdvanceDelay: Duration = .milliseconds(600)
 
     var body: some View {
         VStack(spacing: 0) {
             PageHeader("Quiz")
-            VStack(spacing: 18) {
-                scoreBar
-                difficultyPicker
-
-                Spacer()
-
-                // Dealer up card
-                VStack(spacing: 6) {
-                    Text("Dealer shows").font(.caption).foregroundStyle(.secondary)
-                    if let up = engine.dealerUp { CardView(card: up, size: 1.4) }
-                }
-
-                // Player hand
-                VStack(spacing: 6) {
-                    Text(engine.handText).font(.headline).foregroundStyle(Theme.accent)
-                    HStack(spacing: 8) {
-                        ForEach(engine.player) { CardView(card: $0, size: 1.4) }
+            // The settings scroll. The hand, the result and the decision pad
+            // below are pinned, so the cards and Hit / Stand never move.
+            ScrollView {
+                VStack(spacing: Space.md) {
+                    // What you pick before answering comes first (challenge, review,
+                    // difficulty), so it is visible without scrolling; stats follow.
+                    challengeCard
+                    if engine.isReviewing {
+                        reviewPanel
+                    } else {
+                        reviewEntry
+                        difficultyPicker
+                    }
+                    scoreTiles
+                    if !engine.reviewIsEmpty { autoAdvanceToggle }
+                    if engine.reviewIsEmpty {
+                        reviewEmptyState
                     }
                 }
-
-                // Feedback
-                Text(engine.feedback)
-                    .font(.headline)
-                    .foregroundStyle(engine.feedbackGood ? Theme.good : Theme.bad)
-                    .frame(height: 26)
-
-                Spacer()
-
-                if engine.answered {
-                    Button {
-                        engine.next()
-                    } label: {
-                        Text("Next")
-                            .font(.headline)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 14)
-                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 10))
-                            .foregroundStyle(.black)
-                    }
-                    .padding(.horizontal)
-                } else {
-                    actionGrid
-                }
+                .padding(.horizontal, Space.md)
+                .padding(.bottom, Space.md)
             }
-            .padding()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            if let up = engine.dealerUp {
+                VStack(spacing: Space.xs) {
+                    DrillHandTable(dealerUp: up, player: engine.player, handText: engine.handText)
+                    DrillFeedback(message: engine.feedback.isEmpty ? nil : engine.feedback,
+                                  good: engine.feedbackGood,
+                                  reason: engine.reason)
+                }
+                .padding(.horizontal, Space.md)
+                .padding(.top, Space.xs)
+            }
+            bottomBar
         }
-        .background(Theme.feltDark.ignoresSafeArea())
+        .background(Color.bg.ignoresSafeArea())
+        .onAppear { isOnScreen = true }
+        .onDisappear { isOnScreen = false }
+        // Correct answers can move on by themselves; cancelled automatically
+        // when the player taps Next first (`answered` flips back to false).
+        .task(id: engine.answered) {
+            guard isOnScreen, engine.answered, engine.feedbackGood, autoAdvance,
+                  !UIAccessibility.isVoiceOverRunning else { return }
+            try? await Task.sleep(for: Self.autoAdvanceDelay)
+            guard !Task.isCancelled, isOnScreen else { return }
+            Motion.perform(.quick, reduceMotion: reduceMotion) { engine.next() }
+        }
     }
 
-    private var scoreBar: some View {
-        HStack {
-            pill("Streak", "\(engine.streak)")
-            pill("Best", "\(stats.data.quizBestStreak)")
-            pill("Accuracy", stats.data.quizTotal == 0 ? "–" : "\(Int(stats.quizAccuracy * 100))%")
+    // MARK: Sections
+
+    private var challengeCard: some View {
+        Button {
+            showChallenge = true
+        } label: {
+            HStack(spacing: Space.sm) {
+                Image(systemName: "calendar.badge.checkmark")
+                    .font(.title3)
+                    .foregroundStyle(.accent)
+                    .accessibilityHidden(true)
+                Text("Daily Challenge")
+                    .font(.heading)
+                    .foregroundStyle(.textPrimary)
+                Spacer()
+                if let result = stats.todayChallenge {
+                    Text("\(result.score)/\(result.total)")
+                        .font(.numberInline)
+                        .foregroundStyle(.positive)
+                } else {
+                    Image(systemName: "chevron.right")
+                        .font(.captionText)
+                        .foregroundStyle(.textSecondary)
+                        .accessibilityHidden(true)
+                }
+            }
+            .frame(minHeight: Metrics.minTapTarget - 2 * Space.sm)
+            .panel(padding: Space.sm)
+            .overlay(
+                RoundedRectangle(cornerRadius: Radius.large, style: .continuous)
+                    .strokeBorder(stats.todayChallenge == nil ? Color.accent : Color.clear,
+                                  lineWidth: Metrics.hairline)
+            )
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(stats.todayChallenge.map { "Scored \($0.score) of \($0.total) today" }
+                            ?? "Not played today")
+        .sheet(isPresented: $showChallenge) {
+            DailyChallengeView()
+                .environment(stats)
+        }
+    }
+
+    private var scoreTiles: some View {
+        HStack(spacing: Space.xs) {
+            StatTile(label: "Streak", value: "\(engine.streak)", tint: .warm)
+            StatTile(label: "Best", value: "\(stats.data.quizBestStreak)")
+            StatTile(label: "Accuracy",
+                     value: stats.data.quizTotal == 0 ? "N/A" : "\(Achievements.roundedPercent(stats.quizAccuracy))%")
         }
     }
 
     private var difficultyPicker: some View {
-        VStack(spacing: 4) {
-            Picker("Difficulty", selection: $engine.difficulty) {
-                ForEach(QuizDifficulty.allCases) { d in Text(d.rawValue).tag(d) }
-            }
-            .pickerStyle(.segmented)
-            if engine.difficulty == .hard {
-                Text("Classic gotcha spots — stiffs, soft-hand doubles, and pairs that trick people.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-            }
+        VStack(spacing: Space.xs) {
+            SegmentedChoice(QuizDifficulty.pickerCases, selection: $engine.difficulty,
+                            accessibilityLabel: "Difficulty")
+            Text(engine.difficulty.summary)
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: .infinity)
         }
     }
 
-    private func pill(_ label: String, _ value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(value).font(.headline).foregroundStyle(Theme.accent)
-            Text(label).font(.caption2).foregroundStyle(.secondary)
+    /// Opens review mode: a row, not a fifth difficulty, because review is a
+    /// list that empties rather than a way of dealing.
+    private var reviewEntry: some View {
+        let left = engine.reviewRemaining
+        return Button {
+            Motion.perform(.quick, reduceMotion: reduceMotion) { engine.startReview() }
+        } label: {
+            HStack(spacing: Space.sm) {
+                Image(systemName: "arrow.triangle.2.circlepath")
+                    .font(.title3)
+                    .foregroundStyle(.accent)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: Space.xxs) {
+                    Text("Review missed hands")
+                        .font(.heading)
+                        .foregroundStyle(.textPrimary)
+                    Text(left == 0 ? "Nothing to review right now" : "\(left) to go, most missed first")
+                        .font(.detail)
+                        .foregroundStyle(.textSecondary)
+                }
+                Spacer(minLength: Space.xs)
+                Image(systemName: "chevron.right")
+                    .font(.captionText)
+                    .foregroundStyle(.textSecondary)
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: Metrics.minTapTarget, alignment: .leading)
+            .contentShape(Rectangle())
+            .panel(padding: Space.sm)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Review missed hands")
+        .accessibilityValue(left == 0 ? "Nothing to review" : "\(left) to go")
+        .accessibilityHint("Drills only the hands you have missed")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier("reviewMissedHandsButton")
+    }
+
+    /// Shown instead of the difficulty picker while reviewing.
+    private var reviewPanel: some View {
+        let left = engine.reviewRemaining
+        return Panel(spacing: Space.xs) {
+            HStack(alignment: .firstTextBaseline, spacing: Space.xs) {
+                Text("Reviewing missed hands")
+                    .font(.heading)
+                    .foregroundStyle(.textPrimary)
+                    .accessibilityAddTraits(.isHeader)
+                Spacer(minLength: Space.xs)
+                Text(left == 0 ? "All clear" : "\(left) left")
+                    .font(.numberInline)
+                    .foregroundStyle(left == 0 ? Color.positive : Color.accent)
+            }
+            Text(engine.difficulty.summary)
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+            SecondaryButton("Back to quiz", systemImage: "chevron.left", compact: true) {
+                Motion.perform(.quick, reduceMotion: reduceMotion) { engine.endReview() }
+            }
+            .accessibilityIdentifier("endReviewButton")
+        }
+    }
+
+    private var reviewEmptyState: some View {
+        Panel(alignment: .center, spacing: Space.sm) {
+            Image(systemName: "checkmark.circle")
+                .scaledFont(size: 44, weight: .regular, relativeTo: .largeTitle, maxSize: 80)
+                .foregroundStyle(.positive)
+                .accessibilityHidden(true)
+            Text("You're all caught up")
+                .font(.sectionTitle)
+                .foregroundStyle(.textPrimary)
+                .accessibilityAddTraits(.isHeader)
+            Text("Hands you miss in Play, the Quiz or the Daily Challenge land here. Get one right twice in a row and it leaves the list.")
+                .font(.detail)
+                .foregroundStyle(.textSecondary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(Color.black.opacity(0.2), in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private var actionGrid: some View {
-        VStack(spacing: 10) {
-            HStack(spacing: 10) {
-                quizButton("Hit") { engine.answer(.hit) }
-                quizButton("Stand") { engine.answer(.stand) }
-            }
-            HStack(spacing: 10) {
-                quizButton("Double") { engine.answer(.double) }
-                quizButton("Split", enabled: engine.canSplit) { engine.answer(.split) }
+    private var autoAdvanceToggle: some View {
+        Toggle(isOn: $autoAdvance) {
+            VStack(alignment: .leading, spacing: Space.xxs) {
+                Text("Next hand on its own after a right answer")
+                    .font(.calloutText)
+                    .foregroundStyle(.textPrimary)
+                Text("Moves on by itself after a correct answer. A wrong answer waits for you.")
+                    .font(.detail)
+                    .foregroundStyle(.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal)
+        .toggleStyle(.themed)
+        .panel(.subtle, padding: Space.sm)
+        .accessibilityIdentifier("quizAutoNextToggle")
     }
 
-    private func quizButton(_ title: String, enabled: Bool = true, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
-                .background(enabled ? Theme.felt : Color.gray.opacity(0.25),
-                            in: RoundedRectangle(cornerRadius: 10))
-                .foregroundStyle(enabled ? .white : .gray)
-                .overlay(RoundedRectangle(cornerRadius: 10)
-                    .strokeBorder(Color.white.opacity(enabled ? 0.15 : 0), lineWidth: 1))
+    /// Hit / Stand / Double / Split, or Next after an answer. Next sits in
+    /// the same space the pad uses, so the hand above never shifts.
+    @ViewBuilder
+    private var bottomBar: some View {
+        Group {
+            if engine.reviewIsEmpty {
+                EmptyView()
+            } else {
+                ZStack(alignment: .bottom) {
+                    DecisionPad(canSplit: engine.canSplit) { _ in }
+                        .hidden()
+                    if engine.answered {
+                        PrimaryButton("Next") { engine.next() }
+                            .transition(Motion.slide(reduceMotion))
+                    } else {
+                        DecisionPad(canSplit: engine.canSplit) { engine.answer($0) }
+                    }
+                }
+            }
         }
-        .disabled(!enabled)
+        .padding(.horizontal, Space.md)
+        .padding(.top, Space.sm)
+        .padding(.bottom, Space.xs)
+        .frame(maxWidth: .infinity)
+        .background(Color.bg)
+        .motion(.quick, value: engine.answered)
     }
 }
