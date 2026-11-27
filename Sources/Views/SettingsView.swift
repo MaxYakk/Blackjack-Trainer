@@ -4,6 +4,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(Stats.self) private var stats
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
     @Environment(\.openURL) private var openURL
     @AppStorage(ReminderScheduler.enabledKey) private var reminderEnabled = false
     @State private var reminderDenied = false
@@ -44,6 +45,10 @@ struct SettingsView: View {
                            .cancel(),
                        ])
         .onAppear(perform: refreshReminderAuthorization)
+        // Returning from iOS Settings after changing notification permission.
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshReminderAuthorization() }
+        }
         .fullScreenCover(isPresented: $showTour) {
             AppTourView { showTour = false }
         }

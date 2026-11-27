@@ -66,6 +66,7 @@ struct MainTabsView: View {
             }
         }
         .accessibilityHidden(tab != selection)
+        .environment(\.isCurrentTab, tab == selection)
     }
 
     @ViewBuilder

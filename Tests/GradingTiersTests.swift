@@ -362,7 +362,7 @@ struct GradedFlowTests {
         })
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)
-        let engine = DailyChallengeEngine(stats: stats, dateKey: day)
+        let engine = DailyChallengeEngine(stats: stats, dateKey: day, today: { day })
         var expectedClose = 0
         while let spot = engine.current, !engine.finished {
             if let action = closeAction(spot) {

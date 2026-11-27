@@ -72,7 +72,12 @@ final class PlayEngine {
     private(set) var currentIndex = 0
     private(set) var phase: GamePhase = .betting
 
-    private(set) var feedbackText = ""
+    private(set) var feedbackText = "" {
+        didSet { if !feedbackText.isEmpty { feedbackSerial += 1 } }
+    }
+    /// Changes every time feedback is posted, even when the words repeat, so
+    /// the table can announce and redraw two identical messages in a row.
+    private(set) var feedbackSerial = 0
     /// Green / yellow / red for the last graded decision (move, insurance, count check).
     private(set) var feedbackGrade: Grade = .wrong
     var feedbackGood: Bool { feedbackGrade == .correct }
@@ -86,6 +91,8 @@ final class PlayEngine {
     var activeSpot = 0
     private(set) var lastSpotBets: [Double] = []
     private(set) var lastRoundNet = 0.0
+    /// True when the last round's insurance paid 2 to 1 (dealer had blackjack).
+    private(set) var lastRoundInsurancePaid = false
 
     /// Convenience accessor for the currently-selected spot's wager (used by single-spot UI/tests).
     var currentBet: Double { spotBets.indices.contains(activeSpot) ? spotBets[activeSpot] : 0 }
@@ -227,6 +234,10 @@ final class PlayEngine {
     /// Profit or loss since sitting down.
     var sessionNet: Double { bankroll - sessionBuyIn }
 
+    /// Session profit as the header shows it: chips on the felt in an open
+    /// round still count as yours, so the strip only moves at settlement.
+    var sessionNetShown: Double { bankroll + stats.data.inPlayWager - sessionBuyIn }
+
     /// Broke: not enough chips left to place even a table-minimum bet.
     var isFelted: Bool { sessionActive && bankroll < tableMinimum - 0.001 }
 
@@ -247,6 +258,7 @@ final class PlayEngine {
         sessionBiggestWin = 0
         sessionBlackjacks = 0
         lastSummary = nil
+        lastSpotBets = []
         newRound()
         saveSession()
     }
@@ -264,6 +276,7 @@ final class PlayEngine {
             busted: isFelted
         )
         sessionActive = false
+        lastSpotBets = []
         tableMinimum = Self.defaultTableMinimum
         newRound()
         saveSession()
@@ -421,14 +434,17 @@ final class PlayEngine {
     /// Whether last round's wagers fit the bankroll at the CURRENT spot count —
     /// checking only the stored bets would let a grown spot count (or a shrunk
     /// bankroll) zero out spots and leave an un-dealable round.
-    var canReplay: Bool {
-        let total = projectedRepeatBets(multiplier: 1).reduce(0, +)
-        return total > 0 && total <= bankroll + 0.001
-    }
+    var canReplay: Bool { canAfford(repeat: 1) }
 
-    var canReplayDouble: Bool {
-        let total = projectedRepeatBets(multiplier: 2).reduce(0, +)
+    var canReplayDouble: Bool { canAfford(repeat: 2) }
+
+    /// Projected bets fit the bankroll and every spot meets the table minimum
+    /// (a bet from an earlier, lower-minimum session can't be carried over).
+    private func canAfford(repeat multiplier: Double) -> Bool {
+        let bets = projectedRepeatBets(multiplier: multiplier)
+        let total = bets.reduce(0, +)
         return total > 0 && total <= bankroll + 0.001
+            && bets.allSatisfy { $0 >= tableMinimum - 0.001 }
     }
 
     /// Starts a new round with the same wager as last time and deals immediately.
@@ -574,6 +590,7 @@ final class PlayEngine {
         currentIndex = 0
         feedbackText = ""
         lastRoundNet = 0
+        lastRoundInsurancePaid = false
         phase = .dealing
         let token = roundToken
 
@@ -874,9 +891,11 @@ final class PlayEngine {
 
         hands[currentIndex].fromSplit = true
         hands[currentIndex].fromSplitAces = isAces
-        hands[currentIndex].cards.append(draw())
-        newHand.cards.append(draw())
+        // Seat the new hand before drawing: a mid-round reshuffle rebuilds the
+        // shoe from the cards on the table, and the moved card must be among them.
         hands.insert(newHand, at: currentIndex + 1)
+        hands[currentIndex].cards.append(draw())
+        hands[currentIndex + 1].cards.append(draw())
         cardTick()
 
         if isAces {
@@ -1008,6 +1027,7 @@ final class PlayEngine {
         // closed app can never both pay a round and refund it.
         stats.settleRound(payout: payout)
         lastRoundNet = net
+        lastRoundInsurancePaid = insuranceBet > 0 && dealerBJ
         phase = .done
         stats.pushBankrollPoint()
 

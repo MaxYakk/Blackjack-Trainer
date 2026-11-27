@@ -113,6 +113,12 @@ struct StatsData: Codable {
     var quizClose = 0
     var quizBestStreak = 0
 
+    // Counted Daily Challenge answers (the day's first run only; practice
+    // replays never count). Part of overall strategy accuracy.
+    var challengeAnswersTotal = 0
+    var challengeAnswersCorrect = 0
+    var challengeAnswersClose = 0
+
     // Mid-session "what's the count?" checks
     var countChecks = 0
     var countChecksCorrect = 0
@@ -164,6 +170,7 @@ extension StatsData {
         case drillsCompleted, drillsCorrect, bestStreak, currentStreak
         case bankroll, betDecisions, betCorrect, betClose, inPlayWager, bestSessionNet
         case quizTotal, quizCorrect, quizClose, quizBestStreak
+        case challengeAnswersTotal, challengeAnswersCorrect, challengeAnswersClose
         case countChecks, countChecksCorrect
         case bankrollHistory
         case days
@@ -224,6 +231,22 @@ extension StatsData {
         dailyGoal       = goal > 0 ? goal : StatsData().dailyGoal
         challenges      = c.lossyDictionary(ChallengeResult.self, forKey: .challenges) ?? challenges
         challengesStarted = Set(c.lossyArray(String.self, forKey: .challengesStarted) ?? [])
+        if let total = c.tolerant(Int.self, forKey: .challengeAnswersTotal) {
+            challengeAnswersTotal = max(0, total)
+            challengeAnswersCorrect = min(challengeAnswersTotal,
+                                          max(0, c.tolerant(Int.self, forKey: .challengeAnswersCorrect) ?? 0))
+            challengeAnswersClose = min(challengeAnswersTotal - challengeAnswersCorrect,
+                                        max(0, c.tolerant(Int.self, forKey: .challengeAnswersClose) ?? 0))
+        } else {
+            // Saved before these were tracked: start from the finished
+            // challenges, so earlier counted runs aren't lost from accuracy.
+            let finished = challenges.values.filter { $0.total > 0 }
+            challengeAnswersTotal = finished.reduce(0) { $0 + $1.total }
+            challengeAnswersCorrect = finished.reduce(0) { $0 + min(max($1.score, 0), $1.total) }
+            challengeAnswersClose = finished.reduce(0) {
+                $0 + min(max($1.close, 0), max($1.total - max($1.score, 0), 0))
+            }
+        }
     }
 
     private static func finite(_ value: Double?) -> Double? {
@@ -256,6 +279,9 @@ final class Stats {
     static let backupKey = "blackjack_stats_v1_unreadable_backup"
 
     private let defaults: UserDefaults
+    /// The day the screens last saw. "Today" readers touch this so a day
+    /// rollover (see `refreshDay`) re-renders them.
+    private(set) var dayStamp = ""
     private static let log = Logger(subsystem: "BlackjackTrainer", category: "Stats")
 
     var data: StatsData {
@@ -393,6 +419,7 @@ final class Stats {
         case .close: data.betClose += 1
         case .wrong: break
         }
+        didRecord()
     }
 
     func recordBet(correct: Bool) { recordBet(grade: Grade(correct: correct)) }
@@ -430,6 +457,7 @@ final class Stats {
     /// the lifetime best. Called each time a round settles.
     func recordSessionProfit(_ net: Double) {
         data.bestSessionNet = max(data.bestSessionNet, net)
+        didRecord()
     }
 
     var recentDays: [DayStat] {
@@ -467,6 +495,7 @@ final class Stats {
         }
         bumpDay(grade: grade)
         bumpSpot(spotKey, grade: grade)
+        didRecord()
     }
 
     func recordDecision(correct: Bool, spotKey: String?) {
@@ -547,25 +576,40 @@ final class Stats {
 
     /// Graded decisions (Play + quiz) made today, toward the daily goal.
     var todayDecisions: Int {
-        data.days[todayKey()]?.strategyTotal ?? 0
+        _ = dayStamp
+        return data.days[todayKey()]?.strategyTotal ?? 0
     }
 
     /// Consecutive days the daily goal was met (today's unfinished day
     /// doesn't break the run).
     var dailyStreak: Int {
-        ProgressMetrics.dailyStreak(
+        _ = dayStamp
+        return ProgressMetrics.dailyStreak(
             dayTotals: data.days.mapValues(\.strategyTotal),
             goal: data.dailyGoal,
             today: Date()
         )
     }
 
+    /// Strategy accuracy across graded play, the quiz and counted Daily
+    /// Challenge answers, as one number (Progress, skill rating, trophies).
+    var overallStrategyCorrect: Int {
+        data.strategyCorrect + data.quizCorrect + data.challengeAnswersCorrect
+    }
+    var overallStrategyTotal: Int {
+        data.strategyTotal + data.quizTotal + data.challengeAnswersTotal
+    }
+    /// Close calls (yellow) across the same three: half credit.
+    var overallStrategyClose: Int {
+        data.strategyClose + data.quizClose + data.challengeAnswersClose
+    }
+
     /// Composite player level across strategy, coverage, counting, and betting.
     var skillRating: SkillRating {
         SkillRating.compute(from: SkillRating.Inputs(
-            strategyCorrect: data.strategyCorrect + data.quizCorrect,
-            strategyTotal: data.strategyTotal + data.quizTotal,
-            strategyClose: data.strategyClose + data.quizClose,
+            strategyCorrect: overallStrategyCorrect,
+            strategyTotal: overallStrategyTotal,
+            strategyClose: overallStrategyClose,
             spotsPracticed: data.spots.count,
             chartCells: SpotCatalog.chartCellCount,
             drillsCorrect: data.drillsCorrect,
@@ -578,12 +622,18 @@ final class Stats {
         ))
     }
 
-    /// The full trophy list, live against current data.
+    /// The full trophy list. A trophy never silently un-earns: anything with a
+    /// stamped date stays unlocked even if live accuracy later dips.
     var achievements: [Achievement] {
+        Achievements.keepingEarned(liveAchievements, dates: data.achievementDates)
+    }
+
+    /// Trophies judged against current data only (no memory of past unlocks).
+    private var liveAchievements: [Achievement] {
         Achievements.all(from: Achievements.Inputs(
-            decisions: data.strategyTotal + data.quizTotal,
-            decisionsCorrect: data.strategyCorrect + data.quizCorrect,
-            decisionsClose: data.strategyClose + data.quizClose,
+            decisions: overallStrategyTotal,
+            decisionsCorrect: overallStrategyCorrect,
+            decisionsClose: overallStrategyClose,
             spotsPracticed: data.spots.count,
             masteredSpots: data.spots.values.filter { $0.total >= 5 && $0.accuracy >= 0.9 }.count,
             quizBestStreak: data.quizBestStreak,
@@ -607,11 +657,15 @@ final class Stats {
     func syncAchievementDates() {
         let result = Achievements.updatedDates(
             existing: data.achievementDates, seeded: data.achievementsSeeded,
-            unlocked: achievements.filter(\.unlocked).map(\.id), today: todayKey())
+            unlocked: liveAchievements.filter(\.unlocked).map(\.id), today: todayKey())
         guard result.dates != data.achievementDates || result.seeded != data.achievementsSeeded else { return }
         data.achievementDates = result.dates
         data.achievementsSeeded = result.seeded
     }
+
+    /// Stamps newly earned trophies right when the progress that earned them
+    /// is recorded, so the date is the real day and the trophy is kept.
+    private func didRecord() { syncAchievementDates() }
 
     /// The day key `days` days before today, for "recent" cutoffs.
     func dayKey(daysAgo days: Int) -> String {
@@ -625,13 +679,30 @@ final class Stats {
     /// means the same thing everywhere.
     var todayDateKey: String { todayKey() }
 
-    var todayChallenge: ChallengeResult? { data.challenges[todayKey()] }
+    var todayChallenge: ChallengeResult? {
+        _ = dayStamp
+        return data.challenges[todayKey()]
+    }
 
-    /// A challenge rep counts toward day totals and spot accuracy like any
-    /// other graded decision, without inflating quiz stats.
+    /// Call when the app becomes active or the clock/day changes, so
+    /// "today" values on screen re-read instead of showing yesterday's.
+    func refreshDay() {
+        let key = todayKey()
+        if key != dayStamp { dayStamp = key }
+    }
+
+    /// A counted challenge rep counts toward overall accuracy, day totals and
+    /// spot accuracy like any other graded decision, without inflating quiz stats.
     func recordChallengeAnswer(grade: Grade, spotKey: String?) {
+        data.challengeAnswersTotal += 1
+        switch grade {
+        case .correct: data.challengeAnswersCorrect += 1
+        case .close: data.challengeAnswersClose += 1
+        case .wrong: break
+        }
         bumpDay(grade: grade)
         bumpSpot(spotKey, grade: grade)
+        didRecord()
     }
 
     func recordChallengeAnswer(correct: Bool, spotKey: String?) {
@@ -647,6 +718,7 @@ final class Stats {
             data.challenges[dateKey] = result
         }
         data.challengesStarted.remove(dateKey)   // finished; the result now marks the day
+        didRecord()
     }
 
     /// Marks the day's counted run as begun, so quitting and relaunching
@@ -671,6 +743,7 @@ final class Stats {
         case .push:
             data.handsPushed += 1
         }
+        didRecord()
     }
 
     func recordDrill(correct: Bool) {
@@ -682,6 +755,7 @@ final class Stats {
         } else {
             data.currentStreak = 0
         }
+        didRecord()
     }
 
     // MARK: - Strategy quiz
@@ -702,6 +776,7 @@ final class Stats {
         data.quizBestStreak = max(data.quizBestStreak, streak)
         bumpDay(grade: grade)
         bumpSpot(spotKey, grade: grade)
+        didRecord()
     }
 
     func recordQuiz(correct: Bool, streak: Int, spotKey: String?) {
@@ -717,6 +792,7 @@ final class Stats {
     func recordCountCheck(correct: Bool) {
         data.countChecks += 1
         if correct { data.countChecksCorrect += 1 }
+        didRecord()
     }
 
     // MARK: - Bankroll curve
@@ -730,6 +806,7 @@ final class Stats {
 
     func resetAll() {
         data = StatsData()
+        data.achievementsSeeded = true   // nothing earned yet; new trophies get real dates
         sessionDecisions = 0
         sessionCorrect = 0
         sessionClose = 0

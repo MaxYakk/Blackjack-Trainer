@@ -38,13 +38,22 @@ final class DailyChallengeEngine {
     /// run is practice. Lets the UI word that differently from a finished day.
     let isRestartOfUnfinishedRun: Bool
 
-    init(stats: Stats, dateKey: String) {
+    /// Today's date key. Defaults to the device clock; tests pin it.
+    private let today: (() -> String)?
+
+    init(stats: Stats, dateKey: String, today: (() -> String)? = nil) {
         self.stats = stats
         self.dateKey = dateKey
+        self.today = today
         self.spots = DailyChallengeDeal.spots(for: dateKey)
         self.isReplay = stats.challengeRunUsed(dateKey: dateKey)
         self.isRestartOfUnfinishedRun = isReplay && stats.data.challenges[dateKey] == nil
     }
+
+    /// True once midnight has passed since this run was dealt. A stale run
+    /// takes no answers, so nothing is recorded under the wrong day; the
+    /// screen then deals today's challenge instead.
+    var isStale: Bool { dateKey != (today?() ?? stats.todayDateKey) }
 
     var current: CatalogSpot? { spots.indices.contains(index) ? spots[index] : nil }
 
@@ -56,7 +65,7 @@ final class DailyChallengeEngine {
     }
 
     func answer(_ action: Action) {
-        guard !answered, let spot = current else { return }
+        guard !answered, !isStale, let spot = current else { return }
         let verdict = MoveGrader.grade(action, cards: spot.cards, dealerUp: spot.dealerRank,
                                        canDouble: true, canSplit: spot.isPair)
         let correct = verdict.best
@@ -84,18 +93,20 @@ final class DailyChallengeEngine {
             if grade == .wrong {
                 stats.logMistake(spotKey: spotKey, chose: action.name, correctPlay: correct.name)
             }
+            // Save the score as soon as the last answer counts, so closing the
+            // app or crossing midnight before "See results" can't lose it.
+            if index + 1 >= spots.count {
+                stats.recordChallengeResult(score: score, close: closeCount,
+                                            total: spots.count, dateKey: dateKey)
+            }
         }
         Haptics.notify(grade == .correct ? 1 : grade == .close ? 0 : -1)
     }
 
     func next() {
-        guard answered else { return }
+        guard answered, !isStale else { return }
         if index + 1 >= spots.count {
             finished = true
-            if !isReplay {
-                stats.recordChallengeResult(score: score, close: closeCount,
-                                            total: spots.count, dateKey: dateKey)
-            }
         } else {
             index += 1
             answered = false

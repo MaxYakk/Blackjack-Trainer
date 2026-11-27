@@ -6,8 +6,8 @@ struct QuizView: View {
     /// Mirrors the engine's saved difficulty so a mode chosen elsewhere
     /// (Progress "Drill these") applies when the tab opens.
     @AppStorage(QuizEngine.difficultyKey) private var storedDifficulty = QuizDifficulty.normal.rawValue
-    /// Set by Progress "Drill these" to open straight into review.
-    @AppStorage(QuizEngine.reviewRequestKey) private var reviewRequested = false
+    /// Set by Progress "Drill these" to drill the weak spots.
+    @AppStorage(QuizEngine.drillRequestKey) private var drillRequested = false
 
     var body: some View {
         Group {
@@ -19,9 +19,12 @@ struct QuizView: View {
         }
         .onAppear {
             if engine == nil { engine = QuizEngine(stats: stats) }
-            applyReviewRequest()
+            applyDrillRequest()
+            engine?.refreshReview()
         }
-        .onChange(of: reviewRequested) { _, _ in applyReviewRequest() }
+        .onChange(of: drillRequested) { _, _ in applyDrillRequest() }
+        // New misses from Play or the Daily Challenge refill an emptied review.
+        .onChange(of: engine?.reviewRemaining) { _, _ in engine?.refreshReview() }
         .onChange(of: storedDifficulty) { _, raw in
             guard let engine, let mode = QuizDifficulty(rawValue: raw), mode != .review,
                   engine.difficulty != mode else { return }
@@ -29,10 +32,10 @@ struct QuizView: View {
         }
     }
 
-    private func applyReviewRequest() {
-        guard reviewRequested, let engine else { return }
-        reviewRequested = false
-        if !engine.isReviewing { engine.startReview() }
+    private func applyDrillRequest() {
+        guard drillRequested, let engine else { return }
+        drillRequested = false
+        engine.drillWeakSpots()
     }
 }
 
@@ -44,6 +47,10 @@ private struct QuizContent: View {
     /// "Next hand on its own after a right answer": moves on by itself shortly after a
     /// correct answer. Off by default so the "why" line stays readable.
     @AppStorage("quiz_autoAdvance") private var autoAdvance = false
+
+    /// False while another tab is showing; tab views stay alive, so the
+    /// auto-advance below must check it before dealing.
+    @Environment(\.isCurrentTab) private var isCurrentTab
 
     private static let autoAdvanceDelay: Duration = .milliseconds(600)
 
@@ -86,12 +93,13 @@ private struct QuizContent: View {
         }
         .background(Color.bg.ignoresSafeArea())
         // Correct answers can move on by themselves; cancelled automatically
-        // when the player taps Next first (`answered` flips back to false).
-        .task(id: engine.answered) {
-            guard engine.answered, engine.feedbackGood, autoAdvance,
+        // when the player taps Next first (`answered` flips back to false)
+        // or switches to another tab.
+        .task(id: AutoAdvanceTrigger(answered: engine.answered, isCurrentTab: isCurrentTab)) {
+            guard isCurrentTab, engine.answered, engine.feedbackGood, autoAdvance,
                   !UIAccessibility.isVoiceOverRunning else { return }
             try? await Task.sleep(for: Self.autoAdvanceDelay)
-            guard !Task.isCancelled else { return }
+            guard !Task.isCancelled, isCurrentTab else { return }
             Motion.perform(.quick, reduceMotion: reduceMotion) { engine.next() }
         }
     }
@@ -144,7 +152,7 @@ private struct QuizContent: View {
             StatTile(label: "Streak", value: "\(engine.streak)", tint: .warm)
             StatTile(label: "Best", value: "\(stats.data.quizBestStreak)")
             StatTile(label: "Accuracy",
-                     value: stats.data.quizTotal == 0 ? "N/A" : "\(Int(stats.quizAccuracy * 100))%")
+                     value: stats.data.quizTotal == 0 ? "N/A" : "\(Achievements.roundedPercent(stats.quizAccuracy))%")
         }
     }
 
@@ -288,4 +296,10 @@ private struct QuizContent: View {
         .background(Color.bg)
         .motion(.quick, value: engine.answered)
     }
+}
+
+/// Restarts the quiz's auto-advance wait when the answer or the tab changes.
+private struct AutoAdvanceTrigger: Equatable {
+    let answered: Bool
+    let isCurrentTab: Bool
 }

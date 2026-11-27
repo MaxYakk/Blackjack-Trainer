@@ -53,9 +53,20 @@ struct RoundOutcome {
             }
         } else {
             kind = .push
-            title = "Push"
-            amountText = "Bet returned"
-            detail = "Dealer made \(dealerTotal). Bets push."
+            if engine.lastRoundInsurancePaid {
+                // Insurance paid exactly what the hand lost: net zero, but not a push.
+                title = "Even"
+                amountText = "No chips lost"
+                detail = "Insurance covered your bet."
+            } else if !hands.allSatisfy({ $0.result == .push }) {
+                title = "Even"
+                amountText = "No chips lost"
+                detail = "Wins and losses cancelled out."
+            } else {
+                title = "Push"
+                amountText = "Bet returned"
+                detail = "Dealer made \(dealerTotal). Bets push."
+            }
         }
     }
 

@@ -51,13 +51,9 @@ struct ProgressFixNext: View {
     @ViewBuilder
     private var actions: some View {
         PrimaryButton("Drill these in the Quiz", systemImage: "bolt.fill") {
-            // QuizView follows this key. Review deals only hands you've missed;
-            // with none saved yet, Smart still leans on the weak spots.
-            if stats.reviewQueue.isEmpty {
-                UserDefaults.standard.set(QuizDifficulty.smart.rawValue, forKey: QuizEngine.difficultyKey)
-            } else {
-                UserDefaults.standard.set(true, forKey: QuizEngine.reviewRequestKey)
-            }
+            // The Quiz picks review (hands you've missed) or, with none
+            // left, Smart (leans on the weak spots): see drillWeakSpots().
+            UserDefaults.standard.set(true, forKey: QuizEngine.drillRequestKey)
             selectTab(.quiz)
         }
             .accessibilityHint("Opens the Quiz tab and deals the hands you miss most.")
@@ -77,7 +73,7 @@ private struct LeakRow: View {
     let action: () -> Void
 
     var body: some View {
-        let accuracy = Int(item.stat.accuracy * 100)
+        let accuracy = Achievements.roundedPercent(item.stat.accuracy)
         let correctPlay = SpotID.correctActionName(item.key)
         Button(action: action) {
             HStack(spacing: Space.sm) {

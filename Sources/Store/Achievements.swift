@@ -105,6 +105,28 @@ enum Achievements {
         return (dates, true)
     }
 
+    /// Once a trophy has a stamped date (even the "" earned-before-tracking
+    /// marker) it stays unlocked, so accuracy trophies can't un-earn.
+    static func keepingEarned(_ all: [Achievement], dates: [String: String]) -> [Achievement] {
+        all.map { item in
+            guard !item.unlocked, dates[item.id] != nil else { return item }
+            return Achievement(
+                id: item.id, icon: item.icon, title: item.title, detail: item.detail,
+                tier: item.tier, category: item.category, progress: 1, progressText: item.progressText)
+        }
+    }
+
+    /// Whole-number percent, rounded to nearest (shared so screens agree).
+    static func roundedPercent(_ fraction: Double) -> Int {
+        Int((fraction * 100).rounded())
+    }
+
+    /// Percent toward a target that isn't reached yet: rounded, but never
+    /// shown as the target itself (89.6% toward 90% reads 89%, not 90%).
+    static func percentShort(of target: Double, at fraction: Double) -> Int {
+        min(roundedPercent(fraction), roundedPercent(target) - 1)
+    }
+
     static let categories = ["Strategy", "Table Play", "Card Counting", "Dedication"]
 
     static func all(from i: Inputs) -> [Achievement] {
@@ -249,7 +271,7 @@ enum Achievements {
         let done = volumePart >= 1 && qualityPart >= 1
         let text = volumePart < 1
             ? "\(volume)/\(volumeTarget) played"
-            : "\(Int(quality * 100))%/\(Int(qualityTarget * 100))%"
+            : "\(qualityPart >= 1 ? roundedPercent(quality) : percentShort(of: qualityTarget, at: quality))%/\(roundedPercent(qualityTarget))%"
         return Achievement(
             id: id, icon: icon, title: title, detail: detail, tier: tier, category: category,
             progress: done ? 1 : min(volumePart * 0.5 + qualityPart * 0.5, 0.99),

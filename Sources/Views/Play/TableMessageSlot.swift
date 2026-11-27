@@ -9,6 +9,12 @@ struct TableMessage {
     /// Prompts and grading are announced to VoiceOver; passive hints aren't.
     let announces: Bool
     let identifier: String?
+    /// Changes whenever the engine posts feedback again, so an identical
+    /// repeat still counts as a new message.
+    var serial = 0
+
+    /// Identity of this message for change detection.
+    var key: String { "\(serial)|\(text)" }
 
     /// Picks the most useful message for the current moment.
     @MainActor
@@ -25,7 +31,8 @@ struct TableMessage {
         if !engine.feedbackText.isEmpty {
             return TableMessage(text: engine.feedbackText,
                                 kind: FeedbackPill.Kind(grade: engine.feedbackGrade),
-                                announces: true, identifier: "moveFeedback")
+                                announces: true, identifier: "moveFeedback",
+                                serial: engine.feedbackSerial)
         }
         if !engine.betAdviceText.isEmpty && phase != .betting {
             return TableMessage(text: engine.betAdviceText,
@@ -59,6 +66,7 @@ struct TableMessageSlot: View {
     let refundedChips: Double
 
     @ScaledMetric(relativeTo: .footnote) private var slotHeight: CGFloat = 36
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var message: TableMessage? {
         TableMessage.current(engine: engine, refundedChips: refundedChips)
@@ -72,13 +80,18 @@ struct TableMessageSlot: View {
             .overlay {
                 if let message {
                     bubble(message)
+                        // A new key re-runs the appear transition, so a repeated
+                        // message still visibly refreshes.
+                        .id(message.key)
+                        .transition(Motion.pop(reduceMotion))
                 }
             }
+            .motion(.quick, value: message?.key)
             // Breathing room under the dealer's cards.
             .padding(.top, Space.xs)
-            .onChange(of: message?.text) { _, newText in
-                guard let newText, let current = self.message, current.announces else { return }
-                AccessibilityNotification.Announcement(spoken(newText, kind: current.kind)).post()
+            .onChange(of: message?.key) { _, newKey in
+                guard newKey != nil, let current = self.message, current.announces else { return }
+                AccessibilityNotification.Announcement(spoken(current.text, kind: current.kind)).post()
             }
     }
 

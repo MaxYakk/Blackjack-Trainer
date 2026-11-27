@@ -21,6 +21,7 @@ struct CountDrillView: View {
 private struct CountDrillContent: View {
     @Bindable var engine: CountDrillEngine
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.isCurrentTab) private var isCurrentTab
     @State private var guess = 0
     @State private var confirmRestart = false
     @AppStorage("cd_showTips") private var showTips = true
@@ -45,6 +46,13 @@ private struct CountDrillContent: View {
             }
         }
         .background(Color.bg.ignoresSafeArea())
+        // Tab views stay alive: don't keep dealing (or announcing) off-screen.
+        .onChange(of: isCurrentTab) { _, current in
+            if !current, engine.isActive { engine.reset() }
+        }
+        .onDisappear {
+            if engine.isActive { engine.reset() }
+        }
         .onChange(of: engine.phase) { _, phase in
             if phase == .guessing {
                 AccessibilityNotification.Announcement("Cards done. What's the count?").post()

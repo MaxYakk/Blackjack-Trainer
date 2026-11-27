@@ -39,6 +39,9 @@ final class CountDrillEngine {
     private(set) var lastGuess: Int?
     private(set) var lastGuessCorrect: Bool?
 
+    /// Shoe size of the drill in progress, so settings changed afterwards
+    /// (they apply to the next drill) can't rewrite a shown result.
+    private var drillDecks = 6
     private var sequence: [Card] = []
     private var task: Task<Void, Never>?
     private let stats: Stats
@@ -90,7 +93,7 @@ final class CountDrillEngine {
     // division never blows up. The old floor of one full deck's fraction pinned
     // a 1-deck drill at 1.0 for its whole run, making true count == running count.
     var decksRemaining: Double {
-        max((Double(numDecks * 52) - Double(dealtCount)) / 52.0, 0.25)
+        max((Double(drillDecks * 52) - Double(dealtCount)) / 52.0, 0.25)
     }
 
     var trueCount: Double {
@@ -99,7 +102,8 @@ final class CountDrillEngine {
 
     func start() {
         task?.cancel()
-        var shoe = Shoe(numDecks: numDecks)
+        drillDecks = numDecks
+        var shoe = Shoe(numDecks: drillDecks)
         sequence = (0..<cardsPerDrill).map { _ in shoe.draw() }
         dealtCount = 0
         runningCount = 0

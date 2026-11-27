@@ -101,14 +101,14 @@ struct SavedDataTests {
         let dateKey = "2026-11-25"
         let stats = Stats(defaults: store.defaults)
 
-        let first = DailyChallengeEngine(stats: stats, dateKey: dateKey)
+        let first = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
         #expect(!first.isReplay)
         first.answer(.stand)
         #expect(totalDayDecisions(stats) == 1)
         stats.flush()   // the app goes to the background and is closed
 
         let relaunched = Stats(defaults: store.defaults)
-        let second = DailyChallengeEngine(stats: relaunched, dateKey: dateKey)
+        let second = DailyChallengeEngine(stats: relaunched, dateKey: dateKey, today: { dateKey })
         #expect(second.isReplay, "A restarted run has seen answers, so it's practice")
         #expect(second.isRestartOfUnfinishedRun)
         while !second.finished {
@@ -119,11 +119,89 @@ struct SavedDataTests {
         #expect(relaunched.data.challenges[dateKey] == nil, "No score recorded from a practice run")
     }
 
+    @Test func runLeftOpenPastMidnightTakesNoAnswers() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        var today = "2026-11-25"
+        let run = DailyChallengeEngine(stats: stats, dateKey: "2026-11-25", today: { today })
+        run.answer(.stand)
+        run.next()
+        #expect(run.index == 1 && !run.isStale)
+
+        today = "2026-11-26"   // the sheet stayed open overnight
+        #expect(run.isStale)
+        run.answer(.stand)
+        #expect(!run.answered, "Yesterday's run can't take today's answers")
+        #expect(totalDayDecisions(stats) == 1)
+        #expect(!stats.challengeRunUsed(dateKey: "2026-11-26"), "Today's counted run is still available")
+        let fresh = DailyChallengeEngine(stats: stats, dateKey: today, today: { today })
+        #expect(!fresh.isReplay && !fresh.isStale)
+    }
+
+    @Test func lastAnswerBeforeMidnightIsSavedUnderItsOwnDayButRunDoesNotFinishAfter() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        var today = "2026-11-25"
+        let run = DailyChallengeEngine(stats: stats, dateKey: "2026-11-25", today: { today })
+        while run.index + 1 < run.spots.count {
+            run.answer(.stand)
+            run.next()
+        }
+        run.answer(.stand)
+        today = "2026-11-26"
+        run.next()
+        #expect(!run.finished)
+        // The last answer was graded on the 25th, so its score is kept there
+        // (recorded at answer time, not at "See results"), never under the 26th.
+        #expect(stats.data.challenges["2026-11-25"]?.total == run.spots.count)
+        #expect(stats.data.challenges["2026-11-26"] == nil)
+    }
+
+    @Test func countedChallengeAnswersCountTowardOverallAccuracy() {
+        let store = TestDefaults()
+        let dateKey = "2026-11-25"
+        let stats = Stats(defaults: store.defaults)
+        let run = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
+        while !run.finished {
+            run.answer(.stand)
+            run.next()
+        }
+        #expect(stats.overallStrategyTotal == run.spots.count)
+        #expect(stats.overallStrategyCorrect == run.score)
+
+        let practice = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
+        practice.answer(.hit)
+        #expect(stats.overallStrategyTotal == run.spots.count, "Practice replays never count")
+
+        stats.flush()
+        let relaunched = Stats(defaults: store.defaults)
+        #expect(relaunched.data.challengeAnswersTotal == run.spots.count)
+        #expect(relaunched.data.challengeAnswersCorrect == run.score)
+    }
+
+    @Test func olderSaveCountsFinishedChallengesOnce() {
+        let store = TestDefaults()
+        let json = """
+        {"quizTotal": 5, "quizCorrect": 4,
+         "challenges": {"2026-11-20": {"score": 7, "total": 10}, "2026-11-21": {"score": 10, "total": 10}}}
+        """
+        store.defaults.set(Data(json.utf8), forKey: Stats.storageKey)
+        let stats = Stats(defaults: store.defaults)
+        #expect(stats.data.challengeAnswersTotal == 20 && stats.data.challengeAnswersCorrect == 17)
+        #expect(stats.overallStrategyTotal == 25 && stats.overallStrategyCorrect == 21)
+
+        // Saved again with the new fields, it isn't counted a second time.
+        stats.recordQuiz(correct: true, streak: 1, spotKey: nil)
+        stats.flush()
+        let relaunched = Stats(defaults: store.defaults)
+        #expect(relaunched.data.challengeAnswersTotal == 20)
+    }
+
     @Test func openingWithoutAnsweringKeepsTheFirstRun() {
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)
-        _ = DailyChallengeEngine(stats: stats, dateKey: "2026-11-25")
-        let again = DailyChallengeEngine(stats: stats, dateKey: "2026-11-25")
+        _ = DailyChallengeEngine(stats: stats, dateKey: "2026-11-25", today: { "2026-11-25" })
+        let again = DailyChallengeEngine(stats: stats, dateKey: "2026-11-25", today: { "2026-11-25" })
         #expect(!again.isReplay, "Just looking at the screen doesn't use up the day's run")
     }
 
@@ -131,14 +209,14 @@ struct SavedDataTests {
         let store = TestDefaults()
         let dateKey = "2026-11-25"
         let stats = Stats(defaults: store.defaults)
-        let run = DailyChallengeEngine(stats: stats, dateKey: dateKey)
+        let run = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
         while !run.finished {
             run.answer(.stand)
             run.next()
         }
         #expect(stats.data.challenges[dateKey]?.total == run.spots.count)
         #expect(!stats.data.challengesStarted.contains(dateKey))
-        let replay = DailyChallengeEngine(stats: stats, dateKey: dateKey)
+        let replay = DailyChallengeEngine(stats: stats, dateKey: dateKey, today: { dateKey })
         #expect(replay.isReplay && !replay.isRestartOfUnfinishedRun)
     }
 }

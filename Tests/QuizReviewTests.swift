@@ -171,6 +171,57 @@ struct QuizReviewTests {
         #expect(engine.reviewIsEmpty, "Last hand cleared: all caught up")
     }
 
+    @Test func emptiedReviewRefillsWhenNewMissesArrive() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        let engine = QuizEngine(stats: stats)
+        engine.startReview()
+        #expect(engine.reviewIsEmpty)
+
+        // A hand missed in Play (or the Daily Challenge) while the quiz waits.
+        stats.recordDecision(correct: false, spotKey: "H16v10")
+        stats.logMistake(spotKey: "H16v10", chose: "Stand", correctPlay: "Hit")
+        #expect(engine.reviewRemaining == 1)
+        #expect(engine.reviewIsEmpty, "Not dealt until refreshed")
+        engine.refreshReview()
+        #expect(!engine.reviewIsEmpty)
+        #expect(engine.handText == "Hard 16")
+    }
+
+    @Test func drillingWithNothingToReviewLeavesTheEmptyReviewForSmart() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        let engine = QuizEngine(stats: stats)
+        engine.difficulty = .smart
+        engine.startReview()
+        #expect(engine.reviewIsEmpty, "Review list cleared: all caught up")
+        engine.drillWeakSpots()
+        #expect(engine.difficulty == .smart, "Smart was already saved; still leaves review")
+        #expect(!engine.reviewIsEmpty && engine.dealerUp != nil)
+    }
+
+    @Test func drillingWithMissedHandsOpensReview() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        stats.recordQuiz(correct: false, streak: 0, spotKey: "H16v10")
+        stats.logMistake(spotKey: "H16v10", chose: "Stand", correctPlay: "Hit")
+        let engine = QuizEngine(stats: stats)
+        engine.drillWeakSpots()
+        #expect(engine.isReviewing && engine.handText == "Hard 16")
+    }
+
+    @Test func refreshLeavesAShowingReviewHandAlone() {
+        let store = TestDefaults()
+        let stats = Stats(defaults: store.defaults)
+        stats.recordQuiz(correct: false, streak: 0, spotKey: "H16v10")
+        stats.logMistake(spotKey: "H16v10", chose: "Stand", correctPlay: "Hit")
+        let engine = QuizEngine(stats: stats)
+        engine.startReview()
+        engine.answer(.stand)
+        engine.refreshReview()
+        #expect(engine.answered, "The answered hand and its feedback stay put")
+    }
+
     @Test func wrongAnswerInReviewKeepsTheHandOnTheList() {
         let store = TestDefaults()
         let stats = Stats(defaults: store.defaults)
